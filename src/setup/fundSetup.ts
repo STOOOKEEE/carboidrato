@@ -4,26 +4,18 @@ import { rippleTimeToISOTime, type Client } from "xrpl";
 import { INVESTORS, type ActorName, type Actors } from "../accounts/actors.js";
 import { FUND_VINTAGE, type CohortTiming } from "../config/cohort.js";
 import { DEMO_INVOICE_COUNT, INVESTOR_DEPOSITS_EUR } from "../config/finance.js";
+import type { Fund } from "../fund/fund.js";
 import type { FundManifest } from "../fund/fundManifest.js";
 import { verifiedDebtorsRoot } from "../invoice/certificate.js";
+import { CREDENTIAL_TYPES, ensureCredential } from "../kyb/kycCredentials.js";
 import { bariFirstLossUnits } from "../lending/economics.js";
 import { loanTerms } from "../lending/loanTerms.js";
 import { eurToUnits, formatEur } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
 import { authorizeMpt, sendMpt } from "../xrpl/mpt.js";
-import { CREDENTIAL_TYPES, ensureCredential } from "./kycCredentials.js";
 import { createLenderDomain } from "./lenderDomain.js";
 import { createStablecoin } from "./stablecoin.js";
-import { createClosedVault, createLoanBroker, type Cohort } from "./vault.js";
-
-export interface Fund {
-  /** Actif du Vault (EURc). */
-  assetId: string;
-  domainId: string;
-  cohort: Cohort;
-  brokerId: string;
-  manifest: FundManifest;
-}
+import { createClosedVault, createLoanBroker } from "./vault.js";
 
 const HOLDERS: readonly ActorName[] = ["investor_1", "investor_2", "bari", "mairie", "sme"];
 

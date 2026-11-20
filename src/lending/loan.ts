@@ -10,17 +10,17 @@ import {
   LEDGER_TIME_SAFETY_MARGIN_S,
 } from "../config/cohort.js";
 import { INTEREST_RATE_PERCENT, LATE_INTEREST_RATE_PERCENT } from "../config/finance.js";
+import type { Fund } from "../fund/fund.js";
+import { encodeLoanData, type LoanReference } from "../fund/loanData.js";
 import type { IssuedCertificate } from "../invoice/issueCertificate.js";
 import { formatEur } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
 import { percentToTenthBips } from "../lib/rates.js";
-import type { Fund } from "../setup/fundSetup.js";
 import { getMptBalance } from "../xrpl/ledgerEntries.js";
 import { ledgerTime, waitForLedgerTimeAfter } from "../xrpl/ledgerTime.js";
 import { createdLedgerIndex } from "../xrpl/meta.js";
 import { submitSignedBlob } from "../xrpl/submit.js";
 import { verifyBeforeCosigning } from "./loanChecks.js";
-import { encodeLoanData, type LoanReference } from "./loanData.js";
 import { loanTerms } from "./loanTerms.js";
 
 /** Un LoanSet paie une signature de plus : celle de la contrepartie (Bari). */

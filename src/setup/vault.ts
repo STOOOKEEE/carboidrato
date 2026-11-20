@@ -7,21 +7,13 @@ import {
   COVER_RATE_MINIMUM_PERCENT,
   MANAGEMENT_FEE_RATE_PERCENT,
 } from "../config/finance.js";
+import type { Cohort } from "../fund/fund.js";
 import { encodeFundManifest, type FundManifest } from "../fund/fundManifest.js";
 import { percentToTenthBips } from "../lib/rates.js";
 import { getVault } from "../xrpl/ledgerEntries.js";
 import { ledgerTime } from "../xrpl/ledgerTime.js";
 import { createdLedgerIndex } from "../xrpl/meta.js";
 import { submitTx } from "../xrpl/submit.js";
-
-export interface Cohort {
-  vaultId: string;
-  shareMptId: string;
-  /** Fin de la souscription (temps Ripple). */
-  subscriptionDate: number;
-  /** Début du rachat (temps Ripple). */
-  redemptionDate: number;
-}
 
 export async function createClosedVault(
   client: Client,

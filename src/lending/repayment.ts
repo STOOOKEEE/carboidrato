@@ -2,10 +2,10 @@
 
 import type { Client } from "xrpl";
 import type { Actors } from "../accounts/actors.js";
+import type { Fund } from "../fund/fund.js";
 import { returnInvoiceToken } from "../invoice/invoiceToken.js";
 import { formatEur, parseUnits } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
-import type { Fund } from "../setup/fundSetup.js";
 import { getLoan } from "../xrpl/ledgerEntries.js";
 import { mptAmount, sendMpt } from "../xrpl/mpt.js";
 import { submitTx } from "../xrpl/submit.js";

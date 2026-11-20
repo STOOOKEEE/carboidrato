@@ -5,14 +5,14 @@ import type { Client } from "xrpl";
 import type { Actors } from "../accounts/actors.js";
 import { ADVANCE_RATE_PERCENT, MAX_DEBTOR_CONCENTRATION_PERCENT } from "../config/finance.js";
 import { concentrationLimit, exposuresByPseudonym } from "../fund/concentration.js";
+import type { Fund } from "../fund/fund.js";
 import { inspectInvoice } from "../fund/invoiceInspection.js";
+import type { LoanReference } from "../fund/loanData.js";
 import { listLoanRecords } from "../fund/loanRecords.js";
 import { centsToUnits, formatEur, formatPercent, parseUnits, percentOf, ratioPercent } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
-import type { Fund } from "../setup/fundSetup.js";
 import { isSmeKybDone } from "../kyb/smeKyb.js";
 import { getVault } from "../xrpl/ledgerEntries.js";
-import type { LoanReference } from "./loanData.js";
 
 class LoanRefused extends Error {
   constructor(reason: string) {

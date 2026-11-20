@@ -3,9 +3,9 @@
 import type { Client } from "xrpl";
 import { INVESTORS, type Actors } from "../accounts/actors.js";
 import { INVESTOR_DEPOSITS_EUR } from "../config/finance.js";
+import type { Fund } from "../fund/fund.js";
 import { eurToUnits, formatEur } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
-import type { Fund } from "../setup/fundSetup.js";
 import { ledgerTime } from "../xrpl/ledgerTime.js";
 import { mptAmount } from "../xrpl/mpt.js";
 import { submitTx } from "../xrpl/submit.js";
