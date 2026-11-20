@@ -207,3 +207,14 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 - `telREQUIRES_NETWORK_ID` avec `network_id` 2026 : au-delà de 1024, chaque transaction doit porter `NetworkID`, et xrpl.js ne l'ajoute que pour un serveur ≥ 1.11. Notre build se présente en `0.0.0-dev`, donc `network_id` passe à **1000**.
 - Redémarrage en boucle avec `--load` (« The specified ledger could not be loaded »). Arrêt propre (`docker stop`) ajouté, sans effet : en standalone, ce build n'écrit aucun ledger en base (table `Ledgers` vide, NuDB à 4 Ko). Cause non identifiée (hypothèse). Décision : genesis neuf à chaque démarrage, documenté dans `run.sh` et `node-entrypoint.sh`.
 - L'URL du quick tunnel change à chaque relance du conteneur `xrpl-alphanet-public`.
+
+## 2026-11-20 · Module BN254 corrigé et seuil prouvé dérivé de l'avance
+
+**Quoi :**
+- `src/zk/field.ts` : `BN254_FIELD_MODULUS` vaut l'ordre du sous-groupe (`2188…5617`), le corps scalaire de circom et snarkjs. L'ancienne valeur n'était ni `r` ni `q`, et laissait passer des valeurs hors du corps.
+- `src/lending/loanTerms.ts` : `provenThresholdCents(principal)`, le plus petit seuil tel que `principal ≤ 90 % × seuil`, exposé dans `LoanTerms`. L'API (`zkInputs.ts`, `certificateFromProof.ts`) et le scénario CLI l'utilisent à la place de `PROVEN_THRESHOLD_CENTS` et de `thresholdEur`.
+- Outillage e2e : `@playwright/test`, `playwright.config.ts` (API du fonds sur 8788, puis Vite), `npm run e2e`.
+
+**Pourquoi :** une avance de 9 000 € se prouve au seuil de 10 000 € ; le montant exact de la facture (10 340 € dans la démo) ne sort jamais du témoin.
+
+**Vérifié :** tests écrits d'abord et rouges (`field.test.ts`, `loanTerms.test.ts`), puis `npm test` 20/20, typecheck et `web:build` verts.
