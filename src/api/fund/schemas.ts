@@ -89,10 +89,12 @@ export type CertificateBody = InvoiceProof;
 export const certificateSchema = {
   body: {
     type: "object",
+    additionalProperties: false,
     required: ["proof", "publicSignals"],
     properties: {
       proof: {
         type: "object",
+        additionalProperties: false,
         required: ["pi_a", "pi_b", "pi_c", "protocol", "curve"],
         properties: {
           pi_a: decimalArray(G1_POINT_COORDINATES),
@@ -110,6 +112,51 @@ export const certificateSchema = {
       publicSignals: decimalArray(PUBLIC_SIGNAL_ORDER.length),
     },
   },
+} as const;
+
+const MAX_COMPANY_FIELD_LENGTH = 120;
+
+export const kybSchema = {
+  body: {
+    type: "object",
+    additionalProperties: false,
+    required: ["account", "company", "vatNumber"],
+    properties: {
+      account: { type: "string", minLength: 1 },
+      company: { type: "string", minLength: 1, maxLength: MAX_COMPANY_FIELD_LENGTH },
+      vatNumber: { type: "string", minLength: 1, maxLength: MAX_COMPANY_FIELD_LENGTH },
+    },
+  },
+} as const;
+
+export interface AccountParams {
+  account: string;
+}
+
+export const accountParamsSchema = {
+  params: { type: "object", required: ["account"], properties: { account: { type: "string", minLength: 1 } } },
+} as const;
+
+export interface RegistryParams {
+  nullifier: string;
+}
+
+export interface RegistryQuery {
+  account: string;
+}
+
+export const registrySchema = {
+  params: { type: "object", required: ["nullifier"], properties: { nullifier: { type: "string", pattern: HASH_32_PATTERN } } },
+  querystring: { type: "object", required: ["account"], properties: { account: { type: "string", minLength: 1 } } },
+} as const;
+
+export interface OfferQuery {
+  /** Échéance ISO de la facture (publique : c'est un signal de la preuve). */
+  dueDate: string;
+}
+
+export const offerSchema = {
+  querystring: { type: "object", required: ["dueDate"], properties: { dueDate: { type: "string", minLength: 1 } } },
 } as const;
 
 export interface LoanBody {

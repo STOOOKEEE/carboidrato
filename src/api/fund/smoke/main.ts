@@ -47,7 +47,7 @@ async function run(api: ApiClient, events: EventCounter): Promise<void> {
 
   log.step("Souscription et KYB");
   await api.call("POST", "/api/investors/deposit");
-  await api.call("POST", "/api/sme/kyb");
+  await api.call("POST", "/api/sme/kyb", { account: smeAccount, company: "Marco Costruzioni S.r.l.", vatNumber: "IT01234567890" });
 
   log.step("Mairie · attestation ; PME · entrée du circuit et preuve côté client");
   const invoice = {

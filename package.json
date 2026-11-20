@@ -15,7 +15,7 @@
     "zk:test": "node --import tsx --test src/zk/*.test.ts",
     "test": "node --import tsx --test \"src/**/*.test.ts\" \"web/src/**/*.test.ts\"",
     "audit": "tsx src/audit/main.ts",
-    "api": "tsx src/api/server.ts",
+    "api": "npm run api:fund",
     "api:fund": "tsx src/api/fund/server.ts",
     "api:smoke": "tsx src/api/fund/smoke/main.ts",
     "samples": "tsx src/demo/sampleInvoices.ts",

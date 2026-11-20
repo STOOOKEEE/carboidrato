@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import type { AttestedInvoiceFile, PublicDebtor } from "../../../../src/api/contract";
-import { buildCircuitInput, debtorTree, merklePathOf } from "./witness";
+import { buildCircuitInput, debtorTree, invoiceNullifier, merklePathOf } from "./witness";
 
 interface WitnessFixture {
   debtors: PublicDebtor[];
@@ -14,6 +14,7 @@ interface WitnessFixture {
   vintage: string;
   blinding: string;
   circuitInput: Record<string, string | string[]>;
+  nullifier: string;
 }
 
 const fixture = JSON.parse(
@@ -57,5 +58,9 @@ describe("témoin construit dans le navigateur", () => {
         }),
       /not on Bari's verified list/,
     );
+  });
+
+  test("l'empreinte N calculée dans le navigateur est celle du back", () => {
+    assert.equal(invoiceNullifier(fixture.file.attestation.uuid), fixture.nullifier);
   });
 });

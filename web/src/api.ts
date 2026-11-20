@@ -1,26 +1,49 @@
-// Appels à l'API Bari (proxifiée par Vite vers `npm run api`).
+// Appels à l'API du fonds (Fastify, proxifiée par Vite vers `npm run api:fund`). Rien du témoin n'y part :
+// le front ne lit que des données publiques et n'envoie que la preuve et ses signaux publics.
 
-import type { KybRequest, KybResponse, PrecheckResponse } from "../../src/api/contract";
+import type {
+  CertificateRequest,
+  CertificateResponse,
+  KybRequest,
+  KybResponse,
+  KybStatus,
+  LoanOffer,
+  ProofParams,
+  PublicDebtor,
+  RegistryLookup,
+} from "../../src/api/contract";
 import { parseJsonOrUndefined } from "./json";
 
 function errorMessage(payload: unknown, status: number): string {
   if (typeof payload === "object" && payload !== null && "error" in payload && typeof payload.error === "string") {
     return payload.error;
   }
-  return `Bari API unavailable (HTTP ${status}). Is \`npm run api\` running?`;
+  return `Bari API unavailable (HTTP ${status}). Is \`npm run api:fund\` running?`;
 }
 
-async function postJson<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(path, init);
   const payload = parseJsonOrUndefined(await response.text());
   if (!response.ok || payload === undefined) throw new Error(errorMessage(payload, response.status));
   return payload as T;
 }
 
-export const checkInvoice = (invoice: unknown) => postJson<PrecheckResponse>("/api/check", invoice);
+const postJson = <T>(path: string, body: unknown) =>
+  request<T>(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
-export const submitKyb = (request: KybRequest) => postJson<KybResponse>("/api/kyb", request);
+export const fetchDebtors = () => request<PublicDebtor[]>("/api/debtors");
+
+export const fetchProofParams = () => request<ProofParams>("/api/proof/params");
+
+export const lookupRegistration = (nullifier: string, account: string) =>
+  request<RegistryLookup>(`/api/registry/${nullifier}?account=${encodeURIComponent(account)}`);
+
+export const fetchKybStatus = (account: string) => request<KybStatus>(`/api/sme/kyb/${encodeURIComponent(account)}`);
+
+export const fetchOffer = (dueDate: string) => request<LoanOffer>(`/api/offer?dueDate=${encodeURIComponent(dueDate)}`);
+
+export const submitKyb = (body: KybRequest) => postJson<KybResponse>("/api/sme/kyb", body);
+
+/** Seules la preuve et ses signaux publics sont recopiés : aucun autre champ ne peut partir par mégarde. */
+export const submitCertificate = ({ proof, publicSignals }: CertificateRequest) =>
+  postJson<CertificateResponse>("/api/sme/certificate", { proof, publicSignals } satisfies CertificateRequest);
