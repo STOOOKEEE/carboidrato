@@ -3,9 +3,9 @@
 // chaîne PreviousTxnID du Loan jusqu'à la transaction qui l'a créé.
 
 import type { Client, LedgerEntry, TransactionMetadata } from "xrpl";
-import { decodeLoanData, type LoanReference } from "../lending/loanData.js";
 import { parseUnits } from "../lib/amounts.js";
 import { getLoanBroker, listAccountObjects } from "../xrpl/ledgerEntries.js";
+import { decodeLoanData, type LoanReference } from "./loanData.js";
 
 /** Garde-fou : un prêt Bari ne subit que quelques transactions (LoanSet, LoanPay, LoanManage). */
 const MAX_HISTORY_STEPS = 64;

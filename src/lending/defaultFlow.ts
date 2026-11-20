@@ -2,9 +2,9 @@
 
 import { LoanManageFlags, type Client } from "xrpl";
 import type { Actors } from "../accounts/actors.js";
+import type { Fund } from "../fund/fund.js";
 import { formatEur, parseUnits } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
-import type { Fund } from "../setup/fundSetup.js";
 import { getLoan, getLoanBroker, getVault } from "../xrpl/ledgerEntries.js";
 import { waitForLedgerTimeAfter } from "../xrpl/ledgerTime.js";
 import { submitTx } from "../xrpl/submit.js";

@@ -155,3 +155,24 @@
 **Bugs & fix :**
 - Le 409 reposait sur `tecDUPLICATE`, que le Batch ne produit plus : il pointe maintenant sur le Batch refusé.
 - `NextPaymentDueDate` disparaît une fois le prêt soldé, ce qui faisait planter la vue du fonds.
+
+## 2026-11-20 · Carte des composants et baseline de tests
+
+**Quoi :**
+- `docs/ARCHITECTURE.md` : couches, dépendances autorisées, API publique de chaque composant, port `Ledger` de départ, conventions TDD.
+- `src/architecture.test.ts` fait échouer `npm test` dès qu'un composant importe une couche supérieure, ou que le front importe autre chose que `src/api/contract.ts`.
+- Nouveau script `npm test` : tous les `src/**/*.test.ts`.
+
+**Pourquoi :** passer au TDD par composants sans réécrire le dépôt.
+
+**Cheminement :** le graphe des imports contenait trois cycles :
+- `fund ↔ lending` (le `Data` du LoanSet) ;
+- `lending ↔ setup` (le type `Fund`) ;
+- `kyb → setup → lending → kyb` (les credentials KYC).
+
+Ils sont cassés par trois déplacements sans changement de comportement : `Fund` et `Cohort` vers `fund/fund.ts`, `loanData.ts` vers `fund/`, `kycCredentials.ts` vers `kyb/`.
+
+**Vérifié :**
+- Le test d'architecture était rouge avant les déplacements (9 imports en violation), il est vert après.
+- Typecheck back + web et `web:build` passent.
+- `npm test` : 7 tests sur 14 passent. Les 7 échecs sont des tests ZK qui exigent `circuits/build/bari_invoice_final.zkey`, absente d'un clone neuf.

@@ -6,6 +6,7 @@ import { auditFund } from "../audit/auditFund.js";
 import { FUND_VINTAGE, loadCohortTiming } from "../config/cohort.js";
 import { INVOICE_AMOUNT_EUR } from "../config/finance.js";
 import { loadNetworkConfig } from "../config/network.js";
+import type { Fund } from "../fund/fund.js";
 import { produceInvoiceCertificate, type InvoiceCertificate } from "../invoice/certificate.js";
 import { DEMO_DEBTOR } from "../invoice/debtors.js";
 import { buildDemoInvoice, type Invoice } from "../invoice/invoice.js";
@@ -17,7 +18,7 @@ import { redeemAll } from "../lending/redemption.js";
 import { repayLoan } from "../lending/repayment.js";
 import { subscribe } from "../lending/subscription.js";
 import { log } from "../lib/logger.js";
-import { setupFund, type Fund } from "../setup/fundSetup.js";
+import { setupFund } from "../setup/fundSetup.js";
 import { logTheoreticalEconomics } from "./economicsReport.js";
 import { releaseZkResources } from "../zk/index.js";
 

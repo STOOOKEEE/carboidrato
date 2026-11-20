@@ -2,9 +2,9 @@
 // Le ledger reste la source de vérité : ce fichier ne garde que les identifiants nécessaires pour le retrouver.
 
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import type { Fund } from "../../fund/fund.js";
+import type { LoanReference } from "../../fund/loanData.js";
 import type { InvoiceCertificate } from "../../invoice/certificate.js";
-import type { LoanReference } from "../../lending/loanData.js";
-import type { Fund } from "../../setup/fundSetup.js";
 
 export type LoanStatus = "active" | "repaid" | "defaulted";
 

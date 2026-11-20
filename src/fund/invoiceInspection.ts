@@ -3,13 +3,13 @@
 // et par l'audit du fonds.
 
 import type { Client } from "xrpl";
-import type { LoanReference } from "../lending/loanData.js";
 import { decodeCertificateMetadata, type CertificateMetadata } from "../invoice/certificateMetadata.js";
 import { verifyInvoiceProof, type ProofVerdict } from "../invoice/proofVerification.js";
 import { INVOICE_TOKEN_SUPPLY } from "../invoice/invoiceToken.js";
 import { getRegistration } from "../invoice/registry.js";
 import { getMptBalance, getMptIssuance } from "../xrpl/ledgerEntries.js";
 import type { FundManifest } from "./fundManifest.js";
+import type { LoanReference } from "./loanData.js";
 
 export interface InspectionContext {
   /** Emprunteur du prêt : doit être l'émetteur du credential N et du MPT facture. */
