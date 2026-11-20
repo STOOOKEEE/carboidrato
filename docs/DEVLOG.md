@@ -218,3 +218,15 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 **Pourquoi :** une avance de 9 000 € se prouve au seuil de 10 000 € ; le montant exact de la facture (10 340 € dans la démo) ne sort jamais du témoin.
 
 **Vérifié :** tests écrits d'abord et rouges (`field.test.ts`, `loanTerms.test.ts`), puis `npm test` 20/20, typecheck et `web:build` verts.
+
+## 2026-11-21 · Témoin dans le navigateur, machine du financement, composants partagés
+
+**Quoi :**
+- `GET /api/debtors` publie la clé publique de chaque débiteur vérifié, dans l'ordre des feuilles (`PublicDebtor` dans `contract.ts`).
+- `web/src/features/funding/witness.ts` : arbre de Merkle (`poseidon-lite`) et entrée du circuit, calculés dans le navigateur. `npm run fixtures` (`src/demo/fixtures.ts`) écrit le fixture de parité depuis `src/`.
+- `web/src/features/funding/funding.machine.ts` : machine d'état pure du financement (preuve, certificat, prêt, refus, doublon, erreur avec reprise).
+- `web/src/ui/` : `Button` (`data-primary`, raison obligatoire si désactivé), `StepCard`, `Stepper`, `TxLink`, `Details`, `Notice`. Le canvas de trame lit ses couleurs dans les variables CSS.
+
+**Pourquoi :** le témoin (montant, uuid, signature, chemin, aléa `r`) ne doit jamais quitter le navigateur de la PME.
+
+**Vérifié :** test de parité rouge puis vert (racine, chemins des 3 débiteurs, entrée du circuit identique au back) ; `npm test` 52/52 (dont `web/src/**/*.test.ts`), typecheck et `web:build` verts.
