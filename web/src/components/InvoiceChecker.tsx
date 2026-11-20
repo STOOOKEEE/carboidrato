@@ -2,6 +2,7 @@ import { useRef, useState, type DragEvent } from "react";
 import type { PrecheckResponse } from "../../../src/api/contract";
 import { DitherCanvas } from "../dither/DitherCanvas";
 import type { ShapeName } from "../dither/shapes";
+import { Button } from "../ui/Button";
 import { ResultPanel } from "./ResultPanel";
 import { useInvoiceCheck, type CheckState } from "./useInvoiceCheck";
 
@@ -131,9 +132,9 @@ export function InvoiceChecker({ onEligible, showCta = true }: InvoiceCheckerPro
               Bari only finances invoices your client has attested. Ask them to attest <span className="mono">{state.fileName}</span>{" "}
               (one click on their side), then drop the <code>.bari.json</code> here.
             </p>
-            <button type="button" className="button button-ghost" onClick={reset}>
+            <Button variant="ghost" onClick={reset}>
               Try another invoice
-            </button>
+            </Button>
           </div>
         )}
         {state.stage === "error" && (
@@ -141,9 +142,9 @@ export function InvoiceChecker({ onEligible, showCta = true }: InvoiceCheckerPro
             <span className="kicker kicker-danger">Error</span>
             <h3 className="result-title">We couldn't check this file</h3>
             <p className="muted">{state.message}</p>
-            <button type="button" className="button button-ghost" onClick={reset}>
+            <Button variant="ghost" onClick={reset}>
               Try again
-            </button>
+            </Button>
           </div>
         )}
       </div>
