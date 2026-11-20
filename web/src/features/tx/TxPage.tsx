@@ -47,7 +47,7 @@ export function TxPage({ hash }: { hash: string }) {
       <main className="app">
         <div className="section-head">
           <span className="kicker">Transaction</span>
-          <h1>{view.status === "ready" ? txTitle(view.detail) : "Transaction details"}</h1>
+          <h1 className="tx-title">{view.status === "ready" ? txTitle(view.detail) : "Transaction details"}</h1>
           <p className="mono tx-hash">{hash}</p>
         </div>
         {view.status === "invalid" && <Notice kind="error">This is not a transaction hash.</Notice>}
