@@ -8,7 +8,7 @@ import { FUND_VINTAGE } from "../config/cohort.js";
 import { verifiedDebtorList } from "../invoice/certificate.js";
 import { DEMO_DEBTOR } from "../invoice/debtors.js";
 import { loanTerms } from "../lending/loanTerms.js";
-import { attestInvoice, deriveDebtor, releaseZkResources } from "../zk/index.js";
+import { attestInvoice, deriveDebtor, invoiceNullifier, releaseZkResources, toHex32 } from "../zk/index.js";
 
 const FIXTURE_PATH = fileURLToPath(new URL("../../web/src/features/funding/fixtures/witness.json", import.meta.url));
 
@@ -65,6 +65,7 @@ async function main(): Promise<void> {
     vintage: FUND_VINTAGE.toString(),
     blinding: BLINDING.toString(),
     circuitInput: toCircuitInput({ ...proveInput, blinding: BLINDING }),
+    nullifier: toHex32(await invoiceNullifier(attestation.uuid)),
   };
   writeFileSync(FIXTURE_PATH, `${JSON.stringify(fixture, null, 2)}\n`);
   console.log(`fixture écrit : ${FIXTURE_PATH}`);
