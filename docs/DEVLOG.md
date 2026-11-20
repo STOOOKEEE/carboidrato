@@ -243,3 +243,26 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 **Pourquoi :** le serveur de Bari ne reçoit plus que `{ proof, publicSignals }` ; l'AlphaNet n'a pas d'explorer.
 
 **Vérifié :** tests rouges puis verts (`precheck`, `prover`, `offer`, `loanChecks`, `txRoutes`, `txView`) ; `npm test` 80/80 ; e2e `web/e2e/prove.spec.ts` sur l'AlphaNet : 2/2 (pré-contrôle de la landing sans `/api/check`, preuve calculée dans la page, corps du certificat limité à `proof` et `publicSignals`, aucune valeur privée dans les requêtes).
+
+## 2026-11-21 · Fonds de démo durable (`npm run demo:fund`)
+
+**Quoi :**
+- `src/demo/fund.ts` : si `.bari-state.<réseau>.json` tient un fonds alimenté en phase d'investissement avec au moins 30 min avant le rachat (`isReusable`, `fundReuse.ts`), il est réutilisé sans transaction ; sinon un fonds est créé (`COHORT_INVESTMENT_S=21600` par défaut), avec dépôts, first-loss et deux prêts sur la Comune di Lecce (même `P`, 18 % de concentration), puis l'état est écrit par `FundStateStore`, lu tel quel par l'API. La facture en direct de la Comune di Bari (9 %) reste ainsi sous la limite de 20 %.
+- `src/demo/financing.ts` : ouverture du fonds et financement d'une facture, partagés par `demo` et `demo:fund`.
+- Playwright : l'API e2e démarre par `npm run demo:fund && npm run api:fund`. Pas de `globalSetup` : Playwright lance les `webServer` avant lui, et l'API ne lit l'état qu'à son démarrage.
+
+**Pourquoi :** le front et l'e2e trouvent toujours un fonds avec un historique, sans le recréer à chaque lancement.
+
+**Vérifié :** `fundReuse.test.ts` rouge puis vert ; AlphaNet : premier `demo:fund` en 108 s (sortie 0), second en 1 s (réutilisation, aucune transaction) ; `GET /api/fund` en phase `investment` avec 2 prêts actifs ; `npm run e2e` 2/2 ; `npm test` 99/99, typecheck vert.
+
+## 2026-11-21 · Une seule API, certificat sur preuve seule
+
+**Quoi :**
+- Routes `POST /api/sme/circuit-input` et `POST /api/sme/certificate/server-proof` supprimées : l'API ne construit plus l'entrée du circuit et ne calcule plus de preuve.
+- `buildApp` : Ajv sans `removeAdditional`. Un champ inattendu (ex. `amount` ou `blinding` à côté de la preuve) est refusé en 400 au lieu d'être retiré en silence.
+- `npm run api:smoke` construit l'entrée du circuit lui-même (`buildProveInput`, `toCircuitInput`) à partir de `GET /api/proof/params` et de la fiche du fonds, comme le navigateur.
+- `src/api/fund/app.test.ts` : routes testées par `app.inject()` sur un faux contexte (faux `Ledger`, store temporaire), sans réseau.
+
+**Pourquoi :** le témoin ne doit jamais atteindre le serveur, même par un champ en trop.
+
+**Vérifié :** `app.test.ts` rouge puis vert (13 cas) ; `npm test` 93/93 ; AlphaNet : `npm run api:smoke` réussi en 346 s (preuve côté client en 0,7 s, rejeu refusé en 409, prêt, remboursement, rachat) sur un état séparé (`BARI_STATE_FILE`).
