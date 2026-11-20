@@ -26,8 +26,8 @@ export interface CertificateRequest {
   registry: string;
   networkId: number;
   vintage: number;
-  /** Montant minimal prouvé (la facture vaut au moins ce seuil). */
-  thresholdEur: number;
+  /** Seuil public en centimes, dérivé de l'avance demandée : la facture vaut au moins ce montant. */
+  thresholdCents: bigint;
 }
 
 export interface InvoiceCertificate {
@@ -74,7 +74,7 @@ export async function produceInvoiceCertificate(request: CertificateRequest): Pr
     attestation,
     merklePath: await merklePath(list, debtor.publicKey),
     debtorsRoot: list.root,
-    threshold: eurToCents(request.thresholdEur),
+    threshold: request.thresholdCents,
     vintage: BigInt(request.vintage),
   });
   return {

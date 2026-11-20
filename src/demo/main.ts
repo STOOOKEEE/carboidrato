@@ -4,7 +4,6 @@ import { Client } from "xrpl";
 import { ensureActors, type Actors } from "../accounts/actors.js";
 import { auditFund } from "../audit/auditFund.js";
 import { FUND_VINTAGE, loadCohortTiming } from "../config/cohort.js";
-import { INVOICE_AMOUNT_EUR } from "../config/finance.js";
 import { loadNetworkConfig } from "../config/network.js";
 import type { Fund } from "../fund/fund.js";
 import { produceInvoiceCertificate, type InvoiceCertificate } from "../invoice/certificate.js";
@@ -14,6 +13,7 @@ import { issueCertificate, type IssuedCertificate } from "../invoice/issueCertif
 import { onboardSme } from "../kyb/smeKyb.js";
 import { defaultLoan } from "../lending/defaultFlow.js";
 import { originateLoan, type OriginatedLoan } from "../lending/loan.js";
+import { loanTerms } from "../lending/loanTerms.js";
 import { redeemAll } from "../lending/redemption.js";
 import { repayLoan } from "../lending/repayment.js";
 import { subscribe } from "../lending/subscription.js";
@@ -33,7 +33,7 @@ function certify(client: Client, actors: Actors, invoice: Invoice): Promise<Invo
     registry: actors.bari_registry.address,
     networkId,
     vintage: FUND_VINTAGE,
-    thresholdEur: INVOICE_AMOUNT_EUR,
+    thresholdCents: loanTerms().provenThresholdCents,
   });
 }
 

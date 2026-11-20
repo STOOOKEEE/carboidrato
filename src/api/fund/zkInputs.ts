@@ -2,9 +2,8 @@
 // registre, réseau, seuil, débiteur vérifié), puis entrée du circuit au format exact de snarkjs (chaînes décimales),
 // pour que le navigateur lance groth16.fullProve avec les artefacts servis par l'API.
 
-import { INVOICE_AMOUNT_EUR } from "../../config/finance.js";
 import { verifiedDebtorList } from "../../invoice/certificate.js";
-import { eurToCents } from "../../lib/amounts.js";
+import { loanTerms } from "../../lending/loanTerms.js";
 import { BLINDING_BYTES } from "../../zk/constants.js";
 import { randomField } from "../../zk/field.js";
 import {
@@ -31,9 +30,6 @@ export interface ProofExpectations {
   debtorsRoot: bigint;
   vintage: bigint;
 }
-
-/** Seuil prouvé : la facture type du fonds, dont le principal du prêt est la part avancée. */
-export const PROVEN_THRESHOLD_CENTS = eurToCents(INVOICE_AMOUNT_EUR);
 
 /** Entrée du circuit bari_invoice : chaque signal en chaîne décimale (format attendu par snarkjs). */
 export type CircuitInput = Record<string, string | string[]>;
@@ -64,7 +60,8 @@ export async function buildProveInput(file: AttestedInvoiceFile, expected: Proof
   if (fields.account !== accountToField(expected.smeAccount)) refuse("La facture n'est pas attestée au nom de la PME de la démo");
   if (fields.registry !== accountToField(expected.registry)) refuse("La facture n'est pas liée au registre de ce fonds");
   if (fields.networkId !== BigInt(expected.networkId)) refuse("La facture est attestée pour un autre réseau");
-  if (fields.amount < PROVEN_THRESHOLD_CENTS) refuse(`Montant inférieur au seuil du fonds (${INVOICE_AMOUNT_EUR} €)`);
+  const { provenThresholdCents } = loanTerms();
+  if (fields.amount < provenThresholdCents) refuse("Montant inférieur au seuil de l'avance demandée");
 
   const debtor = await debtorPath(fields.debtorPublicKey);
   if (debtor.root !== expected.debtorsRoot) refuse("La liste des débiteurs a changé depuis la création du fonds");
@@ -72,7 +69,7 @@ export async function buildProveInput(file: AttestedInvoiceFile, expected: Proof
     attestation: { ...fields, message: await computeAttestedMessage(fields) },
     merklePath: debtor.path,
     debtorsRoot: expected.debtorsRoot,
-    threshold: PROVEN_THRESHOLD_CENTS,
+    threshold: provenThresholdCents,
     vintage: expected.vintage,
     blinding: randomField(BLINDING_BYTES),
   };
