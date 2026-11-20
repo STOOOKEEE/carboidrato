@@ -1,4 +1,7 @@
 # Binaire circom compilé localement (npm run zk:install-circom)
 .tools/
-# Sorties volumineuses du setup : r1cs, ptau, zkey
-build/
+# Sorties volumineuses du setup : r1cs, ptau, zkeys intermédiaires.
+# Exception : la zkey finale est versionnée, pour que toute l'équipe prouve avec la même clé que la vkey
+# d'artifacts/ (relancer zk:setup en produirait une autre et invaliderait les preuves déjà publiées).
+build/*
+!build/bari_invoice_final.zkey
