@@ -1,11 +1,14 @@
 // `npm run api:smoke` : parcours complet contre l'API du fonds déjà démarrée (npm run api:fund), comme le ferait
-// le front : fonds → dépôts → KYB → attestation → entrée du circuit → preuve calculée côté client avec snarkjs et
-// les artefacts servis par l'API → certificat → rejeu refusé (409) → prêt → audit → remboursement → rachat.
+// le front : fonds → dépôts → KYB → attestation → entrée du circuit construite ici (jamais par l'API) → preuve
+// calculée côté client avec snarkjs et les artefacts servis par l'API → certificat → rejeu refusé (409) → prêt →
+// audit → remboursement → rachat.
 // SMOKE_DUMP_FILE=<fichier> enregistre toutes les réponses (exemples pour le front).
 
-import { groth16, type CircuitSignals } from "snarkjs";
+import { groth16 } from "snarkjs";
 import { log } from "../../../lib/logger.js";
-import { releaseZkResources } from "../../../zk/index.js";
+import { fromHex, releaseZkResources } from "../../../zk/index.js";
+import { parseAttestedInvoice } from "../../attestedInvoice.js";
+import { buildProveInput, toCircuitInput, type ProofExpectations } from "../zkInputs.js";
 import { ApiClient, field, stringField } from "./http.js";
 import { EventCounter } from "./sse.js";
 
@@ -20,14 +23,9 @@ function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(`Échec du smoke test : ${message}`);
 }
 
-function isCircuitSignals(value: unknown): value is CircuitSignals {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/** Côté navigateur : entrée du circuit demandée à l'API, puis preuve Groth16 calculée localement. */
-async function proveLikeBrowser(api: ApiClient, attested: unknown, artifacts: Uint8Array[]) {
-  const input = field(await api.call("POST", "/api/sme/circuit-input", attested), "input");
-  if (!isCircuitSignals(input)) throw new Error("Entrée du circuit illisible");
+/** Côté navigateur : entrée du circuit construite localement, puis preuve Groth16 calculée localement. */
+async function proveLikeBrowser(attested: unknown, expected: ProofExpectations, artifacts: Uint8Array[]) {
+  const input = toCircuitInput(await buildProveInput(parseAttestedInvoice(attested), expected));
   const startedAt = performance.now();
   const [wasm, zkey] = artifacts;
   const proof = await groth16.fullProve(input, wasm, zkey);
@@ -59,15 +57,24 @@ async function run(api: ApiClient, events: EventCounter): Promise<void> {
   const attested = await api.call("POST", "/api/debtor/attest", invoice);
   const path = await api.call("GET", `/api/debtors/path?debtor=${encodeURIComponent(DEMO_DEBTOR)}`);
   const fund = await api.call("GET", "/api/fund");
-  assert(stringField(path, "rootHex") === stringField(field(fund, "manifest"), "debtorsRoot"), "racine Merkle ≠ fiche du fonds");
+  const debtorsRoot = stringField(field(fund, "manifest"), "debtorsRoot");
+  assert(stringField(path, "rootHex") === debtorsRoot, "racine Merkle ≠ fiche du fonds");
+  const params = await api.call("GET", "/api/proof/params");
+  const expected: ProofExpectations = {
+    smeAccount,
+    registry: stringField(params, "registry"),
+    networkId: Number(field(params, "networkId")),
+    debtorsRoot: fromHex(debtorsRoot),
+    vintage: BigInt(Number(field(params, "vintage"))),
+  };
   const artifacts = await Promise.all([api.bytes("/api/zk/bari_invoice.wasm"), api.bytes("/api/zk/bari_invoice_final.zkey")]);
-  const proof = await proveLikeBrowser(api, attested, artifacts);
+  const proof = await proveLikeBrowser(attested, expected, artifacts);
 
   log.step("Certificat, puis rejeu de la même facture");
   const certificate = await api.call("POST", "/api/sme/certificate", proof);
   const tokenId = stringField(certificate, "tokenId");
   const reattested = await api.call("POST", "/api/debtor/attest", invoice);
-  const replayProof = await proveLikeBrowser(api, reattested, artifacts);
+  const replayProof = await proveLikeBrowser(reattested, expected, artifacts);
   const replay = await api.call("POST", "/api/sme/certificate", replayProof, [HTTP_CONFLICT]);
   log.info(`rejeu refusé (409) : ${stringField(field(replay, "rejectedBy"), "label")} ${stringField(replay, "hash")}`);
 

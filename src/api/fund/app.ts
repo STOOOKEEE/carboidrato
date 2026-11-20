@@ -23,7 +23,8 @@ function serializeJson(payload: unknown): string {
 }
 
 export async function buildApp(config: ApiConfig, context: ApiContext): Promise<FastifyInstance> {
-  const app = Fastify({ bodyLimit: BODY_LIMIT_BYTES });
+  // Un champ inattendu (ex. une donnée du témoin) est refusé en 400, pas retiré en silence.
+  const app = Fastify({ bodyLimit: BODY_LIMIT_BYTES, ajv: { customOptions: { removeAdditional: false } } });
   await app.register(cors, { origin: config.corsOrigins });
   app.setReplySerializer(serializeJson);
   app.setErrorHandler(makeErrorHandler((hash) => context.events.transactionUrl(hash)));

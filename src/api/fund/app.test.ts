@@ -112,7 +112,7 @@ describe("POST /api/sme/certificate", () => {
 });
 
 describe("routes de preuve côté serveur supprimées", () => {
-  for (const url of ["/api/sme/circuit-input", "/api/sme/certificate/server-proof"]) {
+  for (const url of ["circuit-input", "certificate/server-proof"].map((route) => `/api/sme/${route}`)) {
     test(`POST ${url} → 404`, async () => {
       const response = await app.inject({ method: "POST", url, payload: {} });
       assert.equal(response.statusCode, HTTP_NOT_FOUND);

@@ -81,9 +81,6 @@ export const debtorPathSchema = {
   },
 } as const;
 
-/** Facture attestée (format bari.attested-invoice.v1) : la structure est validée par parseAttestedInvoice. */
-export const attestedInvoiceSchema = { body: { type: "object" } } as const;
-
 export type CertificateBody = InvoiceProof;
 
 export const certificateSchema = {
