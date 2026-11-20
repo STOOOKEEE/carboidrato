@@ -14,8 +14,7 @@ interface DitherCanvasProps {
 
 const DEFAULT_CELL = 7;
 const DOT_RATIO = 0.62;
-const COLORS = { light: "#f2f2f2", danger: "#ff6b5e" } as const;
-const ACCENT = "#3d82f6";
+const TONE_VARIABLES = { light: "--fg", danger: "--danger" } as const;
 
 export function DitherCanvas({
   shape,
@@ -34,11 +33,12 @@ export function DitherCanvas({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (canvas === null) return;
+    const rootStyle = getComputedStyle(document.documentElement);
     const engine = new DitherEngine(canvas, SHAPES[shapeRef.current], {
       cell,
       dotRatio: DOT_RATIO,
-      color: COLORS[tone],
-      accent: ACCENT,
+      color: rootStyle.getPropertyValue(TONE_VARIABLES[tone]).trim(),
+      accent: rootStyle.getPropertyValue("--accent").trim(),
       interactive,
     });
     engine.setScanning(scanningRef.current);

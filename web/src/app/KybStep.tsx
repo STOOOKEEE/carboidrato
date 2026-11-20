@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { submitKyb } from "../api";
 import { DitherCanvas } from "../dither/DitherCanvas";
+import { Button } from "../ui/Button";
+import { Notice } from "../ui/Notice";
 
 type KybState = { stage: "form" } | { stage: "verifying" } | { stage: "done"; explorerUrl: string } | { stage: "error"; message: string };
 
@@ -66,10 +68,10 @@ export function KybStep({ account: initialAccount, alreadyDone, onDone }: KybSte
             XRPL account
             <input className="mono" value={account} onChange={(event) => setAccount(event.target.value)} placeholder="r…" required />
           </label>
-          {state.stage === "error" && <p className="error">{state.message}</p>}
-          <button type="submit" className="button" disabled={state.stage === "verifying"}>
+          {state.stage === "error" && <Notice kind="error">{state.message}</Notice>}
+          <Button type="submit" disabled={state.stage === "verifying"} reason="Issuing credential on XRPL…">
             {state.stage === "verifying" ? "Issuing credential on XRPL…" : "Verify my business"}
-          </button>
+          </Button>
         </form>
       )}
     </div>

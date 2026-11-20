@@ -1,23 +1,13 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useState } from "react";
 import type { PrecheckResponse } from "../../../src/api/contract";
 import { InvoiceChecker } from "../components/InvoiceChecker";
 import { Nav } from "../components/Nav";
 import { OfferTable } from "../components/OfferTable";
 import { formatEur } from "../format";
 import { loadPrecheck, savePrecheck } from "../session";
+import { Button } from "../ui/Button";
+import { StepCard } from "../ui/StepCard";
 import { KybStep } from "./KybStep";
-
-function Step({ index, title, done, children }: { index: number; title: string; done: boolean; children: ReactNode }) {
-  return (
-    <section className={done ? "step done" : "step"}>
-      <header className="step-head">
-        <span className="step-index">{done ? "■" : `0${index}`}</span>
-        <h2>{title}</h2>
-      </header>
-      {children}
-    </section>
-  );
-}
 
 export function AppPage() {
   const [precheck, setPrecheck] = useState<PrecheckResponse | undefined>(loadPrecheck);
@@ -51,10 +41,10 @@ export function AppPage() {
             From invoice to <span className="underline">cash</span>.
           </h1>
         </div>
-        <Step index={1} title="Verify your business" done={kybDone}>
+        <StepCard index={1} title="Verify your business" done={kybDone}>
           <KybStep account={precheck?.kyb.account ?? ""} alreadyDone={kybDone} onDone={onKybDone} />
-        </Step>
-        <Step index={2} title="Your invoice" done={offer !== undefined}>
+        </StepCard>
+        <StepCard index={2} title="Your invoice" done={offer !== undefined}>
           {precheck !== undefined && offer !== undefined ? (
             <div className="invoice-summary">
               <p className="muted">
@@ -62,24 +52,24 @@ export function AppPage() {
               </p>
               <p className="amount">{formatEur(offer.netAdvanceEur)}</p>
               <OfferTable offer={offer} dueDate={precheck.invoice.dueDate} />
-              <button type="button" className="button button-ghost" onClick={() => setPrecheck(undefined)}>
+              <Button variant="ghost" onClick={() => setPrecheck(undefined)}>
                 Use another invoice
-              </button>
+              </Button>
             </div>
           ) : (
             <InvoiceChecker onEligible={onEligible} showCta={false} />
           )}
-        </Step>
-        <Step index={3} title="Get funded" done={false}>
+        </StepCard>
+        <StepCard index={3} title="Get funded" done={false}>
           <p className="muted">
             {kybDone && offer !== undefined
               ? `Ready: ${formatEur(offer.netAdvanceEur)} as soon as the proof is generated and the loan is co-signed.`
               : "Complete the two steps above to unlock your advance."}
           </p>
-          <button type="button" className="button" disabled>
+          <Button disabled reason="Request funding · next iteration">
             Request funding · next iteration
-          </button>
-        </Step>
+          </Button>
+        </StepCard>
       </main>
     </div>
   );

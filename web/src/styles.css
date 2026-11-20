@@ -679,3 +679,38 @@ h2 {
     display: none;
   }
 }
+
+/* Composants partagés */
+
+.button-reason {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+}
+
+.stepper-item {
+  display: flex;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.stepper-item.current {
+  color: var(--fg);
+}
+
+.details summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+}

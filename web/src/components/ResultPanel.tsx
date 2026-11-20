@@ -2,6 +2,7 @@ import type { PrecheckResponse } from "../../../src/api/contract";
 import { firstFailure } from "../copy";
 import { formatDate, formatEur, shortHash } from "../format";
 import { APP_ROUTE } from "../routes";
+import { Button } from "../ui/Button";
 import { ChecksList } from "./ChecksList";
 import { OfferTable } from "./OfferTable";
 
@@ -24,9 +25,9 @@ export function ResultPanel({ result, onReset, showCta }: ResultPanelProps) {
           Invoice {invoice.number} · {invoice.debtorName}
         </p>
         <ChecksList checks={result.checks} />
-        <button type="button" className="button button-ghost" onClick={onReset}>
+        <Button variant="ghost" onClick={onReset}>
           Try another invoice
-        </button>
+        </Button>
       </div>
     );
   }
@@ -49,9 +50,9 @@ export function ResultPanel({ result, onReset, showCta }: ResultPanelProps) {
             {kyb.done ? `Get ${formatEur(offer.netAdvanceEur)}` : "Complete KYB & get paid"} →
           </a>
         )}
-        <button type="button" className="button button-ghost" onClick={onReset}>
+        <Button variant="ghost" onClick={onReset}>
           Try another
-        </button>
+        </Button>
       </div>
       <p className="fineprint">
         Fingerprint N <code>{shortHash(result.nullifier)}</code> · subject to fund capacity and the 20% per-debtor cap.
