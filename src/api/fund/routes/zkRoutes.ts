@@ -1,17 +1,14 @@
-// Artefacts du circuit servis en statique (le navigateur lance snarkjs.groth16.fullProve avec eux), valeurs
-// publiques que la preuve doit lier, et entrée du circuit construite à partir d'une facture attestée.
+// Artefacts du circuit servis en statique (le navigateur lance snarkjs.groth16.fullProve avec eux) et valeurs
+// publiques que la preuve doit lier ; l'entrée du circuit est construite dans le navigateur, jamais ici.
 
 import { createReadStream } from "node:fs";
 import type { FastifyInstance } from "fastify";
 import { FUND_VINTAGE } from "../../../config/cohort.js";
 import { loanTerms } from "../../../lending/loanTerms.js";
 import { CIRCUIT_WASM_PATH, PROVING_KEY_PATH, VERIFICATION_KEY_PATH } from "../../../zk/constants.js";
-import { parseAttestedInvoice } from "../../attestedInvoice.js";
 import type { ProofParams } from "../../contract.js";
-import { networkId, proofExpectations, type ApiContext } from "../context.js";
+import { networkId, type ApiContext } from "../context.js";
 import { HttpError } from "../errors.js";
-import { attestedInvoiceSchema } from "../schemas.js";
-import { buildProveInput, toCircuitInput } from "../zkInputs.js";
 
 const HTTP_NOT_FOUND = 404;
 /** Les artefacts ne changent qu'avec un nouveau zk:setup : cache d'une heure. */
@@ -52,14 +49,5 @@ export function registerZkRoutes(app: FastifyInstance, context: ApiContext): voi
       .type(artifact.contentType)
       .header("Cache-Control", ARTIFACT_CACHE_CONTROL)
       .send(createReadStream(artifact.path));
-  });
-
-  app.post("/api/sme/circuit-input", { schema: attestedInvoiceSchema }, async (request) => {
-    const file = parseAttestedInvoice(request.body);
-    const proveInput = await buildProveInput(file, proofExpectations(context));
-    return {
-      input: toCircuitInput(proveInput),
-      artifacts: artifactUrls(),
-    };
   });
 }

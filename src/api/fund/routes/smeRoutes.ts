@@ -1,5 +1,5 @@
 // Côté PME : KYB, lectures publiques du pré-contrôle (registre de N, KYB, offre), certificat à partir d'une preuve
-// calculée dans le navigateur (ou, en secours, par le serveur), puis prêt co-signé.
+// calculée dans le navigateur, puis prêt co-signé.
 
 import type { FastifyInstance } from "fastify";
 import { isValidClassicAddress } from "xrpl";
@@ -8,8 +8,6 @@ import { issueCertificate } from "../../../invoice/issueCertificate.js";
 import { getRegistration } from "../../../invoice/registry.js";
 import { isSmeKybDone, onboardSme } from "../../../kyb/smeKyb.js";
 import { originateLoan } from "../../../lending/loan.js";
-import { prove } from "../../../zk/index.js";
-import { parseAttestedInvoice } from "../../attestedInvoice.js";
 import type { KybRequest, KybResponse, KybStatus, LoanOffer, RegistryLookup } from "../../contract.js";
 import { daysUntil, fundOffer } from "../../offer.js";
 import { certificateFromProof } from "../certificateFromProof.js";
@@ -17,7 +15,6 @@ import { proofExpectations, requireFund, type ApiContext } from "../context.js";
 import { HttpError } from "../errors.js";
 import {
   accountParamsSchema,
-  attestedInvoiceSchema,
   certificateSchema,
   kybSchema,
   loanSchema,
@@ -30,7 +27,6 @@ import {
   type RegistryParams,
   type RegistryQuery,
 } from "../schemas.js";
-import { buildProveInput } from "../zkInputs.js";
 
 const HTTP_BAD_REQUEST = 400;
 const HTTP_FORBIDDEN = 403;
@@ -118,16 +114,6 @@ export function registerSmeRoutes(app: FastifyInstance, context: ApiContext): vo
   app.post<{ Body: CertificateBody }>("/api/sme/certificate", { schema: certificateSchema }, async (request, reply) => {
     const certificate = await certificateFromProof(request.body, proofExpectations(context));
     return reply.status(HTTP_CREATED).send(await issue(context, certificate));
-  });
-
-  app.post("/api/sme/certificate/server-proof", { schema: attestedInvoiceSchema }, async (request, reply) => {
-    const expectations = proofExpectations(context);
-    const proven = await prove(await buildProveInput(parseAttestedInvoice(request.body), expectations));
-    const certificate = await certificateFromProof(proven, expectations);
-    const issued = await issue(context, certificate);
-    // Ouverture de l'engagement C : à garder par la PME pour un éventuel litige, jamais publiée.
-    const opening = { message: proven.opening.message.toString(), blinding: proven.opening.blinding.toString() };
-    return reply.status(HTTP_CREATED).send({ ...issued, opening });
   });
 
   app.post<{ Body: LoanBody }>("/api/sme/loan", { schema: loanSchema }, async (request, reply) => {
