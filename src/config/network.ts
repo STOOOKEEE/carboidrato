@@ -13,6 +13,8 @@ export interface NetworkConfig {
   walletsFile: string;
   /** Explorer du réseau, pour les liens affichés dans le front. */
   explorerUrl: string;
+  /** Faux sur un réseau sans explorer (AlphaNet) : devnet par défaut, ou XRPL_EXPLORER_URL explicite. */
+  hasExplorer: boolean;
 }
 
 function readEnv(name: string): string | undefined {
@@ -27,5 +29,11 @@ export function loadNetworkConfig(): NetworkConfig {
     genesisSeed: readEnv("XRPL_GENESIS_SEED"),
     walletsFile: readEnv("XRPL_WALLETS_FILE") ?? DEFAULT_WALLETS_FILE,
     explorerUrl: readEnv("XRPL_EXPLORER_URL") ?? DEFAULT_EXPLORER_URL,
+    hasExplorer: readEnv("XRPL_EXPLORER_URL") !== undefined || readEnv("XRPL_WS") === undefined,
   };
+}
+
+/** Lien explorer d'une transaction, seulement si le réseau en a un. */
+export function explorerTransactionUrl(network: NetworkConfig, hash: string): string | undefined {
+  return network.hasExplorer ? `${network.explorerUrl}/transactions/${hash}` : undefined;
 }

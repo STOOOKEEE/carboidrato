@@ -3,6 +3,7 @@
 import type { Client } from "xrpl";
 import type { Actors } from "../../accounts/actors.js";
 import type { NetworkConfig } from "../../config/network.js";
+import type { Ledger } from "../../xrpl/ledger.js";
 import { fromHex } from "../../zk/index.js";
 import { HttpError } from "./errors.js";
 import type { EventHub } from "./events.js";
@@ -14,6 +15,8 @@ const HTTP_NOT_FOUND = 404;
 
 export interface ApiContext {
   client: Client;
+  /** Lectures du ledger validé, par le port `Ledger` (même nœud que `client`). */
+  ledger: Ledger;
   network: NetworkConfig;
   /** Wallets de démo : le serveur signe pour chaque acteur. Les seeds ne sortent jamais de l'API. */
   actors: Actors;

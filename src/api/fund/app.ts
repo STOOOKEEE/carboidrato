@@ -11,6 +11,7 @@ import { registerEventRoutes } from "./routes/eventRoutes.js";
 import { registerFundRoutes } from "./routes/fundRoutes.js";
 import { registerLoanRoutes } from "./routes/loanRoutes.js";
 import { registerSmeRoutes } from "./routes/smeRoutes.js";
+import { registerTxRoutes } from "./routes/txRoutes.js";
 import { registerZkRoutes } from "./routes/zkRoutes.js";
 
 /** Une facture attestée ou une preuve font quelques Ko. */
@@ -34,5 +35,6 @@ export async function buildApp(config: ApiConfig, context: ApiContext): Promise<
   registerLoanRoutes(app, context);
   registerAuditRoutes(app, context);
   registerEventRoutes(app, context);
+  registerTxRoutes(app, context);
   return app;
 }
