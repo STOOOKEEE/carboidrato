@@ -4,8 +4,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 const API_URL = "http://127.0.0.1:8788";
 const WEB_URL = "http://localhost:5173";
-/** Connexion au nœud et création des comptes de démo au premier lancement. */
-const API_STARTUP_MS = 180_000;
+/** Fonds de démo durable (≈ 2 min sur l'AlphaNet quand il faut le créer, sinon réutilisé), puis démarrage de l'API. */
+const API_STARTUP_MS = 10 * 60_000;
 /** Un parcours on-chain attend plusieurs ledgers (3 s sur l'AlphaNet, ~4 s sur devnet). */
 const TEST_TIMEOUT_MS = 5 * 60_000;
 const reuseExistingServer = process.env.CI === undefined;
@@ -24,7 +24,8 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
     {
-      command: "npm run api:fund",
+      // Pas de globalSetup : Playwright démarre les webServer avant lui, et l'API ne lit son état qu'au démarrage.
+      command: "npm run demo:fund && npm run api:fund",
       url: `${API_URL}/api/debtors`,
       timeout: API_STARTUP_MS,
       reuseExistingServer,
