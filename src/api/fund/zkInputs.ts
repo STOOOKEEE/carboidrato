@@ -3,6 +3,7 @@
 // pour que le navigateur lance groth16.fullProve avec les artefacts servis par l'API.
 
 import { verifiedDebtorList } from "../../invoice/certificate.js";
+import { VERIFIED_DEBTORS } from "../../invoice/debtors.js";
 import { loanTerms } from "../../lending/loanTerms.js";
 import { BLINDING_BYTES } from "../../zk/constants.js";
 import { randomField } from "../../zk/field.js";
@@ -10,6 +11,7 @@ import {
   accountToField,
   computeAttestedMessage,
   debtorLeaf,
+  deriveDebtor,
   merklePath,
   verifyAttestation,
   type DebtorPublicKey,
@@ -17,10 +19,20 @@ import {
   type ProveInput,
 } from "../../zk/index.js";
 import { toCircuitAttestation } from "../attestedInvoice.js";
-import type { AttestedInvoiceFile } from "../contract.js";
+import type { AttestedInvoiceFile, PublicDebtor } from "../contract.js";
 import { HttpError } from "./errors.js";
 
 const HTTP_UNPROCESSABLE = 422;
+
+/** Liste publique des débiteurs vérifiés, dans l'ordre des feuilles : le navigateur en recalcule l'arbre. */
+export function publicDebtors(): Promise<PublicDebtor[]> {
+  return Promise.all(
+    VERIFIED_DEBTORS.map(async ({ name, ipaCode }) => {
+      const { publicKey } = await deriveDebtor(name);
+      return { name, ipaCode, publicKey: { ax: publicKey.ax.toString(), ay: publicKey.ay.toString() } };
+    }),
+  );
+}
 
 /** Ce que la preuve doit établir pour ce fonds (lu dans la fiche du fonds et le contexte de la démo). */
 export interface ProofExpectations {

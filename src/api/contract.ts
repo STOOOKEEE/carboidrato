@@ -33,6 +33,15 @@ export interface AttestedInvoiceFile {
   };
 }
 
+/** Débiteur vérifié tel que publié par `GET /api/debtors`, dans l'ordre des feuilles de l'arbre de Merkle. */
+export interface PublicDebtor {
+  name: string;
+  /** Code IPA (identifiant officiel des administrations italiennes). */
+  ipaCode: string;
+  /** Clé EdDSA BabyJubJub, entiers du corps en décimal. */
+  publicKey: { ax: string; ay: string };
+}
+
 /** Contrôles, dans l'ordre d'affichage ; le libellé de chacun appartient au front. */
 export const CHECK_IDS = ["signature", "debtor", "network", "dueDate", "unique"] as const;
 export type CheckId = (typeof CHECK_IDS)[number];
