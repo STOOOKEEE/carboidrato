@@ -11,6 +11,7 @@ import { listLoanRecords, type LoanRecord } from "../fund/loanRecords.js";
 import { describeVerdict, type ProofVerdict } from "../invoice/proofVerification.js";
 import { formatEur, formatPercent, parseUnits, ratioPercent } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
+import { xrplLedger, type Ledger } from "../xrpl/ledger.js";
 import { findEntry, getLoanBroker, getVault, listAccountObjects } from "../xrpl/ledgerEntries.js";
 
 const CUSTODY_PROBLEM = "prêt en cours sans MPT facture chez Bari";
@@ -91,7 +92,7 @@ function loanStatus(record: LoanRecord): LoanStatus {
 }
 
 async function auditLoan(
-  client: Client,
+  ledger: Ledger,
   record: LoanRecord,
   fund: AuditedFund,
   manifest: FundManifest,
@@ -115,11 +116,10 @@ async function auditLoan(
   }
   const { nullifier, pseudonym, invoiceTokenId } = record.reference;
   log.info(`  N=${nullifier} · P=${pseudonym} · MPT facture ${invoiceTokenId}`);
-  const inspection = await inspectInvoice(client, record.reference, {
+  const inspection = await inspectInvoice(ledger, record.reference, {
     borrower: record.loan.Borrower,
     bari: fund.broker.Owner,
     manifest,
-    networkId: client.networkID,
   });
   for (const problem of inspection.problems) log.warn(`  ✗ ${problem}`);
   if (inspection.problems.length === 0) {
@@ -177,9 +177,10 @@ export async function auditFund(client: Client, id: string): Promise<AuditResult
   log.info(`fiche du fonds (Data du Vault) : racine ${manifest.debtorsRoot}, millésime ${manifest.vintage}, registre ${manifest.registry}`);
   log.info(`actif du fonds ${formatEur(fundAssets)} · first-loss ${formatEur(parseUnits(fund.broker.CoverAvailable))} · dette ${formatEur(parseUnits(fund.broker.DebtTotal))}`);
 
-  const records = await listLoanRecords(client, fund.brokerId);
+  const ledger = xrplLedger(client);
+  const records = await listLoanRecords(ledger, fund.brokerId);
   const loanAudits: LoanAudit[] = [];
-  for (const record of records) loanAudits.push(await auditLoan(client, record, fund, manifest));
+  for (const record of records) loanAudits.push(await auditLoan(ledger, record, fund, manifest));
   const verifiedProofs = loanAudits.filter((audit) => audit.proof?.status === "valid").length;
   const uniqueness = auditUniqueness(records);
   const concentration = auditConcentration(records, fundAssets);

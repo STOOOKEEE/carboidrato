@@ -6,6 +6,7 @@ import { Client, isValidClassicAddress } from "xrpl";
 import { loadActors, type Actors } from "../accounts/actors.js";
 import { loadNetworkConfig } from "../config/network.js";
 import { isSmeKybDone, onboardSme } from "../kyb/smeKyb.js";
+import { xrplLedger } from "../xrpl/ledger.js";
 import { parseAttestedInvoice, InvalidInvoiceFile } from "./attestedInvoice.js";
 import type { KybRequest, KybResponse } from "./contract.js";
 import { HttpError, readJsonBody, sendJson } from "./http.js";
@@ -47,7 +48,7 @@ async function handleKyb(request: IncomingMessage): Promise<KybResponse> {
     throw new HttpError(403, "On this devnet demo, only the demo SME account can be onboarded");
   }
   const ledger = await connectedClient();
-  if (!(await isSmeKybDone(ledger, account, actors.kyb_issuer.address))) await onboardSme(ledger, actors);
+  if (!(await isSmeKybDone(xrplLedger(ledger), account, actors.kyb_issuer.address))) await onboardSme(ledger, actors);
   return { account, done: true, explorerUrl: `${network.explorerUrl}/accounts/${account}` };
 }
 

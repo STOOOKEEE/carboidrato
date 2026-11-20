@@ -4,7 +4,8 @@ import type { Client } from "xrpl";
 import type { Actors } from "../accounts/actors.js";
 import { sha256Hex, textToHex } from "../lib/encoding.js";
 import { log } from "../lib/logger.js";
-import { getCredential, isCredentialAccepted } from "../xrpl/ledgerEntries.js";
+import type { Ledger } from "../xrpl/ledger.js";
+import { isCredentialAccepted } from "../xrpl/ledgerEntries.js";
 import { CREDENTIAL_TYPES, ensureCredential } from "./kycCredentials.js";
 
 /** Dossier simulé (en production : registre des entreprises, KYC du représentant légal, bénéficiaires effectifs). */
@@ -32,7 +33,7 @@ export async function onboardSme(client: Client, actors: Actors): Promise<void> 
 }
 
 /** KYB fait : credential KYB_PME émis par le prestataire et accepté par la PME. */
-export async function isSmeKybDone(client: Client, smeAddress: string, kybIssuer: string): Promise<boolean> {
-  const kyb = await getCredential(client, smeAddress, kybIssuer, textToHex(CREDENTIAL_TYPES.kybSme));
+export async function isSmeKybDone(ledger: Ledger, smeAddress: string, kybIssuer: string): Promise<boolean> {
+  const kyb = await ledger.credential(smeAddress, kybIssuer, textToHex(CREDENTIAL_TYPES.kybSme));
   return kyb !== undefined && isCredentialAccepted(kyb);
 }

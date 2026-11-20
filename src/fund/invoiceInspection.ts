@@ -2,12 +2,11 @@
 // cohérence des entrées publiques avec le ledger (annexe C) et preuve. Partagé par Bari (avant de co-signer)
 // et par l'audit du fonds.
 
-import type { Client } from "xrpl";
 import { decodeCertificateMetadata, type CertificateMetadata } from "../invoice/certificateMetadata.js";
 import { verifyInvoiceProof, type ProofVerdict } from "../invoice/proofVerification.js";
 import { INVOICE_TOKEN_SUPPLY } from "../invoice/invoiceToken.js";
 import { getRegistration } from "../invoice/registry.js";
-import { getMptBalance, getMptIssuance } from "../xrpl/ledgerEntries.js";
+import type { Ledger } from "../xrpl/ledger.js";
 import type { FundManifest } from "./fundManifest.js";
 import type { LoanReference } from "./loanData.js";
 
@@ -16,7 +15,6 @@ export interface InspectionContext {
   borrower: string;
   bari: string;
   manifest: FundManifest;
-  networkId: number | undefined;
 }
 
 export interface InvoiceInspection {
@@ -31,7 +29,8 @@ export interface InvoiceInspection {
 function publicInputMismatches(
   certificate: CertificateMetadata,
   reference: LoanReference,
-  { borrower, manifest, networkId }: InspectionContext,
+  { borrower, manifest }: InspectionContext,
+  networkId: number | undefined,
 ): string[] {
   const checks: ReadonlyArray<readonly [string, unknown, unknown]> = [
     ["compte prouvé (emprunteur)", certificate.account, borrower],
@@ -48,15 +47,15 @@ function publicInputMismatches(
 }
 
 export async function inspectInvoice(
-  client: Client,
+  ledger: Ledger,
   reference: LoanReference,
   context: InspectionContext,
 ): Promise<InvoiceInspection> {
   const problems: string[] = [];
-  const registration = await getRegistration(client, context.manifest.registry, context.borrower, reference.nullifier);
+  const registration = await getRegistration(ledger, context.manifest.registry, context.borrower, reference.nullifier);
   if (registration === undefined) problems.push("credential N absent du registre (émetteur = emprunteur)");
 
-  const issuance = await getMptIssuance(client, reference.invoiceTokenId);
+  const issuance = await ledger.mptIssuance(reference.invoiceTokenId);
   let certificate: CertificateMetadata | undefined;
   if (issuance === undefined) {
     problems.push("MPT facture introuvable");
@@ -74,13 +73,13 @@ export async function inspectInvoice(
 
   let proof: ProofVerdict | undefined;
   if (certificate !== undefined) {
-    problems.push(...publicInputMismatches(certificate, reference, context));
+    problems.push(...publicInputMismatches(certificate, reference, context, ledger.networkId()));
     proof = await verifyInvoiceProof(certificate);
     if (proof.status === "invalid") problems.push(`preuve invalide : ${proof.reason}`);
   }
 
   const heldByBari =
     issuance !== undefined &&
-    (await getMptBalance(client, reference.invoiceTokenId, context.bari)) === INVOICE_TOKEN_SUPPLY;
+    (await ledger.mptBalance(reference.invoiceTokenId, context.bari)) === INVOICE_TOKEN_SUPPLY;
   return { problems, certificate, proof, heldByBari };
 }

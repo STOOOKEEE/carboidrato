@@ -2,9 +2,9 @@
 // LoanSet d'origine (le Loan ne stocke ni Data ni le principal initial). Celle-ci se retrouve en remontant la
 // chaîne PreviousTxnID du Loan jusqu'à la transaction qui l'a créé.
 
-import type { Client, LedgerEntry, TransactionMetadata } from "xrpl";
+import type { LedgerEntry, TransactionMetadata } from "xrpl";
 import { parseUnits } from "../lib/amounts.js";
-import { getLoanBroker, listAccountObjects } from "../xrpl/ledgerEntries.js";
+import type { Ledger } from "../xrpl/ledger.js";
 import { decodeLoanData, type LoanReference } from "./loanData.js";
 
 /** Garde-fou : un prêt Bari ne subit que quelques transactions (LoanSet, LoanPay, LoanManage). */
@@ -43,10 +43,11 @@ function loanHistoryStep(meta: TransactionMetadata, loanId: string): LoanHistory
 }
 
 /** Remonte PreviousTxnID jusqu'à la transaction qui a créé le Loan. */
-async function findLoanCreation(client: Client, loanId: string, lastTxHash: string): Promise<LoanCreation> {
+async function findLoanCreation(ledger: Ledger, loanId: string, lastTxHash: string): Promise<LoanCreation> {
   let hash = lastTxHash;
   for (let count = 0; count < MAX_HISTORY_STEPS; count++) {
-    const { result } = await client.request({ command: "tx", transaction: hash });
+    const result = await ledger.transaction(hash);
+    if (result === undefined) throw new Error(`Transaction introuvable : ${hash}`);
     if (result.meta === undefined || typeof result.meta === "string") throw new Error(`Métadonnées absentes : ${hash}`);
     const step = loanHistoryStep(result.meta, loanId);
     if (step.created) {
@@ -67,14 +68,13 @@ function decodeReference(data: string | undefined): LoanReference | Error {
   }
 }
 
-export async function listLoanRecords(client: Client, brokerId: string): Promise<LoanRecord[]> {
-  const broker = await getLoanBroker(client, brokerId);
-  const loans = (await listAccountObjects(client, broker.Account, "loan")).filter(
-    (entry): entry is LedgerEntry.Loan => entry.LedgerEntryType === "Loan" && entry.LoanBrokerID === brokerId,
+async function brokerLoanRecords(ledger: Ledger, broker: LedgerEntry.LoanBroker): Promise<LoanRecord[]> {
+  const loans = (await ledger.accountObjects(broker.Account, "loan")).filter(
+    (entry): entry is LedgerEntry.Loan => entry.LedgerEntryType === "Loan" && entry.LoanBrokerID === broker.index,
   );
   const records: LoanRecord[] = [];
   for (const loan of loans) {
-    const creation = await findLoanCreation(client, loan.index, loan.PreviousTxnID);
+    const creation = await findLoanCreation(ledger, loan.index, loan.PreviousTxnID);
     records.push({
       loanId: loan.index,
       loan,
@@ -85,4 +85,18 @@ export async function listLoanRecords(client: Client, brokerId: string): Promise
     });
   }
   return records.sort((a, b) => a.loan.LoanSequence - b.loan.LoanSequence);
+}
+
+export async function listLoanRecords(ledger: Ledger, brokerId: string): Promise<LoanRecord[]> {
+  return brokerLoanRecords(ledger, await ledger.loanBroker(brokerId));
+}
+
+/** Prêts de tous les LoanBroker d'un propriétaire : une facture financée l'est pour tous les fonds de Bari. */
+export async function listOwnerLoanRecords(ledger: Ledger, owner: string): Promise<LoanRecord[]> {
+  const brokers = (await ledger.accountObjects(owner, "loan_broker")).filter(
+    (entry): entry is LedgerEntry.LoanBroker => entry.LedgerEntryType === "LoanBroker",
+  );
+  const records: LoanRecord[] = [];
+  for (const broker of brokers) records.push(...(await brokerLoanRecords(ledger, broker)));
+  return records;
 }
