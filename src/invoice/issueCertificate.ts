@@ -6,6 +6,7 @@
 import type { Client, Wallet } from "xrpl";
 import { log } from "../lib/logger.js";
 import { BatchSequencer, readAllOrNothingOutcome, submitAllOrNothingBatch, type InnerTransaction } from "../xrpl/batch.js";
+import { xrplLedger } from "../xrpl/ledger.js";
 import { getMptIssuance } from "../xrpl/ledgerEntries.js";
 import { createdMptIssuanceId } from "../xrpl/meta.js";
 import type { InvoiceCertificate } from "./certificate.js";
@@ -65,7 +66,8 @@ export async function issueCertificate(
   log.info(`N = ${certificate.nullifier}`);
   log.info(`P = ${certificate.pseudonym}`);
   log.info(`C = ${certificate.commitment}`);
-  const alreadyRegistered = (await getRegistration(client, registry, sme.address, certificate.nullifier)) !== undefined;
+  const alreadyRegistered =
+    (await getRegistration(xrplLedger(client), registry, sme.address, certificate.nullifier)) !== undefined;
   log.info(`registre (ledger_entry) : ${alreadyRegistered ? "N DÉJÀ PRÉSENT" : "N absent"}`);
   // Le Batch est soumis dans tous les cas : c'est son application, ordonnée par le consensus, qui fait foi.
   const sequencer = await BatchSequencer.open(client, sme.address);

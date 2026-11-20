@@ -3,7 +3,7 @@
 // du même N par la même PME est refusé par le ledger (tecDUPLICATE). On ne supprime jamais un enregistrement.
 
 import type { Client, CredentialCreate, LedgerEntry, Wallet } from "xrpl";
-import { getCredential } from "../xrpl/ledgerEntries.js";
+import type { Ledger } from "../xrpl/ledger.js";
 import { submitTx } from "../xrpl/submit.js";
 
 const DUPLICATE_RESULT = "tecDUPLICATE";
@@ -15,13 +15,13 @@ export function assertHash32(value: string, label: string): void {
 
 /** Enregistrement de N émis par la PME, lu en un seul ledger_entry (sans scan d'historique). */
 export function getRegistration(
-  client: Client,
+  ledger: Ledger,
   registry: string,
   sme: string,
   nullifier: string,
 ): Promise<LedgerEntry.Credential | undefined> {
   assertHash32(nullifier, "Empreinte N");
-  return getCredential(client, registry, sme, nullifier);
+  return ledger.credential(registry, sme, nullifier);
 }
 
 /** Transaction d'enregistrement de N (seule ou dans le Batch du certificat). */

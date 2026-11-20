@@ -8,6 +8,7 @@ import { getRegistration } from "../invoice/registry.js";
 import { isSmeKybDone } from "../kyb/smeKyb.js";
 import { CENTS_PER_EUR } from "../lib/amounts.js";
 import { debtorLeaf, invoiceNullifier, toHex32, verifyAttestation } from "../zk/index.js";
+import { xrplLedger } from "../xrpl/ledger.js";
 import { toCircuitAttestation } from "./attestedInvoice.js";
 import { CHECK_IDS, type AttestedInvoiceFile, type CheckId, type PrecheckResponse } from "./contract.js";
 import { buildOffer, daysUntil } from "./offer.js";
@@ -35,8 +36,8 @@ export async function precheckInvoice(
     verifyAttestation(attestation),
     verifiedDebtorList(),
     debtorLeaf(attestation.debtorPublicKey),
-    getRegistration(ledger.client, ledger.registry, account, nullifier),
-    isSmeKybDone(ledger.client, account, ledger.kybIssuer),
+    getRegistration(xrplLedger(ledger.client), ledger.registry, account, nullifier),
+    isSmeKybDone(xrplLedger(ledger.client), account, ledger.kybIssuer),
   ]);
 
   const outcomes: Record<CheckId, boolean> = {

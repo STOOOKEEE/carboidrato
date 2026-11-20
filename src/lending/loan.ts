@@ -16,6 +16,7 @@ import type { IssuedCertificate } from "../invoice/issueCertificate.js";
 import { formatEur } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
 import { percentToTenthBips } from "../lib/rates.js";
+import { xrplLedger } from "../xrpl/ledger.js";
 import { getMptBalance } from "../xrpl/ledgerEntries.js";
 import { ledgerTime, waitForLedgerTimeAfter } from "../xrpl/ledgerTime.js";
 import { createdLedgerIndex } from "../xrpl/meta.js";
@@ -60,7 +61,7 @@ export async function originateLoan(
     invoiceTokenId: issued.tokenId,
     pseudonym: issued.certificate.pseudonym,
   };
-  await verifyBeforeCosigning(client, actors, fund, reference, terms.principal);
+  await verifyBeforeCosigning(xrplLedger(client), actors, fund, reference, terms.principal);
 
   const interval = await paymentIntervalBeforeRedemption(client, fund.cohort.redemptionDate);
   const loanSet: LoanSet = {
