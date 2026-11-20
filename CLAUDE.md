@@ -9,11 +9,12 @@
 - Réseau via `XRPL_WS` (défaut devnet), financement via `XRPL_FAUCET_HOST` ou `XRPL_GENESIS_SEED` (nœud standalone)
 
 ## Structure
+- Carte des composants (couches, dépendances autorisées, API publiques, conventions TDD) : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), vérifiée par `src/architecture.test.ts`
 - `circuits/src/` : circuit `bari_invoice.circom` (IDEE §7.3) + `merkle.circom` ; `circuits/scripts/setup.sh` : setup Groth16 ; `circuits/artifacts/` : wasm + vkey ; `circuits/build/` (gitignoré) : ptau, zkey, r1cs
 - `src/zk` : API ZK (attestation EdDSA du débiteur, Merkle, prove, verify, encodage de la preuve pour MPTokenMetadata)
 - `src/invoice` : facture, certificat (attestation → preuve → N/P/C → métadonnées), registre N (`Issuer` = PME), MPT facture, vérification de la preuve
 - `src/lending` : souscription, prêt (`Data` = N + ID MPT facture + P, contrôles de Bari avant co-signature), remboursement, défaut, rachat
-- `src/fund` : fiche du fonds (racine des débiteurs dans le `Data` du Vault), lecture des prêts, inspection d'un certificat, concentration par P
+- `src/fund` : modèle du fonds (`Fund`, `Cohort`), fiche du fonds (racine des débiteurs dans le `Data` du Vault), `Data` du LoanSet (`loanData.ts`), lecture des prêts, inspection d'un certificat, concentration par P
 - `src/audit` : audit public du fonds depuis le ledger ; `src/demo` : scénario
 - `src/setup`, `src/kyb`, `src/accounts`, `src/config`, `src/xrpl`, `src/lib` : mise en place, KYB/KYC, comptes, paramètres, utilitaires
 - `src/api` : API du front (`/api/check` pré-contrôle d'une facture attestée `.bari.json`, `/api/kyb`), `contract.ts` = types partagés avec `web/`
@@ -26,8 +27,8 @@
 - `npm run audit -- <ID du Vault ou du LoanBroker>`
 - Front : `npm run api` + `npm run web` (http://localhost:5173) ; `npm run samples` régénère les 4 factures d'exemple (valide, falsifiée, déjà financée, débiteur inconnu ; enregistre un N sur devnet). Prérequis : comptes de `npm run demo`
 - API du fonds : `npm run api:fund` (127.0.0.1:8788, CORS `API_CORS_ORIGIN`, défaut localhost:5173) ; `npm run api:smoke` : test de bout en bout avec preuve côté client (~6,5 min). À fusionner à terme avec `npm run api`
-- `npm run typecheck` (back + web) ; `npm run zk:test` ; `npm run web:build`
-- ZK : `npm run zk:install-circom` puis `npm run zk:setup`, **une seule fois** (relancer change la vkey et invalide les preuves existantes)
+- `npm test` (tous les tests : carte des composants + ZK) ; `npm run typecheck` (back + web) ; `npm run zk:test` ; `npm run web:build`
+- ZK : `npm run zk:install-circom` puis `npm run zk:setup`, **une seule fois pour tout le projet (déjà fait)**. Sur une autre machine, copier `circuits/build/bari_invoice_final.zkey` depuis celle du setup : relancer change la vkey et invalide les preuves existantes
 - Alphanet : `bash infra/alphanet/build.sh` puis `run.sh` sur hermes ; `bash infra/alphanet/tunnel.sh` sur le Mac, puis `XRPL_WS=ws://127.0.0.1:51233`
 
 ## Conventions
