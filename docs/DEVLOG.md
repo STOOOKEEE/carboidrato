@@ -230,3 +230,16 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 **Pourquoi :** le témoin (montant, uuid, signature, chemin, aléa `r`) ne doit jamais quitter le navigateur de la PME.
 
 **Vérifié :** test de parité rouge puis vert (racine, chemins des 3 débiteurs, entrée du circuit identique au back) ; `npm test` 52/52 (dont `web/src/**/*.test.ts`), typecheck et `web:build` verts.
+
+## 2026-11-21 · Pré-contrôle et preuve dans le navigateur, port `Ledger`, détail de transaction
+
+**Quoi :**
+- `web/src/features/funding/` : `precheck.ts` (signature, débiteur vérifié, réseau et registre, seuil, échéance, unicité de `N`), `prover.ts` (`snarkjs.groth16.fullProve` avec le wasm et la zkey de l'API, `r` tiré par `crypto.getRandomValues` ; la signature se contrôle par le seul calcul du témoin), `sources.ts` (branchement sur l'API, snarkjs chargé à la demande).
+- Une seule API : le serveur `node:http` (8787, `/api/check`, `/api/kyb`) est supprimé, le proxy Vite pointe sur 8788, `npm run api` devient un alias de `api:fund`. Nouvelles lectures publiques : `GET /api/proof/params`, `GET /api/registry/:nullifier?account=`, `GET /api/sme/kyb/:account`, `GET /api/offer?dueDate=`. `POST /api/sme/kyb` prend le formulaire KYB.
+- Offre du fonds : avance fixe de 9 000 € adossée au seuil prouvé de 10 000 € (`fundOffer`), le montant exact n'y entre plus.
+- Port `Ledger` (`src/xrpl/ledger.ts`, faux en mémoire `fakeLedger.ts`) : `verifyBeforeCosigning` refuse un `N` déjà référencé par un prêt de n'importe quel LoanBroker de Bari.
+- `GET /api/tx/:hash` et écran `#/tx/<hash>` : type, résultat, comptes, objets créés, transactions internes d'un `Batch`, certificat décodé des métadonnées du MPT facture. Lien explorer seulement là où il en existe un (devnet).
+
+**Pourquoi :** le serveur de Bari ne reçoit plus que `{ proof, publicSignals }` ; l'AlphaNet n'a pas d'explorer.
+
+**Vérifié :** tests rouges puis verts (`precheck`, `prover`, `offer`, `loanChecks`, `txRoutes`, `txView`) ; `npm test` 80/80 ; e2e `web/e2e/prove.spec.ts` sur l'AlphaNet : 2/2 (pré-contrôle de la landing sans `/api/check`, preuve calculée dans la page, corps du certificat limité à `proof` et `publicSignals`, aucune valeur privée dans les requêtes).
