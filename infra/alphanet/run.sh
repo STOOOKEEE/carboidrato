@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Lance (ou relance) le nœud alphanet local sur hermes.
-# Usage : bash infra/alphanet/run.sh          reprend l'état existant
-#         RESET=1 bash infra/alphanet/run.sh  repart d'un ledger genesis neuf
+# Lance (ou relance) le nœud alphanet local sur hermes : bash infra/alphanet/run.sh
+# ATTENTION : chaque lancement repart d'un ledger genesis neuf (voir node-entrypoint.sh), tout l'état est perdu.
 # Sécurité : réseau host + xrpld lié à 127.0.0.1 ; AUCUN port Docker publié (Docker contournerait le firewall).
 set -euo pipefail
 
@@ -18,14 +17,13 @@ if [[ ! -x "$XRPLD_BIN" ]]; then
     exit 1
 fi
 
+STOP_TIMEOUT_S=60
 if docker container inspect "$CONTAINER" >/dev/null 2>&1; then
-    docker rm --force "$CONTAINER" >/dev/null
+    docker stop --time "$STOP_TIMEOUT_S" "$CONTAINER" >/dev/null
+    docker rm "$CONTAINER" >/dev/null
 fi
 
 mkdir -p "$DATA_DIR"
-if [[ "${RESET:-0}" == "1" ]]; then
-    rm -rf "$DATA_DIR/db" "$DATA_DIR/debug.log"
-fi
 cat "$SCRIPT_DIR/xrpld.cfg" "$SCRIPT_DIR/amendments.cfg" > "$DATA_DIR/xrpld.cfg"
 
 docker run --detach --name "$CONTAINER" \
@@ -33,6 +31,7 @@ docker run --detach --name "$CONTAINER" \
     --network host \
     --user "$(id -u):$(id -g)" \
     --memory "$NODE_MEMORY" \
+    --log-opt max-size=20m --log-opt max-file=3 \
     --env LEDGER_CLOSE_SECONDS \
     --volume "$DATA_DIR:/var/lib/xrpld" \
     --volume "$XRPLD_BIN:/usr/local/bin/xrpld:ro" \

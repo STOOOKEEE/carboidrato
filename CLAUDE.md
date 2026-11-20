@@ -40,4 +40,4 @@
 - Fait : circuit + tests (11/11), flow IDEE sur devnet, audit, preuve réelle branchée dans le certificat et dans l'audit ; premier jet du front (UI en anglais, DA dither) : simulation réelle contre devnet + KYB.
 - Front, limites : le pré-contrôle tourne côté serveur (le fichier quitte le navigateur, à porter en wasm) ; le KYB n'accepte que la PME de la démo ; le bouton « Request funding » (preuve → certificat → prêt) n'est pas branché.
 - À faire (IDEE §9) : brancher le financement dans l'app, script de démo minuté, slides ; option : chiffrement pour l'auditeur (§7.6).
-- Alphanet : compilation en cours sur hermes (bonus).
+- Alphanet (bonus) : nœud standalone sur hermes (conteneur `xrpl-alphanet`, network_id 1000, `LendingProtocolV1_2` activé, ports sur 127.0.0.1 uniquement). Accès coéquipiers : WebSocket sans admin via tunnel Cloudflare (`infra/alphanet/public-tunnel.sh`, l'URL change à chaque relance). **Genesis neuf à chaque redémarrage** (pas de persistance en standalone). Démo pas encore jouée dessus.

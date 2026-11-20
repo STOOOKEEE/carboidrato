@@ -176,3 +176,34 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 - Le test d'architecture était rouge avant les déplacements (9 imports en violation), il est vert après.
 - Typecheck back + web et `web:build` passent.
 - `npm test` : 7 tests sur 14 passent. Les 7 échecs sont des tests ZK qui exigent `circuits/build/bari_invoice_final.zkey`, absente d'un clone neuf.
+
+## 2026-11-20 · Nœud alphanet local opérationnel (V1_2 actif)
+
+**Quoi :** compilation terminée à 20h10 (3h08 en tout, dont environ 1h40 de dépendances conan). Nœud standalone lancé dans Docker sur hermes, accessible par `infra/alphanet/tunnel.sh`. `check-amendments` via le tunnel : tous les requis activés, **`LendingProtocolV1_2` activé**. `network_id` 2026.
+
+**Sécurité vérifiée :**
+- `ss` : seuls 127.0.0.1:51233 et 127.0.0.1:51234 écoutent ; aucun port peer ; aucun port Docker publié (`--network host`).
+- Requête vers l'IP Tailscale de hermes depuis hermes et depuis le Mac : refusée.
+
+**Bugs & fix :**
+- Compilation lente : aucun binaire conan précompilé pour gcc 15, donc les 23 dépendances ont été recompilées, sur une VM partagée de 6 cœurs dont le build n'obtient qu'environ 3.
+- `network_id` absent : la démo refuse de prouver sans networkId, d'où `[network_id] 2026`.
+- Logs en DEBUG sur stdout et `ledger_accept` bavard : `[rpc_startup] log_level warning`, sortie de la CLI redirigée, logs Docker plafonnés (20 Mo × 3).
+- Le watcher du build n'a pas signalé la fin : vérifier `BUILD_EXIT` dans `build.log`.
+
+## 2026-11-20 · Alphanet ouvert aux coéquipiers, sans accès à hermes
+
+**Quoi :**
+- Troisième port WebSocket **sans admin** (127.0.0.1:51236), exposé par un quick tunnel Cloudflare (`infra/alphanet/public-tunnel.sh`, conteneur `xrpl-alphanet-public`, connexion sortante uniquement).
+- Les coéquipiers soumettent des transactions signées par l'URL `wss://….trycloudflare.com`, sans SSH ni accès réseau à hermes.
+
+**Vérifié depuis le Mac, uniquement par l'URL publique :**
+- `check-amendments` : tous actifs, V1_2 compris.
+- `Payment` depuis le compte genesis : `tesSUCCESS`.
+- `ledger_accept`, `stop`, `peers` et `validation_create` sont refusés (« Bad credentials »).
+- Ports sur hermes : 51233, 51234 et 51236, tous sur 127.0.0.1.
+
+**Bugs & fix :**
+- `telREQUIRES_NETWORK_ID` avec `network_id` 2026 : au-delà de 1024, chaque transaction doit porter `NetworkID`, et xrpl.js ne l'ajoute que pour un serveur ≥ 1.11. Notre build se présente en `0.0.0-dev`, donc `network_id` passe à **1000**.
+- Redémarrage en boucle avec `--load` (« The specified ledger could not be loaded »). Arrêt propre (`docker stop`) ajouté, sans effet : en standalone, ce build n'écrit aucun ledger en base (table `Ledgers` vide, NuDB à 4 Ko). Cause non identifiée (hypothèse). Décision : genesis neuf à chaque démarrage, documenté dans `run.sh` et `node-entrypoint.sh`.
+- L'URL du quick tunnel change à chaque relance du conteneur `xrpl-alphanet-public`.
