@@ -25,6 +25,12 @@ export function centsToUnits(cents: number): bigint {
   return (BigInt(cents) * UNITS_PER_EUR) / BigInt(CENTS_PER_EUR);
 }
 
+/** Unités → centimes, arrondi au centime supérieur : un montant dû n'est jamais sous-estimé. */
+export function unitsToCents(units: bigint): bigint {
+  const unitsPerCent = UNITS_PER_EUR / BigInt(CENTS_PER_EUR);
+  return units / unitsPerCent + (units % unitsPerCent === 0n ? 0n : 1n);
+}
+
 /** Euros → centimes (entier), unité des montants prouvés dans le circuit. */
 export function eurToCents(eur: number): bigint {
   if (!Number.isFinite(eur) || eur < 0) throw new Error(`Montant invalide : ${eur} €`);

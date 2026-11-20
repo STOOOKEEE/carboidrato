@@ -3,9 +3,10 @@
 
 import type { InvoiceCertificate } from "../../invoice/certificate.js";
 import { encodeCertificateMetadata, GROTH16_PROOF_SYSTEM } from "../../invoice/certificateMetadata.js";
+import { loanTerms } from "../../lending/loanTerms.js";
 import { PUBLIC_SIGNAL_ORDER, statementHex, verify, type InvoiceProof } from "../../zk/index.js";
 import { HttpError } from "./errors.js";
-import { PROVEN_THRESHOLD_CENTS, type ProofExpectations } from "./zkInputs.js";
+import type { ProofExpectations } from "./zkInputs.js";
 
 const HTTP_UNPROCESSABLE = 422;
 const MS_PER_SECOND = 1_000;
@@ -25,7 +26,7 @@ export async function certificateFromProof(proof: InvoiceProof, expected: ProofE
   const result = await verify(proof, {
     debtorsRoot: expected.debtorsRoot,
     account: expected.smeAccount,
-    threshold: PROVEN_THRESHOLD_CENTS,
+    threshold: loanTerms().provenThresholdCents,
     dueDate: provenDueDate(proof),
     networkId: expected.networkId,
     registry: expected.registry,
