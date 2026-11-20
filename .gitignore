@@ -4,3 +4,5 @@ node_modules/
 .wallets.*.json
 web/dist/
 .bari-state*
+test-results/
+playwright-report/
