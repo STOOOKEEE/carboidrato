@@ -714,3 +714,32 @@ h2 {
   font-family: var(--mono);
   font-size: 0.85rem;
 }
+
+/* Page transaction */
+
+.tx-hash {
+  margin: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.tx-facts dd {
+  overflow-wrap: anywhere;
+}
+
+.tx-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--mono);
+}
+
+.tx-raw {
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--muted);
+}

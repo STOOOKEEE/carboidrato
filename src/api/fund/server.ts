@@ -5,6 +5,7 @@ import { Client } from "xrpl";
 import { ensureActors } from "../../accounts/actors.js";
 import { loadNetworkConfig } from "../../config/network.js";
 import { log } from "../../lib/logger.js";
+import { xrplLedger } from "../../xrpl/ledger.js";
 import { releaseZkResources } from "../../zk/index.js";
 import { buildApp } from "./app.js";
 import { loadApiConfig } from "./config.js";
@@ -26,6 +27,7 @@ async function main(): Promise<void> {
   const events = new EventHub(network.explorerUrl);
   const app = await buildApp(config, {
     client,
+    ledger: xrplLedger(client),
     network,
     actors,
     store,

@@ -104,3 +104,43 @@ export interface KybResponse {
 export interface ApiError {
   error: string;
 }
+
+/** Certificat de facture relu dans les métadonnées du MPT facture : les signaux publics de la preuve. */
+export interface TxCertificate {
+  proofSystem: string;
+  /** Engagement C, empreinte N, pseudonyme P et racine des débiteurs (hex 32 octets). */
+  commitment: string;
+  nullifier: string;
+  pseudonym: string;
+  debtorsRoot: string;
+  /** PME prouvée et registre Bari (adresses XRPL). */
+  account: string;
+  registry: string;
+  networkId: number;
+  vintage: number;
+  thresholdCents: number;
+  /** Échéance en secondes Unix. */
+  dueDate: number;
+}
+
+/** Détail d'une transaction lu sur le nœud (`GET /api/tx/:hash`) : l'AlphaNet n'a pas d'explorer. */
+export interface TxDetail {
+  hash: string;
+  type: string;
+  /** Code du moteur (tesSUCCESS, tec…), absent sans métadonnées. */
+  result?: string;
+  validated: boolean;
+  ledgerIndex?: number;
+  /** Clôture du ledger, date ISO. */
+  closeTime?: string;
+  accounts: { role: string; address: string }[];
+  fields: { name: string; value: string }[];
+  createdObjects: { type: string; index: string }[];
+  /** Transactions internes d'un `Batch`. */
+  innerTransactions: { hash: string; type: string; account: string }[];
+  certificate?: TxCertificate;
+  /** Lien explorer, seulement sur un réseau qui en a un (devnet). */
+  explorerUrl?: string;
+  /** Transaction et métadonnées telles que renvoyées par le nœud. */
+  raw: { tx: unknown; meta: unknown };
+}
