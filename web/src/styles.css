@@ -717,6 +717,10 @@ h2 {
 
 /* Page transaction */
 
+.tx-title {
+  overflow-wrap: anywhere;
+}
+
 .tx-hash {
   margin: 0;
   color: var(--muted);
