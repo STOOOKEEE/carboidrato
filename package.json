@@ -13,6 +13,7 @@
     "zk:install-circom": "cargo install --locked --git https://github.com/iden3/circom.git --tag v2.2.2 --root circuits/.tools circom",
     "zk:setup": "bash circuits/scripts/setup.sh",
     "zk:test": "node --import tsx --test src/zk/*.test.ts",
+    "test": "node --import tsx --test \"src/**/*.test.ts\"",
     "audit": "tsx src/audit/main.ts",
     "api": "tsx src/api/server.ts",
     "api:fund": "tsx src/api/fund/server.ts",
