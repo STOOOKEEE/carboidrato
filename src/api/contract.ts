@@ -1,4 +1,4 @@
-// Contrat entre l'API de pré-contrôle et le front (web/) : types seuls, sans dépendance Node,
+// Contrat entre l'API du fonds et le front (web/) : types seuls, sans dépendance Node,
 // pour être importés tels quels par le navigateur.
 
 export const ATTESTED_INVOICE_FORMAT = "bari.attested-invoice.v1";
@@ -43,7 +43,7 @@ export interface PublicDebtor {
 }
 
 /** Contrôles, dans l'ordre d'affichage ; le libellé de chacun appartient au front. */
-export const CHECK_IDS = ["signature", "debtor", "network", "dueDate", "unique"] as const;
+export const CHECK_IDS = ["signature", "debtor", "network", "amount", "dueDate", "unique"] as const;
 export type CheckId = (typeof CHECK_IDS)[number];
 
 export interface CheckResult {
@@ -51,9 +51,10 @@ export interface CheckResult {
   ok: boolean;
 }
 
-/** Offre de financement, montants en euros arrondis au centime. */
+/** Offre de financement du fonds, montants en euros arrondis au centime : l'avance est fixe, adossée au seuil prouvé. */
 export interface LoanOffer {
-  invoiceEur: number;
+  /** La preuve garantit que la facture vaut au moins ce montant ; son montant exact reste privé. */
+  provenThresholdEur: number;
   advanceRatePercent: number;
   principalEur: number;
   feeEur: number;
@@ -85,7 +86,52 @@ export interface PrecheckResponse {
   kyb: { account: string; done: boolean };
   /** Empreinte N (hex), publique : c'est elle qu'on cherche dans le registre. */
   nullifier: string;
+  /** Transaction qui a déjà enregistré N, si la facture est déjà financée. */
+  registeredBy?: string;
   offer?: LoanOffer;
+}
+
+/** Valeurs publiques que la preuve doit lier (`GET /api/proof/params`). */
+export interface ProofParams {
+  networkId: number;
+  /** Adresse XRPL du registre Bari. */
+  registry: string;
+  /** Seuil prouvé, en centimes (décimal). */
+  thresholdCents: string;
+  /** Millésime du fonds, portée du pseudonyme P. */
+  vintage: number;
+  /** Artefacts du circuit servis par l'API. */
+  artifacts: { wasm: string; zkey: string; verificationKey: string };
+}
+
+/** Enregistrement de N dans le registre on-chain (`GET /api/registry/:nullifier?account=`). */
+export interface RegistryLookup {
+  registered: boolean;
+  /** Dernière transaction qui a touché l'enregistrement (sa création). */
+  txHash?: string;
+}
+
+/** Corps de `POST /api/sme/certificate` : la preuve et ses signaux publics, rien du témoin. */
+export interface CertificateRequest {
+  proof: { pi_a: string[]; pi_b: string[][]; pi_c: string[]; protocol: string; curve: string };
+  publicSignals: string[];
+}
+
+/** Transaction soumise par l'API pendant une opération. */
+export interface SubmittedTx {
+  label: string;
+  hash: string;
+  result: string;
+}
+
+/** Réponse de `POST /api/sme/certificate` : MPT facture émis, valeurs publiques de la preuve. */
+export interface CertificateResponse {
+  tokenId: string;
+  nullifier: string;
+  pseudonym: string;
+  commitment: string;
+  proofSystem: string;
+  transactions: SubmittedTx[];
 }
 
 export interface KybRequest {
@@ -94,11 +140,16 @@ export interface KybRequest {
   vatNumber: string;
 }
 
+export interface KybStatus {
+  account: string;
+  done: boolean;
+}
+
 export interface KybResponse {
   account: string;
   done: true;
-  /** Lien explorer vers le credential KYB_PME. */
-  explorerUrl: string;
+  /** Transaction qui a émis ou accepté le credential KYB_PME (absente s'il existait déjà). */
+  txHash?: string;
 }
 
 export interface ApiError {

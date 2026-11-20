@@ -1,11 +1,14 @@
-// Artefacts du circuit servis en statique (le navigateur lance snarkjs.groth16.fullProve avec eux) et entrée du
-// circuit construite à partir d'une facture attestée.
+// Artefacts du circuit servis en statique (le navigateur lance snarkjs.groth16.fullProve avec eux), valeurs
+// publiques que la preuve doit lier, et entrée du circuit construite à partir d'une facture attestée.
 
 import { createReadStream } from "node:fs";
 import type { FastifyInstance } from "fastify";
+import { FUND_VINTAGE } from "../../../config/cohort.js";
+import { loanTerms } from "../../../lending/loanTerms.js";
 import { CIRCUIT_WASM_PATH, PROVING_KEY_PATH, VERIFICATION_KEY_PATH } from "../../../zk/constants.js";
 import { parseAttestedInvoice } from "../../attestedInvoice.js";
-import { proofExpectations, type ApiContext } from "../context.js";
+import type { ProofParams } from "../../contract.js";
+import { networkId, proofExpectations, type ApiContext } from "../context.js";
 import { HttpError } from "../errors.js";
 import { attestedInvoiceSchema } from "../schemas.js";
 import { buildProveInput, toCircuitInput } from "../zkInputs.js";
@@ -28,6 +31,19 @@ function artifactUrls() {
 
 export function registerZkRoutes(app: FastifyInstance, context: ApiContext): void {
   app.get("/api/zk", async () => artifactUrls());
+
+  app.get("/api/proof/params", async (): Promise<ProofParams> => ({
+    networkId: networkId(context),
+    registry: context.actors.bari_registry.address,
+    thresholdCents: loanTerms().provenThresholdCents.toString(),
+    // Sans fonds ouvert, le millésime par défaut : celui que le prochain fonds publiera.
+    vintage: context.store.current?.fund.manifest.vintage ?? FUND_VINTAGE,
+    artifacts: {
+      wasm: `${ZK_ARTIFACTS_PREFIX}bari_invoice.wasm`,
+      zkey: `${ZK_ARTIFACTS_PREFIX}bari_invoice_final.zkey`,
+      verificationKey: `${ZK_ARTIFACTS_PREFIX}verification_key.json`,
+    },
+  }));
 
   app.get<{ Params: { file: string } }>(`${ZK_ARTIFACTS_PREFIX}:file`, async (request, reply) => {
     const artifact = ARTIFACTS[request.params.file];

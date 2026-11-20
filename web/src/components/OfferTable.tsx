@@ -3,8 +3,8 @@ import { formatDate, formatEur, formatPercent } from "../format";
 
 export function OfferTable({ offer, dueDate }: { offer: LoanOffer; dueDate: string }) {
   const rows: [string, string][] = [
-    ["Invoice amount", formatEur(offer.invoiceEur)],
-    [`Advance (${formatPercent(offer.advanceRatePercent)})`, formatEur(offer.principalEur)],
+    ["Proven invoice value", `at least ${formatEur(offer.provenThresholdEur)}`],
+    [`Advance (${formatPercent(offer.advanceRatePercent)} of that)`, formatEur(offer.principalEur)],
     ["Processing fee", `− ${formatEur(offer.feeEur)}`],
     [`Interest (${formatPercent(offer.interestRatePercent)}/yr · ${offer.termDays} days)`, formatEur(offer.interestEur)],
     [`You repay on ${formatDate(dueDate)}`, formatEur(offer.repaymentEur)],

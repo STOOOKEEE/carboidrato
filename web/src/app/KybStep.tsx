@@ -3,8 +3,13 @@ import { submitKyb } from "../api";
 import { DitherCanvas } from "../dither/DitherCanvas";
 import { Button } from "../ui/Button";
 import { Notice } from "../ui/Notice";
+import { TxLink } from "../ui/TxLink";
 
-type KybState = { stage: "form" } | { stage: "verifying" } | { stage: "done"; explorerUrl: string } | { stage: "error"; message: string };
+type KybState =
+  | { stage: "form" }
+  | { stage: "verifying" }
+  | { stage: "done"; txHash?: string }
+  | { stage: "error"; message: string };
 
 interface KybStepProps {
   /** Compte XRPL connu (celui de la facture vérifiée), pré-rempli. */
@@ -24,7 +29,7 @@ export function KybStep({ account: initialAccount, alreadyDone, onDone }: KybSte
     setState({ stage: "verifying" });
     try {
       const response = await submitKyb({ account: account.trim(), company: company.trim(), vatNumber: vatNumber.trim() });
-      setState({ stage: "done", explorerUrl: response.explorerUrl });
+      setState({ stage: "done", txHash: response.txHash });
       onDone(response.account);
     } catch (error) {
       setState({ stage: "error", message: error instanceof Error ? error.message : String(error) });
@@ -48,10 +53,10 @@ export function KybStep({ account: initialAccount, alreadyDone, onDone }: KybSte
           <p className="muted">
             Your <code>KYB_PME</code> credential is on XRPL: Bari's lending checks read it before co-signing any loan.
           </p>
-          {state.stage === "done" && (
-            <a className="link" href={state.explorerUrl} target="_blank" rel="noreferrer">
-              See it on the explorer ↗
-            </a>
+          {state.stage === "done" && state.txHash !== undefined && (
+            <p className="muted small">
+              Credential transaction <TxLink hash={state.txHash} />
+            </p>
           )}
         </div>
       ) : (

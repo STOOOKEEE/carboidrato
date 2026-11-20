@@ -29,6 +29,12 @@ export const CHECK_COPY: Record<CheckId, CheckCopy> = {
     fail: "Issued for another ledger or registry",
     rejection: "Wrong network",
   },
+  amount: {
+    label: "Invoice value",
+    ok: "Worth at least the amount the proof will show",
+    fail: "Below the minimum invoice value this fund finances",
+    rejection: "Invoice too small",
+  },
   dueDate: {
     label: "Due date",
     ok: "Not yet due",

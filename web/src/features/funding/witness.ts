@@ -8,6 +8,8 @@ import type { AttestedInvoiceFile, PublicDebtor } from "../../../../src/api/cont
 /** Constantes du circuit (src/zk/constants.ts) : la parité est vérifiée par le fixture. */
 const MERKLE_DEPTH = 8;
 const EMPTY_LEAF = 0n;
+const NULLIFIER_DOMAIN = "bari.nullifier.v1";
+const HASH_32_HEX_LENGTH = 64;
 
 export type DebtorKey = PublicDebtor["publicKey"];
 
@@ -49,6 +51,10 @@ export function debtorTree(debtors: readonly PublicDebtor[]): DebtorTree {
     levels.push(above);
   }
   return { root: levels[MERKLE_DEPTH][0], levels };
+}
+
+export function isListed(tree: DebtorTree, key: DebtorKey): boolean {
+  return tree.levels[0].includes(leafOf(key));
 }
 
 /** Chemin d'appartenance d'un débiteur ; échoue s'il n'est pas dans la liste, la preuve serait impossible. */
@@ -94,4 +100,17 @@ export function buildCircuitInput({ file, debtors, threshold, vintage, blinding 
     registry: accountToField(attestation.registry).toString(),
     vintage: vintage.toString(),
   };
+}
+
+/** Entrée qui ne contraint que la signature : arbre réduit au débiteur attesté, seuil et aléa nuls. */
+export function signatureCheckInput(file: AttestedInvoiceFile): CircuitInput {
+  const attested: PublicDebtor = { name: file.invoice.debtorName, ipaCode: "", publicKey: file.attestation.debtorPublicKey };
+  return buildCircuitInput({ file, debtors: [attested], threshold: 0n, vintage: 0n, blinding: 0n });
+}
+
+/** Empreinte N = Poseidon(DOMAINE_N, uuid), sortie publique du circuit, en hex majuscules sur 32 octets. */
+export function invoiceNullifier(uuidHex: string): string {
+  const domain = BigInt(`0x${Array.from(NULLIFIER_DOMAIN, (char) => char.charCodeAt(0).toString(16)).join("")}`);
+  const nullifier = poseidon2([domain, BigInt(`0x${uuidHex}`)]);
+  return nullifier.toString(16).toUpperCase().padStart(HASH_32_HEX_LENGTH, "0");
 }

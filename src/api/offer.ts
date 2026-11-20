@@ -1,10 +1,10 @@
-// Offre de prêt pour une facture attestée : mêmes règles que les prêts on-chain (src/config/finance.ts),
-// sur la durée réelle restant jusqu'à l'échéance.
+// Offre de prêt du fonds : avance fixe (src/config/finance.ts) adossée au seuil prouvé, sur la durée réelle restant
+// jusqu'à l'échéance. Le montant exact de la facture n'y entre pas : il reste dans le navigateur de la PME.
 
 import { ADVANCE_RATE_PERCENT, INTEREST_RATE_PERCENT } from "../config/finance.js";
 import { theoreticalLoanEconomics } from "../lending/economics.js";
 import { loanTerms } from "../lending/loanTerms.js";
-import { centsToUnits, unitsToEur } from "../lib/amounts.js";
+import { CENTS_PER_EUR, unitsToEur } from "../lib/amounts.js";
 import type { LoanOffer } from "./contract.js";
 
 const SECONDS_PER_DAY = 86_400;
@@ -14,12 +14,11 @@ export function daysUntil(dueDateSeconds: number, nowSeconds: number): number {
   return Math.max(0, Math.ceil((dueDateSeconds - nowSeconds) / SECONDS_PER_DAY));
 }
 
-export function buildOffer(amountCents: number, termDays: number): LoanOffer {
-  const invoice = centsToUnits(amountCents);
-  const terms = loanTerms(invoice);
-  const economics = theoreticalLoanEconomics(invoice, termDays);
+export function fundOffer(termDays: number): LoanOffer {
+  const terms = loanTerms();
+  const economics = theoreticalLoanEconomics(undefined, termDays);
   return {
-    invoiceEur: unitsToEur(invoice),
+    provenThresholdEur: Number(terms.provenThresholdCents) / CENTS_PER_EUR,
     advanceRatePercent: ADVANCE_RATE_PERCENT,
     principalEur: unitsToEur(terms.principal),
     feeEur: unitsToEur(terms.originationFee),

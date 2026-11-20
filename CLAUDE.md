@@ -25,8 +25,8 @@
 ## Commandes
 - `npm run demo` (nominal, ~6,5 min sur devnet) ; `npm run demo:default` (défaut + first-loss)
 - `npm run audit -- <ID du Vault ou du LoanBroker>`
-- Front : `npm run api` + `npm run web` (http://localhost:5173) ; `npm run samples` régénère les 4 factures d'exemple (valide, falsifiée, déjà financée, débiteur inconnu ; enregistre un N sur devnet). Prérequis : comptes de `npm run demo`
-- API du fonds : `npm run api:fund` (127.0.0.1:8788, CORS `API_CORS_ORIGIN`, défaut localhost:5173) ; `npm run api:smoke` : test de bout en bout avec preuve côté client (~6,5 min). À fusionner à terme avec `npm run api`
+- Front : `npm run api:fund` + `npm run web` (http://localhost:5173, proxy `/api` vers 8788) ; le pré-contrôle et la preuve tournent dans le navigateur. `npm run samples` régénère les 4 factures d'exemple (valide, falsifiée, déjà financée, débiteur inconnu ; enregistre un N sur le réseau). Prérequis : comptes de `npm run demo`
+- API du fonds (unique) : `npm run api:fund`, alias `npm run api` (127.0.0.1:8788, CORS `API_CORS_ORIGIN`, défaut localhost:5173) ; `npm run api:smoke` : test de bout en bout avec preuve côté client (~6,5 min) ; `npx playwright test` : e2e
 - `npm test` (tous les tests : carte des composants + ZK) ; `npm run typecheck` (back + web) ; `npm run zk:test` ; `npm run web:build`
 - ZK : `npm run zk:install-circom` puis `npm run zk:setup`, **une seule fois pour tout le projet (déjà fait)**. Sur une autre machine, copier `circuits/build/bari_invoice_final.zkey` depuis celle du setup : relancer change la vkey et invalide les preuves existantes
 - Alphanet : `bash infra/alphanet/build.sh` puis `run.sh` sur hermes ; `bash infra/alphanet/tunnel.sh` sur le Mac, puis `XRPL_WS=ws://127.0.0.1:51233`

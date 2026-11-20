@@ -1,9 +1,10 @@
-// Pipeline de la simulation : lecture du fichier déposé, appel du pré-contrôle, durée minimale d'analyse
-// (pour laisser le temps à l'animation de scan), puis mémorisation d'un résultat éligible pour l'app.
+// Pipeline de la simulation : lecture du fichier déposé, pré-contrôle calculé dans le navigateur, durée minimale
+// d'analyse (pour laisser le temps à l'animation de scan), puis mémorisation d'un résultat éligible pour l'app.
 
 import { useCallback, useState } from "react";
 import type { PrecheckResponse } from "../../../src/api/contract";
-import { checkInvoice } from "../api";
+import { parseAttestedFile } from "../features/funding/precheck";
+import { precheckInBrowser } from "../features/funding/sources";
 import { parseJsonOrUndefined } from "../json";
 import { savePrecheck } from "../session";
 
@@ -28,13 +29,13 @@ export function useInvoiceCheck(onEligible?: (result: PrecheckResponse) => void)
       setState({ stage: "analyzing", fileName });
       const minimumDuration = delay(MIN_ANALYSIS_MS);
       try {
-        const invoice = parseJsonOrUndefined(await readContent());
+        const invoice = parseAttestedFile(parseJsonOrUndefined(await readContent()));
         if (invoice === undefined) {
           await minimumDuration;
           setState({ stage: "unattested", fileName });
           return;
         }
-        const result = await checkInvoice(invoice);
+        const result = await precheckInBrowser(invoice);
         await minimumDuration;
         if (result.verdict === "eligible") {
           savePrecheck(result);
