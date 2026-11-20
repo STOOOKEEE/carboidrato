@@ -1,0 +1,4 @@
+# Binaire circom compilé localement (npm run zk:install-circom)
+.tools/
+# Sorties volumineuses du setup : r1cs, ptau, zkey
+build/
