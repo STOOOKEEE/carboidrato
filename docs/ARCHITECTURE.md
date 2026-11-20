@@ -35,7 +35,7 @@ Une flèche signifie « peut importer les couches en dessous », à n'importe qu
 | 7 | `audit` | audit public du fonds, depuis le ledger seul | config, fund, invoice, lib, xrpl, zk | `auditFund` | — |
 | 7 | `setup` | mise en place du fonds : stablecoin, domaine des prêteurs, Vault fermé, LoanBroker | accounts, config, fund, invoice, kyb, lending, lib, xrpl | `setupFund` | — |
 | 8 | `api` | un serveur Fastify (port 8788 : fonds, lectures publiques du pré-contrôle, paramètres de la preuve, certificat, prêt, audit, détail de transaction, SSE) ; `contract.ts` = types partagés avec le front | toutes les couches inférieures | `contract.ts`, `attestedInvoice.ts` | `offer.test.ts`, `routes/txRoutes.test.ts` (faux `Ledger`, exige la zkey) ; `npm run api:smoke` (devnet) |
-| 9 | `demo` | scénarios en ligne de commande (`demo`, `samples`) | toutes les couches inférieures | — | `npm run demo` (devnet) |
+| 9 | `demo` | scénarios en ligne de commande (`demo`, `demo:fund`, `samples`) ; étapes communes dans `financing.ts` | toutes les couches inférieures | — | `fundReuse.test.ts` ; `npm run demo` (devnet), `npm run demo:fund` (fonds durable repris par l'API) |
 | — | `web` | front React/Vite : landing, KYB, pré-contrôle et preuve Groth16 calculés dans le navigateur (`features/funding`), détail de transaction | `src/api/contract.ts` | — | `features/**/*.test.ts` ; e2e Playwright (`web/e2e`) |
 
 ## Le port `Ledger`

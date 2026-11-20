@@ -9,6 +9,7 @@
   "scripts": {
     "demo": "tsx src/demo/main.ts",
     "demo:default": "tsx src/demo/main.ts --default",
+    "demo:fund": "tsx src/demo/fund.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p web && tsc --noEmit -p web/e2e",
     "zk:install-circom": "cargo install --locked --git https://github.com/iden3/circom.git --tag v2.2.2 --root circuits/.tools circom",
     "zk:setup": "bash circuits/scripts/setup.sh",
