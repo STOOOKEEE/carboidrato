@@ -10,7 +10,7 @@ import { toAttestedInvoiceFile } from "../../attestedInvoice.js";
 import { networkId, type ApiContext } from "../context.js";
 import { HttpError } from "../errors.js";
 import { attestSchema, debtorPathSchema, type AttestBody, type DebtorPathQuery } from "../schemas.js";
-import { debtorPath } from "../zkInputs.js";
+import { debtorPath, publicDebtors } from "../zkInputs.js";
 
 const HTTP_BAD_REQUEST = 400;
 const MS_PER_SECOND = 1_000;
@@ -59,7 +59,7 @@ export function registerDebtorRoutes(app: FastifyInstance, context: ApiContext):
     );
   });
 
-  app.get("/api/debtors", async () => VERIFIED_DEBTORS);
+  app.get("/api/debtors", publicDebtors);
 
   app.get<{ Querystring: DebtorPathQuery }>("/api/debtors/path", { schema: debtorPathSchema }, async (request) => {
     const debtor = await deriveDebtor(findDebtor(request.query.debtor).name);
