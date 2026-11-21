@@ -18,6 +18,8 @@ export interface ApiConfig {
   corsOrigins: string[];
   /** Fichier (gitignoré) où l'état du fonds courant est persisté. */
   stateFile: string;
+  /** Comptes des utilisateurs (gitignoré, seeds des comptes gérés) : à côté de l'état, suffixe `.users.json`. */
+  usersFile: string;
 }
 
 function readEnv(name: string): string | undefined {
@@ -41,10 +43,12 @@ function defaultStateFile(walletsFile: string): string {
 
 export function loadApiConfig(network: NetworkConfig): ApiConfig {
   const origins = readEnv("API_CORS_ORIGIN");
+  const stateFile = readEnv("BARI_STATE_FILE") ?? defaultStateFile(network.walletsFile);
   return {
     host: readEnv("API_FUND_HOST") ?? DEFAULT_HOST,
     port: readPort(),
     corsOrigins: origins === undefined ? DEFAULT_CORS_ORIGINS : origins.split(",").map((origin) => origin.trim()),
-    stateFile: readEnv("BARI_STATE_FILE") ?? defaultStateFile(network.walletsFile),
+    stateFile,
+    usersFile: stateFile.replace(/\.json$/, "").concat(".users.json"),
   };
 }

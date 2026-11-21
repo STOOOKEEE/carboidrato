@@ -6,6 +6,7 @@ import type { ApiConfig } from "./config.js";
 import type { ApiContext } from "./context.js";
 import { makeErrorHandler } from "./errors.js";
 import { registerAuditRoutes } from "./routes/auditRoutes.js";
+import { registerAuthRoutes } from "./routes/authRoutes.js";
 import { registerDebtorRoutes } from "./routes/debtorRoutes.js";
 import { registerEventRoutes } from "./routes/eventRoutes.js";
 import { registerFundRoutes } from "./routes/fundRoutes.js";
@@ -29,6 +30,7 @@ export async function buildApp(config: ApiConfig, context: ApiContext): Promise<
   app.setReplySerializer(serializeJson);
   app.setErrorHandler(makeErrorHandler((hash) => context.events.transactionUrl(hash)));
 
+  registerAuthRoutes(app, context);
   registerFundRoutes(app, context);
   registerDebtorRoutes(app, context);
   registerZkRoutes(app, context);

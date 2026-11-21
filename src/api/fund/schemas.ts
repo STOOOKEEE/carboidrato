@@ -180,3 +180,63 @@ export const loanParamsSchema = {
     properties: { id: { type: "string", pattern: HASH_32_PATTERN } },
   },
 } as const;
+
+const EMAIL_PATTERN = "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$";
+const MAX_EMAIL_LENGTH = 254;
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 128;
+const COUNTRY_PATTERN = "^[A-Z]{2}$";
+/** Préfixe pays puis 2 à 13 caractères, espaces tolérés (normalisés à l'enregistrement). */
+const VAT_PATTERN = "^\\s*[A-Za-z]{2}[0-9A-Za-z ]{2,20}$";
+const IPA_CODES = VERIFIED_DEBTORS.map((debtor) => debtor.ipaCode);
+
+const credentials = {
+  email: { type: "string", pattern: EMAIL_PATTERN, maxLength: MAX_EMAIL_LENGTH },
+  password: { type: "string", minLength: MIN_PASSWORD_LENGTH, maxLength: MAX_PASSWORD_LENGTH },
+} as const;
+const companyField = { type: "string", minLength: 1, maxLength: MAX_COMPANY_FIELD_LENGTH } as const;
+
+function signupVariant(role: string, profile: object) {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["email", "password", "role", "profile"],
+    properties: { ...credentials, role: { type: "string", const: role }, profile },
+  } as const;
+}
+
+function profileSchema(properties: Record<string, object>) {
+  return { type: "object", additionalProperties: false, required: Object.keys(properties), properties } as const;
+}
+
+export const signupSchema = {
+  body: {
+    oneOf: [
+      signupVariant(
+        "lender",
+        profileSchema({
+          name: companyField,
+          country: { type: "string", pattern: COUNTRY_PATTERN },
+          riskAcknowledged: { type: "boolean", const: true },
+        }),
+      ),
+      signupVariant(
+        "business",
+        profileSchema({ company: companyField, vatNumber: { type: "string", pattern: VAT_PATTERN } }),
+      ),
+      signupVariant("public_body", profileSchema({ ipaCode: { type: "string", enum: IPA_CODES } })),
+    ],
+  },
+} as const;
+
+export const signinSchema = {
+  body: {
+    type: "object",
+    additionalProperties: false,
+    required: ["email", "password"],
+    properties: {
+      email: { type: "string", minLength: 1, maxLength: MAX_EMAIL_LENGTH },
+      password: { type: "string", minLength: 1, maxLength: MAX_PASSWORD_LENGTH },
+    },
+  },
+} as const;

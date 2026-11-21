@@ -3,6 +3,8 @@
 
 import { Client } from "xrpl";
 import { ensureActors } from "../../accounts/actors.js";
+import { makeProvisioner } from "../../accounts/provisioning.js";
+import { UserStore } from "../../accounts/userStore.js";
 import { loadNetworkConfig } from "../../config/network.js";
 import { log } from "../../lib/logger.js";
 import { xrplLedger } from "../../xrpl/ledger.js";
@@ -33,6 +35,8 @@ async function main(): Promise<void> {
     store,
     events,
     operations: new OperationQueue(events),
+    users: new UserStore(config.usersFile),
+    provisionAccount: makeProvisioner(client, network),
   });
   app.addHook("onClose", async () => {
     events.close();

@@ -156,6 +156,45 @@ export interface ApiError {
   error: string;
 }
 
+export type UserRole = "lender" | "business" | "public_body";
+
+/** Niveau de vérification affiché tel quel : le KYC des prêteurs et des entreprises est déclaratif. */
+export type VerificationLevel = "basic (self-declared)" | "verified public body registry";
+
+/** Formulaire d'inscription, un profil par rôle (KYC léger). */
+export type SignupRequest = { email: string; password: string } & (
+  | { role: "lender"; profile: { name: string; country: string; riskAcknowledged: true } }
+  | { role: "business"; profile: { company: string; vatNumber: string } }
+  | { role: "public_body"; profile: { ipaCode: string } }
+);
+
+export interface SigninRequest {
+  email: string;
+  password: string;
+}
+
+/** Compte de la session (`GET /api/me`) : jamais de seed ni de haché. */
+export type AccountView = {
+  email: string;
+  /** Compte XRPL géré par Bari (absent pour un organisme public). */
+  address?: string;
+  verification: VerificationLevel;
+} & (
+  | { role: "lender"; profile: { name: string; country: string } }
+  | { role: "business"; profile: { company: string; vatNumber: string } }
+  | { role: "public_body"; profile: { ipaCode: string; name: string } }
+);
+
+export interface SignupResponse {
+  user: AccountView;
+  /** Transactions d'ouverture du compte, pour l'écran « Verifying… ». */
+  transactions: SubmittedTx[];
+}
+
+export interface SigninResponse {
+  user: AccountView;
+}
+
 /** Certificat de facture relu dans les métadonnées du MPT facture : les signaux publics de la preuve. */
 export interface TxCertificate {
   proofSystem: string;
