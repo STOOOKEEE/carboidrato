@@ -102,4 +102,30 @@ describe("UserStore", () => {
     assert.ok(!raw.includes(PASSWORD));
     assert.equal(statSync(file).mode & PERMISSION_BITS, OWNER_ONLY);
   });
+
+  test("prix de revient d'un prêteur : achats cumulés, vente au prorata, persisté", async () => {
+    const file = freshFile();
+    const store = new UserStore(file);
+    const { id } = await store.create(lender, managed);
+    assert.deepEqual(store.costBasis(id), { shares: 0n, cost: 0n });
+
+    store.recordPurchase(id, { shares: 1_000n, cost: 1_020n });
+    store.recordPurchase(id, { shares: 500n, cost: 520n });
+    assert.deepEqual(store.costBasis(id), { shares: 1_500n, cost: 1_540n });
+
+    // Le prix moyen ne bouge pas à la vente : le coût sort au prorata des parts vendues.
+    store.recordSale(id, 300n);
+    assert.deepEqual(new UserStore(file).costBasis(id), { shares: 1_200n, cost: 1_232n });
+
+    store.recordSale(id, 2_000n);
+    assert.deepEqual(store.costBasis(id), { shares: 0n, cost: 0n });
+  });
+
+  test("compte enregistré avant le suivi du prix de revient : relu sans position", async () => {
+    const file = freshFile();
+    const { id } = await new UserStore(file).create(lender, managed);
+    const raw = JSON.parse(readFileSync(file, "utf8")) as { users: Record<string, unknown>[] };
+    assert.equal(raw.users[0]?.costBasis, undefined);
+    assert.deepEqual(new UserStore(file).costBasis(id), { shares: 0n, cost: 0n });
+  });
 });
