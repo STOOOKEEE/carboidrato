@@ -11,3 +11,12 @@ export function isReusable(state: FundState, now: number): boolean {
   const { subscriptionDate, redemptionDate } = state.fund.cohort;
   return now >= subscriptionDate && redemptionDate - now >= MIN_REMAINING_INVESTMENT_S;
 }
+
+/** Remboursements d'avance que la mairie doit pouvoir payer (e2e et répétitions du pitch sur le fonds durable). */
+export const MAIRIE_REPAYMENTS_AHEAD = 3;
+
+/** EURc à envoyer à la mairie pour revenir au plancher (0 si elle l'atteint déjà). */
+export function mairieTopUp(balance: bigint, repayment: bigint): bigint {
+  const floor = repayment * BigInt(MAIRIE_REPAYMENTS_AHEAD);
+  return balance >= floor ? 0n : floor - balance;
+}
