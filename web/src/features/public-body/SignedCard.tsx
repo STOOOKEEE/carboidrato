@@ -36,7 +36,7 @@ export function SignedCard({ file, fileName, supplier, onAnother }: SignedCardPr
     <section className="step" data-testid="signed-invoice">
       <h2>Signed. Send this PDF to your supplier</h2>
       <p className="muted">
-        <span className="mono">{fileName}</span> is in your downloads. {supplier.company} drops it in their Bari space to
+        <span className="mono">{fileName}</span> is in your downloads. {supplier.company} drops it in their Atlas space to
         get paid now: it carries your signature, and the invoice stays between you and them.
       </p>
       <Facts

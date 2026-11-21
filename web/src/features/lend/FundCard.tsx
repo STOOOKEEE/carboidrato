@@ -25,7 +25,7 @@ export function FundCard({ position, fund }: { position: LenderPosition; fund: L
     facts.push(
       { label: "In the fund", value: formatRlusdUnits(BigInt(fund.vault.assetsTotal)) },
       { label: "Lent to businesses", value: formatPercent(utilisationPercent(fund.vault)) },
-      { label: "First-loss cover from Bari", value: formatRlusdUnits(BigInt(fund.broker.coverAvailable)) },
+      { label: "First-loss cover from Atlas", value: formatRlusdUnits(BigInt(fund.broker.coverAvailable)) },
       { label: "Invoices financed", value: String(fund.loans.length) },
     );
   }
@@ -37,7 +37,7 @@ export function FundCard({ position, fund }: { position: LenderPosition; fund: L
         <p className="muted small">The fund's other figures are unavailable right now: reload the page to try again.</p>
       )}
       <p className="muted small">
-        Bari's first-loss cover absorbs the first defaults before lenders do.{" "}
+        Atlas's first-loss cover absorbs the first defaults before lenders do.{" "}
         <a className="link" href={TRANSPARENCY_ROUTE}>
           Check every loan and its proof
         </a>

@@ -39,7 +39,7 @@ export function AccountCard({ user }: { user: AccountView }) {
       <h2>Your account</h2>
       <Facts facts={identityFacts(user)} />
       {user.address !== undefined && (
-        <Details summary={user.custody === "wallet" ? "your XRPL wallet, connected with Otsu" : "your XRPL account, managed by Bari"}>
+        <Details summary={user.custody === "wallet" ? "your XRPL wallet, connected with Otsu" : "your XRPL account, managed by Atlas"}>
           <p className="mono">{user.address}</p>
         </Details>
       )}

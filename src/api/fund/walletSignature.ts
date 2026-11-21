@@ -20,7 +20,7 @@ export function takeSigned<T extends { tx: SubmittableTransaction }>(store: Prep
   const pending = store.get(key);
   if (pending === undefined) throw new HttpError(HTTP_CONFLICT, "Nothing is waiting for your signature. Start again.");
   if (!matchesPrepared(pending.tx, txBlob)) {
-    throw new HttpError(HTTP_BAD_REQUEST, "This is not the transaction Bari prepared. Start again.");
+    throw new HttpError(HTTP_BAD_REQUEST, "This is not the transaction Atlas prepared. Start again.");
   }
   store.delete(key);
   return pending;

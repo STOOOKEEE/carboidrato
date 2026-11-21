@@ -41,12 +41,12 @@ export type SignedFileReading = { ok: true; file: AttestedInvoiceFile } | { ok: 
 export function readSignedFile(text: string, account: string): SignedFileReading {
   const file = parseAttestedFile(parseJsonOrUndefined(text));
   if (file === undefined) {
-    return { ok: false, message: "This is not a signed Bari invoice. Drop the signed PDF your client sent you." };
+    return { ok: false, message: "This is not a signed Atlas invoice. Drop the signed PDF your client sent you." };
   }
   if (file.attestation.account !== account) {
     return {
       ok: false,
-      message: "This invoice was signed for another business account. Ask your client to sign it for your company on Bari.",
+      message: "This invoice was signed for another business account. Ask your client to sign it for your company on Atlas.",
     };
   }
   return { ok: true, file };
@@ -67,18 +67,18 @@ const CHECK_TEXT: Record<CheckRow["id"], { label: string; ok: string; fail: stri
   },
   debtor: {
     label: "Public body",
-    ok: "On Bari's list of verified public bodies",
-    fail: "This public body is not on Bari's verified list, so Bari cannot finance its invoices.",
+    ok: "On Atlas's list of verified public bodies",
+    fail: "This public body is not on Atlas's verified list, so Atlas cannot finance its invoices.",
   },
   network: {
     label: "Network",
-    ok: "Signed for Bari on this network",
-    fail: "The file was signed for another network. Ask your client to sign it on Bari.",
+    ok: "Signed for Atlas on this network",
+    fail: "The file was signed for another network. Ask your client to sign it on Atlas.",
   },
   amount: {
     label: "Amount",
     ok: "Covers at least the smallest tier of the offer",
-    fail: "The invoice is below the smallest amount Bari finances.",
+    fail: "The invoice is below the smallest amount Atlas finances.",
   },
   dueDate: {
     label: "Due date",
@@ -93,7 +93,7 @@ const CHECK_TEXT: Record<CheckRow["id"], { label: string; ok: string; fail: stri
   kyb: {
     label: "Your business",
     ok: "KYB_PME credential on your account",
-    fail: "KYB_PME credential missing on your account: Bari cannot lend without it.",
+    fail: "KYB_PME credential missing on your account: Atlas cannot lend without it.",
   },
 };
 
@@ -110,7 +110,7 @@ export function invoiceChecks(precheck: PrecheckResponse): CheckRow[] {
 export function getPaidBlocker(precheck: PrecheckResponse): string | undefined {
   const failed = invoiceChecks(precheck).find((row) => !row.ok);
   if (failed !== undefined) return failed.detail;
-  return precheck.offer === undefined ? "Bari has no offer for this invoice." : undefined;
+  return precheck.offer === undefined ? "Atlas has no offer for this invoice." : undefined;
 }
 
 export function isBusy(state: BusinessState): boolean {
@@ -156,7 +156,7 @@ const STEP_LABELS: Record<StepId, string> = {
   proof: "Proof computed in your browser",
   signCertificate: "Sign the certificate in Otsu",
   certificate: "Invoice certificate on the ledger",
-  checks: "Bari's checks",
+  checks: "Atlas's checks",
   signLoan: "Sign the loan in Otsu",
   loan: "Loan signed, money sent",
 };

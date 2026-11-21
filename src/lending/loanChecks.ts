@@ -85,7 +85,7 @@ async function proofOutcome(
     return { outcome: `The invoice certificate does not match the ledger: ${inspection.problems.join("; ")}` };
   }
   if (inspection.certificate === undefined || inspection.proof === undefined) return { outcome: "Unreadable invoice certificate" };
-  if (!inspection.heldByBari) return { outcome: "Bari does not hold the invoice token", certificate: inspection.certificate };
+  if (!inspection.heldByBari) return { outcome: "Atlas does not hold the invoice token", certificate: inspection.certificate };
   return { outcome: undefined, certificate: inspection.certificate };
 }
 
@@ -130,7 +130,7 @@ export async function reviewLoan(ledger: Ledger, parties: LoanParties, fund: Fun
   // dans aucun des fonds (LoanBroker) de Bari.
   const bariRecords = await listOwnerLoanRecords(ledger, parties.bari);
   const financed = bariRecords.some((record) => !(record.reference instanceof Error) && record.reference.nullifier === reference.nullifier);
-  outcomes.unique = financed ? "This invoice is already financed by a Bari loan" : undefined;
+  outcomes.unique = financed ? "This invoice is already financed by an Atlas loan" : undefined;
 
   if (terms === undefined) {
     outcomes.concentration = NEEDS_TIER;

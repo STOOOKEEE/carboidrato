@@ -141,7 +141,7 @@ export function signBlocker(state: PublicBodyState): string | undefined {
     case "looking":
       return "Looking up the supplier…";
     case "unknown":
-      return "The supplier needs a Bari account first";
+      return "The supplier needs an Atlas account first";
     case "failed":
       return "The supplier could not be looked up";
     case "found":

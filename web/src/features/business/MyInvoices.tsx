@@ -30,7 +30,7 @@ export function MyInvoices({ version }: { version: string }) {
   return (
     <section className="step" data-testid="my-invoices">
       <h2>My invoices</h2>
-      {view.status === "loading" && <Notice kind="info">Reading your invoices from Bari…</Notice>}
+      {view.status === "loading" && <Notice kind="info">Reading your invoices from Atlas…</Notice>}
       {view.status === "error" && <Notice kind="error">Could not load your invoices: {view.message} Reload the page to try again.</Notice>}
       {view.status === "ready" && view.rows.length === 0 && (
         <p className="muted">No invoice yet. Each invoice you turn into a certificate appears here, with its loan.</p>

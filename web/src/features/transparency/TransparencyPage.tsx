@@ -49,7 +49,7 @@ function useVerification(audit: FundAudit | undefined) {
         key.current = undefined;
         dispatch({
           type: "FAILED",
-          message: `Could not load the verification key from Bari's server (${messageOf(cause)}). Check your connection, then re-verify.`,
+          message: `Could not load the verification key from Atlas's server (${messageOf(cause)}). Check your connection, then re-verify.`,
         });
       });
   }, [audit]);
@@ -77,7 +77,7 @@ export function TransparencyPage() {
       {view.status === "error" && (
         <div className="lend-status">
           <Notice kind="error">Could not read the fund's loans from the ledger.</Notice>
-          <p className="muted small">Bari's server may be restarting: reload the page in a few seconds.</p>
+          <p className="muted small">Atlas's server may be restarting: reload the page in a few seconds.</p>
           <Details>
             <p className="mono small">{view.message}</p>
           </Details>

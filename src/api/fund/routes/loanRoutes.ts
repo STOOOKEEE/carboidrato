@@ -89,7 +89,7 @@ export function registerLoanRoutes(app: FastifyInstance, context: ApiContext, su
       const user = sessionUser(request, "business");
       const loan = borrowedLoan(context, request.params.id, user);
       const state = requireFund(context);
-      if (user.custody !== "wallet") throw new HttpError(HTTP_CONFLICT, "Bari repays this loan for its managed account.");
+      if (user.custody !== "wallet") throw new HttpError(HTTP_CONFLICT, "Atlas repays this loan for its managed account.");
       const borrower = user.address;
       const txBlob = request.body.tx_blob;
       takeSigned(repayments, loan.loanId, txBlob);

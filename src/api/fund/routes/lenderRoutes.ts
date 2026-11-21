@@ -194,7 +194,7 @@ function planDeposit(market: Market, amount: bigint): Plan {
   if (amount > market.rlusd) refuse(`Amount above your RLUSD balance (${market.rlusd} units)`);
   if (route === "native") return { route };
   if (amount > market.limits.maxEntryAmount) {
-    refuse(`Amount above the immediate entry cap (${market.limits.maxEntryAmount} RLUSD units of Bari's share stock)`);
+    refuse(`Amount above the immediate entry cap (${market.limits.maxEntryAmount} RLUSD units of Atlas's share stock)`);
   }
   const shares = entryShares(market.price, amount);
   if (shares === 0n) refuse("Amount too small to buy a share unit");
@@ -206,7 +206,7 @@ function planWithdraw(market: Market, shares: bigint): Plan {
   if (shares > market.shares) refuse(`Amount above your share balance (${market.shares} units)`);
   if (route === "native") return { route };
   if (shares > market.limits.maxExitShares) {
-    refuse(`Amount above the immediate exit cap (${market.limits.maxExitShares} share units covered by Bari's RLUSD reserve)`);
+    refuse(`Amount above the immediate exit cap (${market.limits.maxExitShares} share units covered by Atlas's RLUSD reserve)`);
   }
   const amount = exitPayout(market.price, shares);
   if (amount === 0n) refuse("Amount too small to receive a RLUSD unit");
@@ -248,8 +248,8 @@ function orderLabels(action: Action, plan: Plan, requested: bigint): string[] {
   }
   const { amount, shares } = plan.trade;
   return action === "deposit"
-    ? [`Pay ${shown(amount)} RLUSD to Bari`, `Receive ${shown(shares)} shares from Bari`]
-    : [`Sell ${shown(shares)} shares to Bari`, `Receive ${shown(amount)} RLUSD from Bari`];
+    ? [`Pay ${shown(amount)} RLUSD to Atlas`, `Receive ${shown(shares)} shares from Atlas`]
+    : [`Sell ${shown(shares)} shares to Atlas`, `Receive ${shown(amount)} RLUSD from Atlas`];
 }
 
 export function registerLenderRoutes(app: FastifyInstance, context: ApiContext, ports: LenderPorts, walletPorts: WalletTxPorts): void {
@@ -365,7 +365,7 @@ export function registerLenderRoutes(app: FastifyInstance, context: ApiContext, 
     const { fund } = requireFund(context);
     const issuer = context.actors.stable_issuer;
     if (fund.stablecoin.issuer !== issuer.address) {
-      throw new HttpError(HTTP_FORBIDDEN, "Test RLUSD are only available from Bari's test issuer");
+      throw new HttpError(HTTP_FORBIDDEN, "Test RLUSD are only available from Atlas's test issuer");
     }
     const amount = rlusdToUnits(FAUCET_RLUSD);
     const { result, transactions } = await context.operations.run("lender.faucet", () =>
@@ -401,7 +401,7 @@ export function registerLenderRoutes(app: FastifyInstance, context: ApiContext, 
       }
       const txBlob = request.body.tx_blob;
       if (!matchesPrepared(pending.tx, txBlob)) {
-        throw new HttpError(HTTP_BAD_REQUEST, "This is not the transaction Bari prepared. Start again.");
+        throw new HttpError(HTTP_BAD_REQUEST, "This is not the transaction Atlas prepared. Start again.");
       }
       // Oublié avant la soumission : la séquence est consommée quoi qu'il arrive, l'ordre ne se resoumet pas.
       prepared.delete(user.id);

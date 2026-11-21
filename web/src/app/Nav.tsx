@@ -18,7 +18,7 @@ export function Nav() {
     <header className="nav">
       <a className="logo" href={LANDING_ROUTE}>
         <SpiralMark size={34} className="logo-mark" />
-        bari
+        atlas
         <span className="logo-dot" aria-hidden="true">
           .
         </span>

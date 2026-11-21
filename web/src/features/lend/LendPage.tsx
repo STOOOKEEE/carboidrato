@@ -56,7 +56,7 @@ function depositExplanation(position: LenderPosition, fund: LendFund | undefined
     case "native":
       return "Subscription is open: your RLUSD go straight into the fund's vault, which issues your shares.";
     case "immediate":
-      return `The fund is lending${fund === undefined ? "" : ` until ${formatDate(fund.redemptionStartsAt)}`}: Bari sells you shares from its own stock at the share price, in one atomic transaction.`;
+      return `The fund is lending${fund === undefined ? "" : ` until ${formatDate(fund.redemptionStartsAt)}`}: Atlas sells you shares from its own stock at the share price, in one atomic transaction.`;
     case null:
       return "The fund is repaying its lenders: deposits are closed. You can still withdraw.";
   }
@@ -64,7 +64,7 @@ function depositExplanation(position: LenderPosition, fund: LendFund | undefined
 
 function withdrawExplanation(position: LenderPosition): string {
   return position.exit.route === "immediate"
-    ? `Bari buys your shares back now at the share price minus ${position.immediateExitDiscountPercent}%, in one atomic transaction. At maturity, you exit for free.`
+    ? `Atlas buys your shares back now at the share price minus ${position.immediateExitDiscountPercent}%, in one atomic transaction. At maturity, you exit for free.`
     : "Your shares go back to the fund's vault at the share price, with no fee.";
 }
 
@@ -128,7 +128,7 @@ export function LendPage({ user }: { user: AccountView }) {
               title="Deposit"
               explanation={depositExplanation(position, fund)}
               label="Amount in RLUSD"
-              hint={`Available: ${formatRlusdUnits(BigInt(position.rlusdBalance))}${entryCap === undefined ? "" : ` · Bari's share stock: ${formatRlusdUnits(BigInt(entryCap))}`}`}
+              hint={`Available: ${formatRlusdUnits(BigInt(position.rlusdBalance))}${entryCap === undefined ? "" : ` · Atlas's share stock: ${formatRlusdUnits(BigInt(entryCap))}`}`}
               check={(input) => checkDeposit(position, input)}
               previewFacts={(preview) => [
                 { label: "Route", value: ROUTE_LABELS[preview.route] },
@@ -147,7 +147,7 @@ export function LendPage({ user }: { user: AccountView }) {
               title="Withdraw"
               explanation={withdrawExplanation(position)}
               label="Shares to sell"
-              hint={`You hold ${formatShares(shares)} shares${exitCap === undefined ? "" : ` · Bari's reserve buys back up to ${formatShares(BigInt(exitCap))}`}`}
+              hint={`You hold ${formatShares(shares)} shares${exitCap === undefined ? "" : ` · Atlas's reserve buys back up to ${formatShares(BigInt(exitCap))}`}`}
               check={(input) => checkWithdraw(position, input)}
               previewFacts={(preview) => [
                 { label: "Route", value: ROUTE_LABELS[preview.route] },
@@ -165,7 +165,7 @@ export function LendPage({ user }: { user: AccountView }) {
                 shares === 0n
                   ? undefined
                   : {
-                      label: BigInt(position.exit.max) < shares ? "As many as Bari buys back now" : "All my shares",
+                      label: BigInt(position.exit.max) < shares ? "As many as Atlas buys back now" : "All my shares",
                       value: sharesInput(BigInt(position.exit.max)),
                     }
               }
@@ -187,7 +187,7 @@ export function LendPage({ user }: { user: AccountView }) {
         <span className="kicker">Lend</span>
         <h1>Your position.</h1>
         <p className="lead">
-          Your shares are a token on the XRP Ledger. Exit anytime: free at maturity, or now through Bari at −0.5%.
+          Your shares are a token on the XRP Ledger. Exit anytime: free at maturity, or now through Atlas at −0.5%.
         </p>
       </div>
       {content}

@@ -85,7 +85,7 @@ export function SigninPage({ role }: { role?: UserRole }) {
           </Button>
           {state.status === "failed" && <Notice kind="error">{state.message}</Notice>}
           <p className="muted small">
-            New to Bari?{" "}
+            New to Atlas?{" "}
             {signupRoles.map((signupRole, index) => (
               <span key={signupRole}>
                 {index > 0 && " · "}

@@ -73,9 +73,9 @@ function Registration({ address, token, role, onRegistered }: RegistrationProps)
 
   return (
     <form className="form step" onSubmit={submit} noValidate data-testid="wallet-registration">
-      <h2>New to Bari? Tell us who you are.</h2>
+      <h2>New to Atlas? Tell us who you are.</h2>
       <p className="muted">
-        Wallet <span className="mono">{address}</span> is verified. Bari never holds its keys.
+        Wallet <span className="mono">{address}</span> is verified. Atlas never holds its keys.
       </p>
       {role === undefined && (
         <Field label="Account type">
@@ -180,7 +180,7 @@ export function WalletSignin({ role }: { role?: WalletRole }) {
   const busy = phase.status === "busy";
   return (
     <div className="form">
-      <p className="muted">Sign with your Otsu wallet: Bari never sees your keys and nothing is sent to the ledger.</p>
+      <p className="muted">Sign with your Otsu wallet: Atlas never sees your keys and nothing is sent to the ledger.</p>
       <Button primary onClick={connect} disabled={busy} reason={busy ? STEP_LABELS[phase.step] : ""}>
         Connect Otsu wallet
       </Button>

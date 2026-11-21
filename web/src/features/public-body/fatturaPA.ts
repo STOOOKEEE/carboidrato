@@ -38,7 +38,7 @@ export function decimalToCents(text: string): bigint | undefined {
 /** Refus d'une facture hors dollars US, devise lue comprise. */
 export function currencyRefusal(currency: string | undefined): string {
   const read = currency === undefined ? "This invoice has no currency." : `This invoice is in ${currency}.`;
-  return `${read} Bari finances invoices in US dollars (${FINANCED_CURRENCY}) only.`;
+  return `${read} Atlas finances invoices in US dollars (${FINANCED_CURRENCY}) only.`;
 }
 
 export function isIsoDate(text: string): boolean {

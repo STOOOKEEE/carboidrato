@@ -54,7 +54,7 @@ export function BusinessPage({ user }: { user: AccountView }) {
       dispatch({ type: "FILE_CHECKED", file: reading.file, precheck: await precheckInBrowser(reading.file) });
     } catch (error) {
       const cause = error instanceof Error ? error.message : String(error);
-      dispatch({ type: "FILE_REJECTED", message: `Bari could not check this invoice: ${cause} Drop it again in a moment.` });
+      dispatch({ type: "FILE_REJECTED", message: `Atlas could not check this invoice: ${cause} Drop it again in a moment.` });
     }
   };
 

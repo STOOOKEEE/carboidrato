@@ -39,7 +39,7 @@ export function registerPublicBodyRoutes(app: FastifyInstance, context: Pick<Api
       const business = context.users.findBusinessByVat(request.params.vat);
       const address = business === undefined ? undefined : userAddress(business);
       if (business === undefined || address === undefined) {
-        throw new HttpError(HTTP_NOT_FOUND, "No business with this VAT number is registered on Bari");
+        throw new HttpError(HTTP_NOT_FOUND, "No business with this VAT number is registered on Atlas");
       }
       return { company: business.profile.company, vatNumber: business.profile.vatNumber, address };
     },

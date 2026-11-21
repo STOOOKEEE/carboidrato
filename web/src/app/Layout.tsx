@@ -14,7 +14,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <Nav />
         {children}
         <footer className="footer">
-          <span>bari · invoice financing on the XRP Ledger</span>
+          <span>atlas · invoice financing on the XRP Ledger</span>
           <a href={TRANSPARENCY_ROUTE}>Every loan, re-verifiable →</a>
         </footer>
       </div>

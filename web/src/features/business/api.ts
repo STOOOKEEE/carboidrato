@@ -19,7 +19,7 @@ import { certificateOutcome, loanOutcome, type FundingServices } from "./busines
 async function post(path: string, body: unknown): Promise<{ status: number; payload: unknown }> {
   const init = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
   const response = await fetch(path, init).catch(() => {
-    throw new Error("Bari did not answer. Check your connection, then try again.");
+    throw new Error("Atlas did not answer. Check your connection, then try again.");
   });
   return { status: response.status, payload: parseJsonOrUndefined(await response.text()) };
 }
