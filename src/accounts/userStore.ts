@@ -176,7 +176,7 @@ export class UserStore {
 
   /** Utilisateur dont le compte XRPL est `address` : son wallet, ou le compte que Bari gère pour lui. */
   findByAddress(address: string): UserRecord | undefined {
-    return this.data.users.find((user) => (user.custody === "wallet" ? user.address : user.account?.address) === address);
+    return this.data.users.find((user) => userAddress(user) === address);
   }
 
   findPublicBody(ipaCode: string): Extract<UserRecord, { role: "public_body" }> | undefined {

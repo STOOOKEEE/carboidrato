@@ -4,7 +4,7 @@
 
 import type { FastifyInstance } from "fastify";
 import { hashes, isValidClassicAddress, rippleTimeToISOTime, rippleTimeToUnixTime, Wallet, type LoanSet } from "xrpl";
-import type { UserRecord } from "../../../accounts/userStore.js";
+import { userAddress, type UserRecord } from "../../../accounts/userStore.js";
 import type { InvoiceCertificate } from "../../../invoice/certificate.js";
 import {
   CERTIFICATE_BATCH_LABEL,
@@ -101,13 +101,8 @@ function requireAddress(account: string): string {
   return account;
 }
 
-/** Compte XRPL de l'entreprise : son wallet, ou le compte que Bari gère pour elle. */
-function businessAccount(user: Business): string | undefined {
-  return user.custody === "wallet" ? user.address : user.account?.address;
-}
-
 function requireBusinessAccount(user: Business): string {
-  const account = businessAccount(user);
+  const account = userAddress(user);
   if (account === undefined) throw new HttpError(HTTP_CONFLICT, "This business has no XRPL account yet");
   return account;
 }
@@ -395,7 +390,7 @@ export function registerSmeRoutes(app: FastifyInstance, context: ApiContext, por
   );
 
   app.get("/api/business/invoices", { preHandler: businessOnly }, async (request): Promise<BusinessInvoice[]> => {
-    const account = businessAccount(sessionUser(request, "business"));
+    const account = userAddress(sessionUser(request, "business"));
     return account === undefined ? [] : businessInvoices(context, account);
   });
 }
