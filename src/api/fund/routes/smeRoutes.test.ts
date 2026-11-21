@@ -131,7 +131,7 @@ before(async () => {
       number: "IT-PA-2026-000901",
       issueDate: new Date("2026-11-01T00:00:00Z"),
       dueDate: new Date("2027-02-18T00:00:00Z"),
-      amountEur: 10_340,
+      amountUsd: 10_340,
     },
     smeAccount: marco.address,
     registry: actors.bari_registry.address,
@@ -262,7 +262,7 @@ describe("GET /api/offer", () => {
     assert.equal(response.statusCode, HTTP_OK);
     const offer = response.json<OfferSchedule>();
     assert.deepEqual(
-      offer.tiers.map(({ provenThresholdEur, principalEur, feeEur }) => [provenThresholdEur, principalEur, feeEur]),
+      offer.tiers.map(({ provenThresholdUsd, principalUsd, feeUsd }) => [provenThresholdUsd, principalUsd, feeUsd]),
       [
         [5_000, 4_500, 22.5],
         [10_000, 9_000, 45],

@@ -2,64 +2,64 @@
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { eurToCents, eurToUnits, rlusdToUnits } from "../lib/amounts.js";
+import { usdToCents, usdToUnits, rlusdToUnits } from "../lib/amounts.js";
 import {
   isOfferTier,
   loanPaymentInterval,
   loanTerms,
   maturityProblem,
-  OFFER_TIERS_EUR,
+  OFFER_TIERS_USD,
   offerTier,
   provenThresholdCents,
 } from "./loanTerms.js";
 
 describe("paliers de l'offre", () => {
-  test("les seuils publics sont 5 000, 10 000, 20 000, 50 000 et 100 000 €", () => {
-    assert.deepEqual(OFFER_TIERS_EUR, [5_000, 10_000, 20_000, 50_000, 100_000]);
+  test("les seuils publics sont 5 000, 10 000, 20 000, 50 000 et 100 000 $", () => {
+    assert.deepEqual(OFFER_TIERS_USD, [5_000, 10_000, 20_000, 50_000, 100_000]);
   });
 
-  test("une facture de 10 340 € relève du palier de 10 000 €", () => {
-    assert.equal(offerTier(eurToUnits(10_340)), eurToUnits(10_000));
+  test("une facture de 10 340 $ relève du palier de 10 000 $", () => {
+    assert.equal(offerTier(usdToUnits(10_340)), usdToUnits(10_000));
   });
 
   test("un montant égal à un seuil relève de ce palier ; au-delà du dernier, le dernier", () => {
-    assert.equal(offerTier(eurToUnits(5_000)), eurToUnits(5_000));
-    assert.equal(offerTier(eurToUnits(250_000)), eurToUnits(100_000));
+    assert.equal(offerTier(usdToUnits(5_000)), usdToUnits(5_000));
+    assert.equal(offerTier(usdToUnits(250_000)), usdToUnits(100_000));
   });
 
-  test("sous 5 000 € : aucune offre", () => {
-    assert.equal(offerTier(eurToUnits(4_999)), undefined);
-    assert.throws(() => loanTerms(eurToUnits(4_999)), /premier palier/);
+  test("sous 5 000 $ : aucune offre", () => {
+    assert.equal(offerTier(usdToUnits(4_999)), undefined);
+    assert.throws(() => loanTerms(usdToUnits(4_999)), /premier palier/);
   });
 
   test("seul un seuil public est un palier", () => {
-    assert.equal(isOfferTier(eurToCents(20_000)), true);
-    assert.equal(isOfferTier(eurToCents(12_000)), false);
+    assert.equal(isOfferTier(usdToCents(20_000)), true);
+    assert.equal(isOfferTier(usdToCents(12_000)), false);
   });
 
   test("le seuil prouvé d'un montant en centimes est son palier, en centimes ; aucun sous le premier", () => {
-    assert.equal(provenThresholdCents(eurToCents(10_340)), eurToCents(10_000));
-    assert.equal(provenThresholdCents(eurToCents(250_000)), eurToCents(100_000));
-    assert.equal(provenThresholdCents(eurToCents(4_999.99)), undefined);
+    assert.equal(provenThresholdCents(usdToCents(10_340)), usdToCents(10_000));
+    assert.equal(provenThresholdCents(usdToCents(250_000)), usdToCents(100_000));
+    assert.equal(provenThresholdCents(usdToCents(4_999.99)), undefined);
   });
 });
 
 describe("conditions du palier", () => {
-  test("palier de 10 000 € : avance 9 000 RLUSD, frais 45 RLUSD, la PME reçoit 8 955 RLUSD (1 € = 1 RLUSD)", () => {
-    const terms = loanTerms(eurToUnits(10_000));
+  test("palier de 10 000 $ : avance 9 000 RLUSD, frais 45 RLUSD, la PME reçoit 8 955 RLUSD (1 $ = 1 RLUSD)", () => {
+    const terms = loanTerms(usdToUnits(10_000));
     assert.equal(terms.principal, rlusdToUnits(9_000));
     assert.equal(terms.originationFee, rlusdToUnits(45));
     assert.equal(terms.netAdvance, rlusdToUnits(8_955));
-    assert.equal(terms.provenThresholdCents, eurToCents(10_000));
+    assert.equal(terms.provenThresholdCents, usdToCents(10_000));
   });
 
   test("l'avance dérive du palier, pas du montant exact de la facture", () => {
-    assert.deepEqual(loanTerms(eurToUnits(10_340)), loanTerms(eurToUnits(10_000)));
-    assert.equal(loanTerms(eurToUnits(60_000)).principal, rlusdToUnits(45_000));
+    assert.deepEqual(loanTerms(usdToUnits(10_340)), loanTerms(usdToUnits(10_000)));
+    assert.equal(loanTerms(usdToUnits(60_000)).principal, rlusdToUnits(45_000));
   });
 
-  test("les conditions de la facture type portent le palier de 10 000 €", () => {
-    assert.equal(loanTerms().provenThresholdCents, eurToCents(10_000));
+  test("les conditions de la facture type portent le palier de 10 000 $", () => {
+    assert.equal(loanTerms().provenThresholdCents, usdToCents(10_000));
   });
 });
 

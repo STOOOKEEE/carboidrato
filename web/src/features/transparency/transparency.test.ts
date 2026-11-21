@@ -27,7 +27,7 @@ const P1 = hex64("B1");
 const P2 = hex64("B2");
 const ROOT = hex64("0F");
 const VINTAGE = 2026;
-const EUR = 1_000_000n;
+const USD = 1_000_000n;
 
 /** Signaux publics dans l'ordre du circuit, liés à N, P, la racine et le millésime donnés. */
 function certificateFor(nullifier: string, pseudonym: string, root = ROOT): CertificateRequest {
@@ -55,8 +55,8 @@ function loan(sequence: number, nullifier: string, pseudonym: string, overrides:
     loanSequence: sequence,
     loanSetHash: hex64(`D${sequence}`),
     borrower: "rBusiness",
-    principal: (9_000n * EUR).toString(),
-    outstanding: (9_000n * EUR).toString(),
+    principal: (9_000n * USD).toString(),
+    outstanding: (9_000n * USD).toString(),
     status: "active",
     dueDate: "2027-02-18T12:00:00.000Z",
     reference: { nullifier, pseudonym, invoiceTokenId: "0A".repeat(24) },
@@ -67,7 +67,7 @@ function loan(sequence: number, nullifier: string, pseudonym: string, overrides:
 }
 
 /** 100 500 RLUSD d'actif ; P1 : un prêt en cours (9 000 RLUSD) et un remboursé ; P2 : 4 500 RLUSD en cours. */
-function auditOf(loans: AuditLoan[], fundAssets = 100_500n * EUR): FundAudit {
+function auditOf(loans: AuditLoan[], fundAssets = 100_500n * USD): FundAudit {
   return {
     vaultId: hex64("E1"),
     brokerId: hex64("E2"),
@@ -86,10 +86,10 @@ function auditOf(loans: AuditLoan[], fundAssets = 100_500n * EUR): FundAudit {
 const audit = auditOf([
   loan(1, N1, P1),
   loan(2, N2, P1, { status: "repaid", outstanding: "0", dueDate: undefined }),
-  loan(3, N3, P2, { principal: (4_500n * EUR).toString(), outstanding: (4_500n * EUR).toString() }),
+  loan(3, N3, P2, { principal: (4_500n * USD).toString(), outstanding: (4_500n * USD).toString() }),
 ]);
 
-const fund = { vault: { assetsTotal: (100_500n * EUR).toString(), assetsAvailable: (87_000n * EUR).toString() } };
+const fund = { vault: { assetsTotal: (100_500n * USD).toString(), assetsAvailable: (87_000n * USD).toString() } };
 
 describe("vérification des preuves dans le navigateur", () => {
   test("chaque preuve liée à son prêt et à la fiche du fonds passe au vérificateur", async () => {
@@ -173,8 +173,8 @@ describe("agrégats du fonds", () => {
         breach,
       })),
       [
-        { pseudonym: P1, loans: 2, outstanding: 9_000n * EUR, fundPercent: 8.95, barPercent: 44.77, breach: false },
-        { pseudonym: P2, loans: 1, outstanding: 4_500n * EUR, fundPercent: 4.47, barPercent: 22.38, breach: false },
+        { pseudonym: P1, loans: 2, outstanding: 9_000n * USD, fundPercent: 8.95, barPercent: 44.77, breach: false },
+        { pseudonym: P2, loans: 1, outstanding: 4_500n * USD, fundPercent: 4.47, barPercent: 22.38, breach: false },
       ],
     );
     assert.equal(rows[0].alias, "B1B1…B1B1");
@@ -182,7 +182,7 @@ describe("agrégats du fonds", () => {
   });
 
   test("dépassement du plafond : barre pleine et signalée ; fonds vide sans division par zéro", () => {
-    const [over] = exposures(auditOf([loan(1, N1, P1)], 40_000n * EUR));
+    const [over] = exposures(auditOf([loan(1, N1, P1)], 40_000n * USD));
     assert.equal(over.fundPercent, 22.5);
     assert.equal(over.barPercent, 100);
     assert.equal(over.breach, true);
@@ -196,7 +196,7 @@ describe("agrégats du fonds", () => {
       { id: "unique", label: "Each invoice financed once", ok: true, detail: "3 unique fingerprints for 3 loans" },
       { id: "concentration", label: "No debtor above 20% of the fund", ok: true, detail: "Largest exposure: 8.95% of the fund" },
     ]);
-    const bad = fundChecks(auditOf([loan(1, N1, P1), loan(2, N1, P1)], 40_000n * EUR));
+    const bad = fundChecks(auditOf([loan(1, N1, P1), loan(2, N1, P1)], 40_000n * USD));
     assert.deepEqual(
       bad.map(({ ok, detail }) => ({ ok, detail })),
       [

@@ -54,7 +54,7 @@ describe("parseRlusd / parseShares", () => {
   test("RLUSD saisis → unités exactes, sans dérive des flottants", () => {
     assert.deepEqual(parseRlusd("19.99"), { ok: true, units: 19_990_000n });
     assert.deepEqual(parseRlusd("1234567.89"), { ok: true, units: 1_234_567_890_000n });
-    assert.deepEqual(parseRlusd(" €5,000 "), { ok: true, units: 5_000_000_000n });
+    assert.deepEqual(parseRlusd(" $5,000 "), { ok: true, units: 5_000_000_000n });
     assert.deepEqual(parseRlusd("$5,000"), { ok: true, units: 5_000_000_000n });
     assert.deepEqual(parseRlusd("0.1"), { ok: true, units: 100_000n });
     assert.deepEqual(parseRlusd(".5"), { ok: true, units: 500_000n });

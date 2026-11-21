@@ -6,21 +6,21 @@ import type { AttestedInvoiceFile, ProofParams } from "../../src/api/contract";
 import { attestInvoice, deriveDebtor } from "../../src/zk/index";
 
 const MS_PER_SECOND = 1_000;
-const CENTS_PER_EUR = 100;
+const CENTS_PER_USD = 100;
 
 export interface InvoiceSpec {
   /** Numéro unique : les factures du pitch ne sont jamais financées par un test. */
   number: string;
   debtorName: string;
   supplierAccount: string;
-  amountEur: number;
+  amountUsd: number;
   dueDate: Date;
 }
 
 export async function signedInvoice(spec: InvoiceSpec, params: ProofParams): Promise<AttestedInvoiceFile> {
   const attestation = await attestInvoice(await deriveDebtor(spec.debtorName), {
     account: spec.supplierAccount,
-    amount: BigInt(Math.round(spec.amountEur * CENTS_PER_EUR)),
+    amount: BigInt(Math.round(spec.amountUsd * CENTS_PER_USD)),
     dueDate: BigInt(Math.floor(spec.dueDate.getTime() / MS_PER_SECOND)),
     invoiceNumber: spec.number.trim().toUpperCase().replace(/\s+/g, ""),
     networkId: params.networkId,

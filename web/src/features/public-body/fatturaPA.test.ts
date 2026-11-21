@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
-import { decimalToCents, isIsoDate, readFatturaPA, type FatturaInvoice } from "./fatturaPA";
+import { currencyRefusal, decimalToCents, isIsoDate, readFatturaPA, type FatturaInvoice } from "./fatturaPA";
 
 const MS_PER_DAY = 86_400_000;
 
@@ -25,8 +25,8 @@ function hasValidItalianChecksum(digits: string): boolean {
 }
 
 /** FatturaPA minimale, préfixe d'espace de noms au choix, champs retirables un à un. */
-function fattura(options: { prefix?: string; omit?: string[]; total?: string } = {}): string {
-  const { prefix = "p", omit = [], total = "10340.00" } = options;
+function fattura(options: { prefix?: string; omit?: string[]; total?: string; currency?: string } = {}): string {
+  const { prefix = "p", omit = [], total = "10340.00", currency = "USD" } = options;
   const tag = (name: string, content: string) => (omit.includes(name) ? "" : `<${name}>${content}</${name}>`);
   const root = prefix === "" ? "FatturaElettronica" : `${prefix}:FatturaElettronica`;
   const ns = prefix === "" ? "xmlns" : `xmlns:${prefix}`;
@@ -40,7 +40,7 @@ function fattura(options: { prefix?: string; omit?: string[]; total?: string } =
   </FatturaElettronicaHeader>
   <FatturaElettronicaBody>
     <DatiGenerali><DatiGeneraliDocumento>
-      <TipoDocumento>TD01</TipoDocumento>${tag("Data", "2026-11-20")}${tag("Numero", "FT-2026-0901")}
+      <TipoDocumento>TD01</TipoDocumento>${tag("Divisa", currency)}${tag("Data", "2026-11-20")}${tag("Numero", "FT-2026-0901")}
       ${tag("ImportoTotaleDocumento", total)}${tag("Causale", "Manutenzione strade")}
     </DatiGeneraliDocumento></DatiGenerali>
     <DatiBeniServizi><DettaglioLinee><Descrizione>Asfalto</Descrizione></DettaglioLinee></DatiBeniServizi>
@@ -53,7 +53,7 @@ function fattura(options: { prefix?: string; omit?: string[]; total?: string } =
 }
 
 describe("FatturaPA d'exemple (npm run samples)", () => {
-  test("FT-2026-0815 : 10 340,00 € à Comune di Bari, échéance à 90 jours", () => {
+  test("FT-2026-0815 : 10 340,00 $ à Comune di Bari, échéance à 90 jours", () => {
     const invoice = readSample("FT-2026-0815");
     assert.equal(invoice.number, "FT-2026-0815");
     assert.equal(invoice.amountCents, 1_034_000n);
@@ -125,6 +125,25 @@ describe("lecture d'une FatturaPA", () => {
       assert.ok(!reading.ok && reading.reason === "missing", total);
       assert.deepEqual(reading.missing, ["amount"]);
     }
+  });
+
+  test("une facture en dollars US est acceptée", () => {
+    assert.equal(readFatturaPA(fattura({ currency: "USD" })).ok, true);
+  });
+
+  test("une facture dans une autre devise est refusée, avec sa devise", () => {
+    for (const currency of ["GBP", "JPY"]) {
+      assert.deepEqual(readFatturaPA(fattura({ currency })), { ok: false, reason: "currency", currency });
+    }
+  });
+
+  test("une facture sans devise est refusée", () => {
+    assert.deepEqual(readFatturaPA(fattura({ omit: ["Divisa"] })), { ok: false, reason: "currency", currency: undefined });
+  });
+
+  test("le refus nomme la devise lue et la seule devise financée", () => {
+    assert.equal(currencyRefusal("GBP"), "This invoice is in GBP. Bari finances invoices in US dollars (USD) only.");
+    assert.equal(currencyRefusal(undefined), "This invoice has no currency. Bari finances invoices in US dollars (USD) only.");
   });
 
   test("un autre fichier n'est pas une FatturaPA", () => {

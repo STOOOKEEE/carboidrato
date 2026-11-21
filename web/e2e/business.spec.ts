@@ -29,7 +29,7 @@ async function signUpBusiness(request: APIRequestContext, id: string): Promise<s
   return user.address ?? "";
 }
 
-/** Facture unique de 10 340 € à 90 jours sur la Regione Puglia (jamais la Comune di Bari, réservée au pitch). */
+/** Facture unique de 10 340 $ à 90 jours sur la Regione Puglia (jamais la Comune di Bari, réservée au pitch). */
 async function invoiceFor(request: APIRequestContext, account: string, id: string): Promise<AttestedInvoiceFile> {
   const params = (await (await request.get("/api/proof/params")).json()) as ProofParams;
   return signedInvoice(
@@ -37,7 +37,7 @@ async function invoiceFor(request: APIRequestContext, account: string, id: strin
       number: `E2E-${id}`,
       debtorName: "Regione Puglia",
       supplierAccount: account,
-      amountEur: 10_340,
+      amountUsd: 10_340,
       dueDate: new Date(Date.now() + 90 * MS_PER_DAY),
     },
     params,
@@ -65,8 +65,8 @@ test("a business drops a signed invoice, gets paid now, and cannot finance it tw
       const checks = page.getByTestId("invoice-checks");
       await expect(checks.locator(".check")).toHaveCount(7);
       await expect(checks.locator(".check.fail")).toHaveCount(0);
-      await expect(page.locator(".offer-row", { hasText: /^Advance/ })).toContainText("€9,000.00");
-      await expect(page.locator(".offer-row", { hasText: /^Proven tier/ })).toContainText("€10,000.00");
+      await expect(page.locator(".offer-row", { hasText: /^Advance/ })).toContainText("$9,000.00");
+      await expect(page.locator(".offer-row", { hasText: /^Proven tier/ })).toContainText("$10,000.00");
       await expect(page.getByText("The exact amount stays private.")).toBeVisible();
       await capture(page, "business-offer");
     });
@@ -98,7 +98,7 @@ test("a business drops a signed invoice, gets paid now, and cannot finance it tw
       await page.getByTestId("funding-steps").locator('li[data-step="certificate"] a').click();
       await expect(page).toHaveURL(/#\/tx\/[0-9A-F]{64}$/);
       await expect(page.getByRole("heading", { name: "Invoice certificate" })).toBeVisible({ timeout: 30_000 });
-      await expect(page.locator(".offer-row", { hasText: "Proven minimum amount" })).toContainText("€10,000.00");
+      await expect(page.locator(".offer-row", { hasText: "Proven minimum amount" })).toContainText("$10,000.00");
       await page.goBack();
       await expect(page).toHaveURL(/#\/business$/);
     });

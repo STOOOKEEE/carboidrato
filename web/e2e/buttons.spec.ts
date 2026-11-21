@@ -576,7 +576,7 @@ test("a business signs up, gets paid for a signed invoice, follows every link an
       number: `BTN-${id}`,
       debtorName: REGIONE_PUGLIA.name,
       supplierAccount: user.address ?? "",
-      amountEur: Number(INVOICE_CENTS) / 100,
+      amountUsd: Number(INVOICE_CENTS) / 100,
       dueDate: new Date(Date.now() + TERM_DAYS * MS_PER_DAY),
     },
     params,

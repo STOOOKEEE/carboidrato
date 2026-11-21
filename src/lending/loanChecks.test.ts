@@ -35,7 +35,7 @@ const kybIssuer = Wallet.generate();
 const registry = Wallet.generate();
 const pseudoAccounts = [Wallet.generate().address, Wallet.generate().address];
 const parties: LoanParties = { borrower: business.address, bari: bari.address, kybIssuer: kybIssuer.address };
-/** Facture de 12 000 € prouvée au palier de 10 000 €, et une de 4 500 € prouvée à 4 000 € (sous le premier palier). */
+/** Facture de 12 000 $ prouvée au palier de 10 000 $, et une de 4 500 $ prouvée à 4 000 $ (sous le premier palier). */
 let certificate: InvoiceCertificate;
 let belowTierCertificate: InvoiceCertificate;
 
@@ -134,14 +134,14 @@ const referenceOf = (invoice: InvoiceCertificate): LoanReference => ({
   pseudonym: invoice.pseudonym,
 });
 
-function prove(number: string, amountEur: number, thresholdCents: bigint): Promise<InvoiceCertificate> {
+function prove(number: string, amountUsd: number, thresholdCents: bigint): Promise<InvoiceCertificate> {
   return produceInvoiceCertificate({
     invoice: {
       debtor: DEMO_DEBTOR,
       number,
       issueDate: new Date("2026-11-01T00:00:00Z"),
       dueDate: new Date("2027-02-18T00:00:00Z"),
-      amountEur,
+      amountUsd,
     },
     smeAccount: business.address,
     registry: registry.address,

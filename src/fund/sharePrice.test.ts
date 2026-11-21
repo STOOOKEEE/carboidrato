@@ -13,19 +13,19 @@ import {
   variableYieldTenthBips,
 } from "./sharePrice.js";
 
-const EUR = 1_000_000n;
+const USD = 1_000_000n;
 
 describe("sharePrice", () => {
   test("(AssetsTotal − LossUnrealized) / parts en circulation, en rationnel exact", () => {
-    const price = sharePrice({ assetsTotal: 103_000n * EUR, lossUnrealized: 1_000n * EUR, sharesOutstanding: 100_000n * EUR });
-    assert.deepEqual(price, { assets: 102_000n * EUR, shares: 100_000n * EUR });
+    const price = sharePrice({ assetsTotal: 103_000n * USD, lossUnrealized: 1_000n * USD, sharesOutstanding: 100_000n * USD });
+    assert.deepEqual(price, { assets: 102_000n * USD, shares: 100_000n * USD });
     assert.equal(perDisplayShare(price.assets, price.shares), 1_020_000n);
   });
 
   test("Vault vide : une part au pair (une unité de part pour une unité de RLUSD)", () => {
     const price = sharePrice({ assetsTotal: 0n, lossUnrealized: 0n, sharesOutstanding: 0n });
     assert.equal(perDisplayShare(price.assets, price.shares), SHARE_DISPLAY_UNITS);
-    assert.equal(positionValue(price, 5n * EUR), 5n * EUR);
+    assert.equal(positionValue(price, 5n * USD), 5n * USD);
   });
 
   test("valeur d'une position arrondie à l'unité inférieure", () => {
@@ -45,7 +45,7 @@ describe("cotations immédiates", () => {
 
   test("sortie : parts → RLUSD au prix de la part −0,5 %", () => {
     assert.equal(exitPayout(price, 1_000n), 1_014n);
-    assert.equal(exitPayout(price, 100n * EUR), 101_490_000n);
+    assert.equal(exitPayout(price, 100n * USD), 101_490_000n);
   });
 
   test("plafonds : stock de parts de Bari à l'entrée, réserve RLUSD de Bari à la sortie", () => {
@@ -76,23 +76,23 @@ describe("cotations immédiates", () => {
 
 describe("variableYieldTenthBips", () => {
   test("Σ principal × taux × (1 − frais de gestion) / AssetsTotal, en dixièmes de point de base", () => {
-    // 9 000 € à 6 %, frais 1 % → 534,6 € par an sur 100 000 € d'actifs = 0,5346 %.
-    const loans = [{ principalOutstanding: 9_000n * EUR, interestRate: 6_000 }];
-    assert.equal(variableYieldTenthBips(loans, 1_000, 100_000n * EUR), 534);
+    // 9 000 $ à 6 %, frais 1 % → 534,6 $ par an sur 100 000 $ d'actifs = 0,5346 %.
+    const loans = [{ principalOutstanding: 9_000n * USD, interestRate: 6_000 }];
+    assert.equal(variableYieldTenthBips(loans, 1_000, 100_000n * USD), 534);
   });
 
   test("plusieurs prêts, prêts soldés ignorés", () => {
     const loans = [
-      { principalOutstanding: 9_000n * EUR, interestRate: 6_000 },
-      { principalOutstanding: 18_000n * EUR, interestRate: 8_000 },
+      { principalOutstanding: 9_000n * USD, interestRate: 6_000 },
+      { principalOutstanding: 18_000n * USD, interestRate: 8_000 },
       { principalOutstanding: 0n, interestRate: 9_000 },
     ];
     // (9 000 × 6 % + 18 000 × 8 %) × 99 % / 100 000 = 1,9602 %.
-    assert.equal(variableYieldTenthBips(loans, 1_000, 100_000n * EUR), 1_960);
+    assert.equal(variableYieldTenthBips(loans, 1_000, 100_000n * USD), 1_960);
   });
 
   test("fonds vide ou sans prêt : 0", () => {
-    assert.equal(variableYieldTenthBips([], 1_000, 100n * EUR), 0);
-    assert.equal(variableYieldTenthBips([{ principalOutstanding: EUR, interestRate: 6_000 }], 1_000, 0n), 0);
+    assert.equal(variableYieldTenthBips([], 1_000, 100n * USD), 0);
+    assert.equal(variableYieldTenthBips([{ principalOutstanding: USD, interestRate: 6_000 }], 1_000, 0n), 0);
   });
 });

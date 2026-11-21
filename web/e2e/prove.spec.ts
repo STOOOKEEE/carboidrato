@@ -34,7 +34,7 @@ async function invoiceFor(request: APIRequestContext, account: string, id: strin
       number: `E2E-${id}`,
       debtorName: "Regione Puglia",
       supplierAccount: account,
-      amountEur: 10_340,
+      amountUsd: 10_340,
       dueDate: new Date(Date.now() + 90 * MS_PER_DAY),
     },
     params,
@@ -71,7 +71,7 @@ test("the business page computes the proof and sends only { proof, publicSignals
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(file)),
   });
-  await expect(page.locator(".offer-row", { hasText: /^Proven tier/ })).toContainText("€10,000.00");
+  await expect(page.locator(".offer-row", { hasText: /^Proven tier/ })).toContainText("$10,000.00");
 
   const certificateRequest = page.waitForRequest(
     (sent) => sent.method() === "POST" && sent.url().endsWith("/api/sme/certificate"),
