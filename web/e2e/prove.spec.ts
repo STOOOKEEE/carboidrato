@@ -68,18 +68,21 @@ function watchPrivateValues(requests: Request[], file: AttestedInvoiceFile) {
   };
 }
 
-test("le pré-contrôle de la landing tourne dans le navigateur", async ({ page, request }) => {
+test("le pré-contrôle tourne dans le navigateur, sans route qui reçoive la facture", async ({ page, request }) => {
   const file = await attestInvoice(request, await demoSmeAccount(request));
   const requests: Request[] = [];
   page.on("request", (sent) => requests.push(sent));
   await page.goto("/");
-  await page.locator(".checker input[type=file]").setInputFiles({
-    name: "FT-2026-0815.bari.json",
-    mimeType: "application/json",
-    buffer: Buffer.from(JSON.stringify(file)),
-  });
-  await expect(page.getByText("We can advance you")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText("at least €10,000.00")).toBeVisible();
+  const result = await page.evaluate(
+    async ({ attested, modules }) => {
+      const sources = (await import(modules.sources)) as typeof Sources;
+      return sources.precheckInBrowser(attested);
+    },
+    { attested: file, modules: PAGE_MODULES },
+  );
+  expect(result.checks.filter((check) => !check.ok)).toEqual([]);
+  expect(result.verdict).toBe("eligible");
+  expect(result.offer?.provenThresholdEur).toBe(10_000);
   expect(requests.some((sent) => sent.url().includes("/api/check"))).toBe(false);
   watchPrivateValues(requests, file)();
 });

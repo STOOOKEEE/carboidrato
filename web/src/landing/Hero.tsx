@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { DitherCanvas } from "../dither/DitherCanvas";
 import type { ShapeName } from "../dither/shapes";
-import { APP_ROUTE } from "../routes";
+import { FundFacts } from "./FundFacts";
 
 /** Boucle du héros : la facture est scannée, puis devient du cash. */
 const HERO_LOOP: { shape: ShapeName; scanning: boolean; durationMs: number }[] = [
@@ -29,28 +29,11 @@ export function Hero() {
           Your invoice is worth cash. <span className="underline">Today.</span>
         </h1>
         <p className="lead">
-          Waiting 90 days for a city hall to pay? Drop the invoice your client attested. In seconds we check it's genuine
-          and never financed, and tell you how much we advance.
+          Italian public bodies take months to pay their suppliers. On Bari, the public body confirms the invoice, the
+          supplier gets 90% of it in seconds, and verified lenders fund it from a vault on the XRP Ledger. The invoice
+          itself never leaves their two browsers.
         </p>
-        <div className="hero-actions">
-          <a className="button" href="#simulate">
-            Simulate my invoice
-          </a>
-          <a className="button button-ghost" href={APP_ROUTE}>
-            Open app
-          </a>
-        </div>
-        <ul className="hero-facts">
-          <li>
-            <strong>90%</strong> advanced
-          </li>
-          <li>
-            <strong>6%</strong> a year
-          </li>
-          <li>
-            <strong>0</strong> client names on-chain
-          </li>
-        </ul>
+        <FundFacts />
       </div>
       <DitherCanvas shape={frame.shape} scanning={frame.scanning} interactive cell={9} className="hero-canvas" />
     </section>

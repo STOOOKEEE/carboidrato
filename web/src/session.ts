@@ -1,17 +1,35 @@
-// Dernier pré-contrôle, gardé le temps de la session pour passer de la landing à l'app.
+// Session du navigateur : compte lu de `GET /api/me` au chargement, mis à jour à la connexion et à la déconnexion.
 
-import type { PrecheckResponse } from "../../src/api/contract";
+import { useSyncExternalStore } from "react";
+import type { AccountView } from "../../src/api/contract";
+import { fetchMe, signOutSession } from "./api";
+import type { SessionState } from "./routes";
 
-const STORAGE_KEY = "bari.precheck";
+let current: SessionState = { status: "loading" };
+const listeners = new Set<() => void>();
 
-export function savePrecheck(result: PrecheckResponse): void {
-  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(result));
+function publish(next: SessionState): void {
+  current = next;
+  for (const listener of listeners) listener();
 }
 
-export function loadPrecheck(): PrecheckResponse | undefined {
-  const raw = sessionStorage.getItem(STORAGE_KEY);
-  if (raw === null) return undefined;
-  const parsed: unknown = JSON.parse(raw);
-  const looksValid = typeof parsed === "object" && parsed !== null && "verdict" in parsed && "kyb" in parsed;
-  return looksValid ? (parsed as PrecheckResponse) : undefined;
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+export const useSession = () => useSyncExternalStore(subscribe, () => current);
+
+/** Sans API joignable, le visiteur est traité comme déconnecté : les pages publiques restent lisibles. */
+export function loadSession(): void {
+  fetchMe()
+    .then((user) => publish(user === undefined ? { status: "signedOut" } : { status: "signedIn", user }))
+    .catch(() => publish({ status: "signedOut" }));
+}
+
+export const sessionStarted = (user: AccountView) => publish({ status: "signedIn", user });
+
+export async function signOut(): Promise<void> {
+  await signOutSession();
+  publish({ status: "signedOut" });
 }
