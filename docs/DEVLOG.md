@@ -315,3 +315,18 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 **Pourquoi :** les prêteurs entrent et sortent à tout moment malgré le vault fermé, et une entreprise ne peut financer que ses propres factures, avec un refus qui dit pourquoi.
 
 **Vérifié :** tests rouges puis verts ; `npm test` 190/190. AlphaNet, fonds durable : un prêteur inscrit reçoit 10 000 EURc de test, entre pour 5 000 EURc (`Batch` `tesSUCCESS`, 4 994,51 parts au prix de 1,001098), puis sort de 2 000 parts (`Batch` `tesSUCCESS`, 1 992,18 EURc reçus) ; au-delà de son solde → 422 ; session entreprise → 403 ; sans session → 401.
+
+## 2026-11-21 · Trois espaces à comptes dans le front, preuve au palier de la facture
+
+**Quoi :**
+- Front : routes `#/`, `#/signin`, `#/signup/<rôle>`, `#/lend`, `#/public`, `#/business`, `#/transparency`, `#/tx/<hash>` (`web/src/routes.ts`), garde des espaces (sans session → connexion, autre rôle → explication), session lue de `GET /api/me`. Inscription par rôle avec le KYC léger (`features/account/account.machine.ts`, pur et testé), puis « Verifying… » : une ligne par transaction d'ouverture du compte, avec son lien. Navigation et menu du compte (rôle, « Verification: basic (self-declared) », déconnexion).
+- Landing : les trois portes (« Start lending », « Confirm an invoice », « Get paid now »), le lien Transparency et 3 chiffres du fonds lus en direct. La simulation de facture et l'ancien `#/app` disparaissent.
+- Le navigateur choisit le palier prouvé : le plus grand palier public ≤ montant de la facture (`provenThreshold`, `witness.ts`) ; `GET /api/proof/params` publie les cinq paliers au lieu d'un seuil fixe.
+- `npm run api:smoke` suit le parcours à comptes : inscription d'une entreprise, attestation pour son compte, preuve au palier (23 450 € → 20 000 €), certificat et prêt avec le cookie de session, rejeu refusé.
+- `POST /api/loans/:id/repay` rembourse avec le compte géré de l'emprunteur enregistré (`UserStore.findBusinessByAccount`) ; port `Ledger.loan`.
+
+**Pourquoi :** chaque acteur a sa porte et son espace, et une facture de 23 450 € n'est plus avancée comme une facture de 10 000 € : seul le palier devient public.
+
+**Vérifié :** tests rouges puis verts ; `npm test` 229/229 ; AlphaNet : `account.spec.ts` 3/3 (prêteur et entreprise inscrits, déconnexion, reconnexion, garde), `prove.spec.ts` 2/2 ; `api:smoke` réussi (preuve au palier de 20 000 € en 705 ms, prêt de 18 000 €, rejeu → 409, `LoanPay` signé par le compte de l'entreprise).
+
+À savoir : Chrome renvoie une `Promise` de `window.scrollTo` ; un effet React qui la renvoie casse la page (« destroy is not a function »).
