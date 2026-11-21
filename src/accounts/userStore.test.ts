@@ -50,6 +50,16 @@ describe("UserStore", () => {
     assert.equal(store.findById(created.id)?.email, "alice@example.com");
   });
 
+  test("utilisateur retrouvé par email normalisé, organisme public par code IPA", async () => {
+    const store = new UserStore(freshFile());
+    const created = await store.create(lender, managed);
+    const body = await store.create(publicBody, undefined);
+    assert.equal(store.findByEmail(" ALICE@example.com")?.id, created.id);
+    assert.equal(store.findByEmail("nobody@example.com"), undefined);
+    assert.equal(store.findPublicBody("c_a662")?.id, body.id);
+    assert.equal(store.findPublicBody("c_e506"), undefined);
+  });
+
   test("mauvais mot de passe ou email inconnu → aucun utilisateur", async () => {
     const store = new UserStore(freshFile());
     await store.create(lender, managed);
