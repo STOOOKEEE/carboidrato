@@ -376,3 +376,25 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 **Pourquoi :** l'onglet du navigateur montrait l'icône par défaut ; la marque reste lisible en 16 px.
 
 **Vérifié :** rendu en 16, 32 et 64 px ; `npm run web:build` copie `icon.svg` dans `web/dist` ; suite e2e complète sur l'AlphaNet (16/16).
+
+## 2026-11-21 · RLUSD à ligne de confiance, tout en dollars
+
+**Quoi :**
+- Le stablecoin du fonds devient le RLUSD, un jeton à ligne de confiance (`src/xrpl/stablecoin.ts`) : émetteur de test de Bari sur l'AlphaNet (`asfDefaultRipple`), celui de Ripple sur le mainnet ; Vault, LoanBroker, prêts, entrée et sortie immédiates en RLUSD. Les parts du Vault et le MPT facture restent des MPT.
+- Factures, paliers (5 000 à 100 000 $), offres, frais et économie en dollars ; avance et prêt en RLUSD à 1:1, sans change. Le lecteur FatturaPA n'accepte que `<Divisa>USD</Divisa>` et explique le refus pour toute autre devise ; les FatturaPA d'exemple sont régénérées en USD.
+- `npm run demo:fund` recrée le fonds en RLUSD ; un compte du pitch ouvert pour un fonds précédent reçoit la ligne de confiance et l'autorisation des parts du nouveau Vault qui lui manquent (`missingHoldings`, `src/kyb/onboarding.ts`).
+
+**Pourquoi :** décision de Noé : le RLUSD est le stablecoin dollar natif du XRPL, et une seule devise évite tout change entre la facture et le prêt. Le circuit compte en centimes, sans devise : aucun changement ZK.
+
+**Vérifié :** tests rouges puis verts ; `npm test` 432/432 ; AlphaNet : `demo:fund` crée le fonds (105 s, Vault en RLUSD, rachat au 2027-03-31), complète les comptes du pitch, puis relancé le réutilise sans transaction ; `GET /api/fund` → `phase: "investment"`, actif RLUSD.
+
+## 2026-11-21 · Connexion par le wallet Otsu
+
+**Quoi :**
+- `POST /api/auth/wallet/challenge` (nonce de 5 min, usage unique ; compte activé par Bari s'il n'existe pas), `POST /api/auth/wallet/verify` (un `AccountSet` jamais soumis, signé par la clé maîtresse du compte, nonce en `Memo`), `POST /api/auth/wallet/register` (rôle prêteur ou entreprise et KYC léger à la première connexion). Utilisateur `custody: "wallet"` : ni mot de passe ni seed côté Bari.
+- Front : `web/src/wallet/otsu.ts` (`window.xrpl` d'Otsu), contrôle du réseau du wallet, « Connect Otsu wallet » en action principale de la connexion, l'email en secours.
+- E2E : `web/e2e/fixtures/otsuMock.ts` remplace l'extension et signe comme elle avec `@xrpl-commons/xrpl`.
+
+**Pourquoi :** décision de Noé : un vrai parcours non-custodial, où l'utilisateur signe lui-même les transactions de son compte. Xaman ne signe pas sur un réseau privé ; Otsu accepte un réseau perso.
+
+**Vérifié :** tests rouges puis verts (signature invalide, nonce rejoué ou expiré, autre adresse, clé non maîtresse → 401) ; `npm test` 432/432 ; AlphaNet : `wallet-signin.spec.ts` 4/4.
