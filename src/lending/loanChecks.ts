@@ -8,6 +8,7 @@ import type { Fund } from "../fund/fund.js";
 import { inspectInvoice } from "../fund/invoiceInspection.js";
 import type { LoanReference } from "../fund/loanData.js";
 import { listOwnerLoanRecords } from "../fund/loanRecords.js";
+import type { CertificateMetadata } from "../invoice/certificateMetadata.js";
 import { centsToUnits, formatEur, formatPercent, parseUnits, percentOf, ratioPercent } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
 import { isSmeKybDone } from "../kyb/smeKyb.js";
@@ -25,14 +26,17 @@ async function checkSmeKyb(ledger: Ledger, actors: Actors): Promise<void> {
   }
 }
 
-/** Vérifie le certificat, l'unicité de N parmi les prêts de tous les fonds de Bari et le plafond par pseudonyme P. */
+/**
+ * Vérifie le certificat, l'unicité de N parmi les prêts de tous les fonds de Bari et le plafond par pseudonyme P.
+ * Renvoie le certificat relu du ledger : son échéance prouvée fixe celle du prêt.
+ */
 export async function verifyBeforeCosigning(
   ledger: Ledger,
   actors: Actors,
   fund: Fund,
   reference: LoanReference,
   principal: bigint,
-): Promise<void> {
+): Promise<CertificateMetadata> {
   await checkSmeKyb(ledger, actors);
 
   const inspection = await inspectInvoice(ledger, reference, {
@@ -72,4 +76,5 @@ export async function verifyBeforeCosigning(
   log.info(
     `concentration P=${reference.pseudonym.slice(0, 8)}… : ${formatEur(exposureAfter, 2)} / ${formatEur(fundAssets, 2)} = ${share} ≤ ${formatPercent(MAX_DEBTOR_CONCENTRATION_PERCENT)} (marge ${formatEur(limit - exposureAfter, 2)})`,
   );
+  return inspection.certificate;
 }

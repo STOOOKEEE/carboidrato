@@ -1,5 +1,10 @@
-// Conditions d'un prêt Bari, en unités EURc, dérivées des paramètres de src/config/finance.ts.
+// Conditions d'un prêt Bari, en unités EURc, dérivées des paramètres de src/config/finance.ts, et son échéance.
 
+import {
+  LEDGER_LOAN_REDEMPTION_BUFFER_S,
+  LEDGER_MIN_PAYMENT_INTERVAL_S,
+  LEDGER_TIME_SAFETY_MARGIN_S,
+} from "../config/cohort.js";
 import { ADVANCE_RATE_PERCENT, INVOICE_AMOUNT_EUR, ORIGINATION_FEE_PERCENT } from "../config/finance.js";
 import { eurToUnits, percentOf, unitsToCents } from "../lib/amounts.js";
 
@@ -33,4 +38,27 @@ export function loanTerms(invoice: bigint = eurToUnits(INVOICE_AMOUNT_EUR)): Loa
     netAdvance: principal - originationFee,
     provenThresholdCents: provenThresholdCents(unitsToCents(principal)),
   };
+}
+
+/** Instants en temps Ripple (secondes) : heure du ledger, échéance prouvée de la facture, RedemptionDate du Vault. */
+export interface MaturityInputs {
+  now: number;
+  invoiceDueDate: number;
+  redemptionDate: number;
+}
+
+/**
+ * PaymentInterval de l'unique échéance : le prêt tombe à l'échéance de la facture, sans dépasser le dernier instant
+ * accepté par le ledger avant le rachat (60 s, plus l'écart possible avec l'heure du ledger qui inclura le LoanSet).
+ */
+export function loanPaymentInterval({ now, invoiceDueDate, redemptionDate }: MaturityInputs): number {
+  if (invoiceDueDate <= now) throw new Error("Prêt refusé : échéance de la facture dépassée");
+  const latestDueDate = redemptionDate - LEDGER_LOAN_REDEMPTION_BUFFER_S - LEDGER_TIME_SAFETY_MARGIN_S;
+  const interval = Math.min(invoiceDueDate, latestDueDate) - now;
+  if (interval < LEDGER_MIN_PAYMENT_INTERVAL_S) {
+    throw new Error(
+      `Prêt trop court (${interval} s < ${LEDGER_MIN_PAYMENT_INTERVAL_S} s) : échéance de la facture ou rachat du fonds trop proche`,
+    );
+  }
+  return interval;
 }

@@ -1,27 +1,33 @@
-// `npm run demo:fund` : fonds de démo durable (6 h d'investissement, deux prêts sur le même débiteur) repris par l'API.
+// `npm run demo:fund` : fonds durable ouvert jusqu'au pitch, stock de parts de Bari et deux prêts historiques, repris par l'API.
 
-import { Client, rippleTimeToISOTime } from "xrpl";
+import { Client, isoTimeToRippleTime, rippleTimeToISOTime } from "xrpl";
 import { loadApiConfig } from "../api/fund/config.js";
-import { FundStateStore } from "../api/fund/stateStore.js";
+import { FundStateStore, type LoanStatus } from "../api/fund/stateStore.js";
 import { loadCohortTiming } from "../config/cohort.js";
+import { BARI_EURC_RESERVE_EUR, BARI_SHARE_STOCK_EUR } from "../config/finance.js";
 import { loadNetworkConfig } from "../config/network.js";
 import { VERIFIED_DEBTORS } from "../invoice/debtors.js";
 import { buildDemoInvoice } from "../invoice/invoice.js";
+import { repayLoan } from "../lending/repayment.js";
+import { eurToUnits } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
 import { ledgerTime } from "../xrpl/ledgerTime.js";
 import { releaseZkResources } from "../zk/index.js";
 import { financeInvoice, openFund, type FinancedInvoice } from "./financing.js";
 import { isReusable } from "./fundReuse.js";
 
-/** Phase d'investissement du fonds durable : de quoi enchaîner démos et e2e sans recréer de cohorte. */
-const DURABLE_INVESTMENT_PERIOD_S = "21600";
+/** Rachat du fonds durable : la phase d'investissement couvre le pitch et les e2e jusque-là. */
+const DURABLE_REDEMPTION_DATE = isoTimeToRippleTime("2027-03-31T00:00:00Z");
 const HISTORICAL_LOAN_INDEXES = [1, 2];
 /** Pas la Comune di Bari : sa facture en direct (9 % du fonds) doit passer sous la limite de concentration de 20 %. */
 const HISTORICAL_DEBTOR = VERIFIED_DEBTORS[1];
 
 async function createFund(client: Client, store: FundStateStore): Promise<void> {
-  process.env.COHORT_INVESTMENT_S ??= DURABLE_INVESTMENT_PERIOD_S;
-  const { actors, fund } = await openFund(client, loadCohortTiming());
+  const { actors, fund } = await openFund(
+    client,
+    { subscriptionWindowS: loadCohortTiming().subscriptionWindowS, redemptionDate: DURABLE_REDEMPTION_DATE },
+    { shareStock: eurToUnits(BARI_SHARE_STOCK_EUR), reserve: eurToUnits(BARI_EURC_RESERVE_EUR) },
+  );
 
   // Même débiteur pour les deux factures : même pseudonyme, la concentration ressort à l'audit.
   const runId = Date.now().toString(36);
@@ -30,14 +36,20 @@ async function createFund(client: Client, store: FundStateStore): Promise<void> 
     financed.push(await financeInvoice(client, actors, fund, buildDemoInvoice(HISTORICAL_DEBTOR, runId, index), index));
   }
 
+  // Le premier prêt est déjà soldé : l'historique montre un remboursement et un prêt en cours.
+  const [repaid] = financed;
+  log.step("Prêt 1 · remboursement (mairie → PME, LoanPay, retour du MPT facture)");
+  await repayLoan(client, actors, fund, repaid.loan);
+
   // Persisté une fois le fonds complet : une exécution interrompue laisse l'état précédent intact.
   const now = new Date().toISOString();
   store.reset(fund);
   store.update((state) => {
     state.deposited = true;
-    for (const { issued, loan } of financed) {
-      state.invoices.push({ tokenId: issued.tokenId, certificate: issued.certificate, issuedAt: now });
-      state.loans.push({ ...loan, status: "active", createdAt: now });
+    for (const entry of financed) {
+      const status: LoanStatus = entry === repaid ? "repaid" : "active";
+      state.invoices.push({ tokenId: entry.issued.tokenId, certificate: entry.issued.certificate, issuedAt: now });
+      state.loans.push({ ...entry.loan, status, createdAt: now });
     }
   });
   log.step(`Fonds de démo prêt en ${log.elapsedSeconds()} s`);

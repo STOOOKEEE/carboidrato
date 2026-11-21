@@ -3,7 +3,7 @@
 
 import type { Client } from "xrpl";
 import { ensureActors, type Actors } from "../accounts/actors.js";
-import { FUND_VINTAGE, type CohortTiming } from "../config/cohort.js";
+import { FUND_VINTAGE, type CohortTiming, type FixedRedemptionTiming } from "../config/cohort.js";
 import { loadNetworkConfig } from "../config/network.js";
 import type { Fund } from "../fund/fund.js";
 import { produceInvoiceCertificate, type InvoiceCertificate } from "../invoice/certificate.js";
@@ -12,7 +12,7 @@ import { issueCertificate, type IssuedCertificate } from "../invoice/issueCertif
 import { onboardSme } from "../kyb/smeKyb.js";
 import { originateLoan, type OriginatedLoan } from "../lending/loan.js";
 import { loanTerms } from "../lending/loanTerms.js";
-import { subscribe } from "../lending/subscription.js";
+import { subscribe, type BariLiquidity } from "../lending/subscription.js";
 import { log } from "../lib/logger.js";
 import { setupFund } from "../setup/fundSetup.js";
 import { logTheoreticalEconomics } from "./economicsReport.js";
@@ -27,8 +27,12 @@ export interface FinancedInvoice {
   loan: OriginatedLoan;
 }
 
-/** Comptes, Vault fermé + LoanBroker, dépôts des investisseurs et first-loss, KYB de la PME. */
-export async function openFund(client: Client, timing: CohortTiming): Promise<OpenFund> {
+/** Comptes, Vault fermé + LoanBroker, dépôts des investisseurs et first-loss (et liquidités de Bari), KYB de la PME. */
+export async function openFund(
+  client: Client,
+  timing: CohortTiming | FixedRedemptionTiming,
+  liquidity?: BariLiquidity,
+): Promise<OpenFund> {
   const network = loadNetworkConfig();
   log.step(`Comptes (${network.genesisSeed === undefined ? `faucet ${network.faucetHost}` : "wallet genesis"})`);
   const actors = await ensureActors(client, network);
@@ -36,10 +40,10 @@ export async function openFund(client: Client, timing: CohortTiming): Promise<Op
   log.step("Paramètres du prêt (IDEE §4)");
   logTheoreticalEconomics();
 
-  const fund = await setupFund(client, actors, timing);
+  const fund = await setupFund(client, actors, timing, liquidity);
 
-  log.step("Souscription · dépôts des investisseurs + first-loss de Bari");
-  await subscribe(client, actors, fund);
+  log.step(`Souscription · dépôts des investisseurs + first-loss de Bari${liquidity === undefined ? "" : " + stock de parts de Bari"}`);
+  await subscribe(client, actors, fund, liquidity);
 
   log.step("KYB de la PME · credential KYB_PME");
   await onboardSme(client, actors);

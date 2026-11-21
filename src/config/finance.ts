@@ -28,5 +28,10 @@ export const MAX_DEBTOR_CONCENTRATION_PERCENT = 20;
 /** Dépôts des investisseurs : 100 000 € au total, pour que 2 factures du même débiteur restent sous le plafond. */
 export const INVESTOR_DEPOSITS_EUR = { investor_1: 60_000, investor_2: 40_000 } as const;
 
+/** Fonds durable : parts que Bari souscrit elle-même pendant la souscription, gardées en stock pour les prêteurs. */
+export const BARI_SHARE_STOCK_EUR = 20_000;
+/** Fonds durable : EURc que Bari garde sur son compte, hors Vault. */
+export const BARI_EURC_RESERVE_EUR = 20_000;
+
 /** Nombre de factures financées par le scénario (deux, du même débiteur, pour illustrer la concentration). */
 export const DEMO_INVOICE_COUNT = 2;

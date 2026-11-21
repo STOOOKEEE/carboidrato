@@ -2,8 +2,8 @@
 
 import type { FundState } from "../api/fund/stateStore.js";
 
-/** Marge avant le rachat pour qu'un prêt e2e tienne encore dans la phase d'investissement. */
-export const MIN_REMAINING_INVESTMENT_S = 1_800;
+/** Marge avant le rachat : un fonds qui ferme dans la journée ne doit pas servir au pitch ni aux e2e. */
+const MIN_REMAINING_INVESTMENT_S = 86_400;
 
 /** Fonds alimenté, souscription close et rachat assez loin ; `now` en temps Ripple (heure du ledger). */
 export function isReusable(state: FundState, now: number): boolean {
