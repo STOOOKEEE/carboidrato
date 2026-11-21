@@ -26,14 +26,14 @@ function errorMessage(payload: unknown, status: number): string {
   return `Bari API unavailable (HTTP ${status}). Is \`npm run api:fund\` running?`;
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, init);
   const payload = parseJsonOrUndefined(await response.text());
   if (!response.ok || payload === undefined) throw new Error(errorMessage(payload, response.status));
   return payload as T;
 }
 
-const postJson = <T>(path: string, body: unknown) =>
+export const postJson = <T>(path: string, body: unknown) =>
   request<T>(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
 export const fetchDebtors = () => request<PublicDebtor[]>("/api/debtors");
