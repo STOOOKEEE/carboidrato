@@ -1,6 +1,14 @@
-// Formulaires d'inscription et de connexion, purs : KYC léger par rôle, envoi, et étapes de l'écran « Verifying… ».
+// Formulaires d'inscription et de connexion, purs : KYC léger par rôle (email ou wallet), envoi, et étapes de l'écran
+// « Verifying… ».
 
-import type { SigninRequest, SignupRequest, SubmittedTx, UserRole } from "../../../../src/api/contract";
+import type {
+  SigninRequest,
+  SignupRequest,
+  SubmittedTx,
+  UserRole,
+  WalletRegisterRequest,
+  WalletRole,
+} from "../../../../src/api/contract";
 
 export interface SignupDraft {
   email: string;
@@ -44,41 +52,50 @@ function credentialErrors(email: string, password: string): FieldErrors {
 const outcome = <T>(errors: FieldErrors, request: T): Validation<T> =>
   Object.keys(errors).length === 0 ? { ok: true, request } : { ok: false, errors };
 
-export function validateSignup(role: UserRole, draft: SignupDraft): Validation<SignupRequest> {
-  const email = draft.email.trim();
-  const { password } = draft;
-  const base = credentialErrors(email, password);
+type WithoutToken<T> = T extends unknown ? Omit<T, "token"> : never;
+type WalletProfile = WithoutToken<WalletRegisterRequest>;
+type RoleProfile = WalletProfile | { role: "public_body"; profile: { ipaCode: string } };
+
+function walletProfile(role: WalletRole, draft: SignupDraft): { errors: FieldErrors; value: WalletProfile } {
   switch (role) {
     case "lender": {
       const name = draft.name.trim();
       const errors: FieldErrors = {
-        ...base,
         ...(name === "" ? { name: "Enter your full name" } : {}),
         ...(COUNTRY_PATTERN.test(draft.country) ? {} : { country: "Choose your country of residence" }),
         ...(draft.riskAcknowledged ? {} : { riskAcknowledged: "Tick this box to lend through Bari" }),
       };
-      return outcome(errors, {
-        email,
-        password,
-        role,
-        profile: { name, country: draft.country, riskAcknowledged: true as const },
-      });
+      return { errors, value: { role, profile: { name, country: draft.country, riskAcknowledged: true as const } } };
     }
     case "business": {
       const company = draft.company.trim();
       const vatNumber = draft.vatNumber.trim();
       const errors: FieldErrors = {
-        ...base,
         ...(company === "" ? { company: "Enter your company name" } : {}),
         ...(VAT_PATTERN.test(vatNumber) ? {} : { vatNumber: "Enter a VAT number with its country code, e.g. IT01234567890" }),
       };
-      return outcome(errors, { email, password, role, profile: { company, vatNumber } });
-    }
-    case "public_body": {
-      const errors: FieldErrors = { ...base, ...(draft.ipaCode === "" ? { ipaCode: "Choose your public body" } : {}) };
-      return outcome(errors, { email, password, role, profile: { ipaCode: draft.ipaCode } });
+      return { errors, value: { role, profile: { company, vatNumber } } };
     }
   }
+}
+
+function roleProfile(role: UserRole, draft: SignupDraft): { errors: FieldErrors; value: RoleProfile } {
+  if (role !== "public_body") return walletProfile(role, draft);
+  const errors: FieldErrors = draft.ipaCode === "" ? { ipaCode: "Choose your public body" } : {};
+  return { errors, value: { role, profile: { ipaCode: draft.ipaCode } } };
+}
+
+export function validateSignup(role: UserRole, draft: SignupDraft): Validation<SignupRequest> {
+  const email = draft.email.trim();
+  const { password } = draft;
+  const { errors, value } = roleProfile(role, draft);
+  return outcome({ ...credentialErrors(email, password), ...errors }, { email, password, ...value });
+}
+
+/** Inscription après la signature du wallet : le KYC léger seul, sans email ni mot de passe. */
+export function validateWalletRegistration(role: WalletRole, draft: SignupDraft, token: string): Validation<WalletRegisterRequest> {
+  const { errors, value } = walletProfile(role, draft);
+  return outcome(errors, { token, ...value });
 }
 
 export function validateSignin(draft: { email: string; password: string }): Validation<SigninRequest> {

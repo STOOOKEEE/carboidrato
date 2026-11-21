@@ -16,8 +16,11 @@ const HTTP_UNAUTHORIZED = 401;
 
 type AuthContext = Pick<ApiContext, "users" | "provisionAccount" | "operations">;
 
+/** Rôle et profil d'un formulaire d'inscription (email ou wallet), un variant par rôle. */
+export type ProfileRequest<T = SignupRequest> = T extends { role: unknown; profile: unknown } ? Pick<T, "role" | "profile"> : never;
+
 /** Le profil enregistré : sans la case de consentement, nom de l'organisme repris du registre. */
-function accountProfile(request: SignupRequest): AccountProfile {
+export function accountProfile(request: ProfileRequest): AccountProfile {
   switch (request.role) {
     case "lender":
       return { role: "lender", profile: { name: request.profile.name.trim(), country: request.profile.country } };
@@ -37,7 +40,13 @@ function accountProfile(request: SignupRequest): AccountProfile {
 
 export function accountView(user: UserRecord): AccountView {
   const verification = user.role === "public_body" ? "verified public body registry" : "basic (self-declared)";
-  const base = { email: user.email, verification, ...(user.account === undefined ? {} : { address: user.account.address }) } as const;
+  const address = user.custody === "wallet" ? user.address : user.account?.address;
+  const base = {
+    custody: user.custody,
+    verification,
+    ...(user.email === undefined ? {} : { email: user.email }),
+    ...(address === undefined ? {} : { address }),
+  } as const;
   switch (user.role) {
     case "lender":
       return { ...base, role: user.role, profile: user.profile };

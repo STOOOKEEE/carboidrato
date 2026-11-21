@@ -9,6 +9,7 @@ import {
   initialFormState,
   validateSignin,
   validateSignup,
+  validateWalletRegistration,
   verificationSteps,
   type FormEvent,
   type FormState,
@@ -160,5 +161,24 @@ describe("verificationSteps", () => {
 
   test("organisme public : aucune transaction", () => {
     assert.deepEqual(verificationSteps("public_body", []), []);
+  });
+});
+
+describe("validateWalletRegistration", () => {
+  test("mêmes champs que l'inscription, sans email ni mot de passe, avec le jeton du wallet", () => {
+    const draft = { ...lenderDraft, email: "", password: "" };
+    assert.deepEqual(validateWalletRegistration("lender", draft, "token"), {
+      ok: true,
+      request: { token: "token", role: "lender", profile: { name: "Ada Lovelace", country: "IT", riskAcknowledged: true } },
+    });
+    assert.deepEqual(validateWalletRegistration("business", { ...businessDraft, email: "" }, "token"), {
+      ok: true,
+      request: { token: "token", role: "business", profile: { company: "Acme Srl", vatNumber: "IT 01234567890" } },
+    });
+  });
+
+  test("KYC léger incomplet → erreurs du profil seulement", () => {
+    const result = validateWalletRegistration("business", EMPTY_DRAFT, "token");
+    assert.deepEqual(Object.keys(result.ok ? {} : result.errors).sort(), ["company", "vatNumber"]);
   });
 });

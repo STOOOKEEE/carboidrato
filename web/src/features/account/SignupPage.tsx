@@ -17,7 +17,8 @@ import {
   type DraftField,
   type SignupDraft,
 } from "./account.machine";
-import { accountName, ROLE_COPY } from "./roles";
+import { ProfileFields } from "./ProfileFields";
+import { accountHandle, accountName, ROLE_COPY } from "./roles";
 import { VerificationSteps } from "./VerificationSteps";
 
 const HEADINGS: Record<UserRole, { title: string; lead: string }> = {
@@ -35,16 +36,6 @@ const HEADINGS: Record<UserRole, { title: string; lead: string }> = {
   },
 };
 
-/** Pays de résidence proposés au prêteur : Union européenne, Espace économique européen, Suisse et Royaume-Uni. */
-const COUNTRY_CODES = [
-  "AT", "BE", "BG", "CH", "CY", "CZ", "DE", "DK", "EE", "ES", "FI", "FR", "GB", "GR", "HR", "HU", "IE", "IS", "IT", "LI",
-  "LT", "LU", "LV", "MT", "NL", "NO", "PL", "PT", "RO", "SE", "SI", "SK",
-];
-const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
-const COUNTRIES = COUNTRY_CODES.map((code) => ({ code, name: regionNames.of(code) ?? code })).sort((a, b) =>
-  a.name.localeCompare(b.name),
-);
-
 function usePublicBodies(enabled: boolean) {
   const [bodies, setBodies] = useState<PublicBodyOption[]>();
   const [error, setError] = useState<string>();
@@ -61,7 +52,7 @@ function AlreadySignedIn({ user }: { user: AccountView }) {
   return (
     <section className="step">
       <p>
-        You are signed in as {user.email} ({ROLE_COPY[user.role].name.toLowerCase()}). Each account has one role: sign
+        You are signed in as {accountHandle(user)} ({ROLE_COPY[user.role].name.toLowerCase()}). Each account has one role: sign
         out first to open another one.
       </p>
       <a className="button" href={spaceRoute(user.role)} data-primary="">
@@ -152,42 +143,7 @@ export function SignupPage({ role }: { role: UserRole }) {
             onChange={(event) => update("password", event.target.value)}
           />
         </Field>
-        {role === "lender" && (
-          <>
-            <Field label="Full name" error={errors.name}>
-              <input autoComplete="name" value={draft.name} onChange={(event) => update("name", event.target.value)} />
-            </Field>
-            <Field label="Country of residence" error={errors.country}>
-              <select value={draft.country} onChange={(event) => update("country", event.target.value)}>
-                <option value="">Choose…</option>
-                {COUNTRIES.map((country) => (
-                  <option key={country.code} value={country.code}>
-                    {country.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={draft.riskAcknowledged}
-                onChange={(event) => update("riskAcknowledged", event.target.checked)}
-              />
-              I understand my capital is at risk.
-            </label>
-            {errors.riskAcknowledged !== undefined && <p className="field-error">{errors.riskAcknowledged}</p>}
-          </>
-        )}
-        {role === "business" && (
-          <>
-            <Field label="Company name" error={errors.company}>
-              <input autoComplete="organization" value={draft.company} onChange={(event) => update("company", event.target.value)} />
-            </Field>
-            <Field label="VAT number" error={errors.vatNumber} hint="With its country code, as on your invoices.">
-              <input value={draft.vatNumber} onChange={(event) => update("vatNumber", event.target.value)} />
-            </Field>
-          </>
-        )}
+        {role !== "public_body" && <ProfileFields role={role} draft={draft} errors={errors} update={update} />}
         {role === "public_body" && (
           <Field label="Public body" error={errors.ipaCode ?? publicBodies.error}>
             <select value={draft.ipaCode} onChange={(event) => update("ipaCode", event.target.value)}>

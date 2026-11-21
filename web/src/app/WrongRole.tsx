@@ -1,7 +1,7 @@
 // Espace d'un autre rôle : explication, lien vers son propre espace et déconnexion.
 import { useState } from "react";
 import type { AccountView, UserRole } from "../../../src/api/contract";
-import { ROLE_COPY } from "../features/account/roles";
+import { accountHandle, ROLE_COPY } from "../features/account/roles";
 import { spaceRoute } from "../routes";
 import { signOut } from "../session";
 import { Button } from "../ui/Button";
@@ -18,7 +18,7 @@ export function WrongRole({ required, user }: { required: UserRole; user: Accoun
         <span className="kicker">{ROLE_COPY[required].space}</span>
         <h1>This space is for {ROLE_COPY[required].audience}.</h1>
         <p className="lead">
-          You are signed in as {user.email}, a {ROLE_COPY[user.role].name.toLowerCase()} account. Each account has one
+          You are signed in as {accountHandle(user)}, a {ROLE_COPY[user.role].name.toLowerCase()} account. Each account has one
           role.
         </p>
       </div>

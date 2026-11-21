@@ -153,35 +153,33 @@ const credentials = {
 } as const;
 const companyField = { type: "string", minLength: 1, maxLength: MAX_COMPANY_FIELD_LENGTH } as const;
 
-function signupVariant(role: string, profile: object) {
+function profileSchema(properties: Record<string, object>) {
+  return { type: "object", additionalProperties: false, required: Object.keys(properties), properties } as const;
+}
+
+const lenderProfile = profileSchema({
+  name: companyField,
+  country: { type: "string", pattern: COUNTRY_PATTERN },
+  riskAcknowledged: { type: "boolean", const: true },
+});
+const businessProfile = profileSchema({ company: companyField, vatNumber: { type: "string", pattern: VAT_PATTERN } });
+
+/** Un rôle et son profil (KYC léger), plus les champs d'identification du formulaire (`base`). */
+function profileVariant(base: Record<string, object>, role: string, profile: object) {
   return {
     type: "object",
     additionalProperties: false,
-    required: ["email", "password", "role", "profile"],
-    properties: { ...credentials, role: { type: "string", const: role }, profile },
+    required: [...Object.keys(base), "role", "profile"],
+    properties: { ...base, role: { type: "string", const: role }, profile },
   } as const;
-}
-
-function profileSchema(properties: Record<string, object>) {
-  return { type: "object", additionalProperties: false, required: Object.keys(properties), properties } as const;
 }
 
 export const signupSchema = {
   body: {
     oneOf: [
-      signupVariant(
-        "lender",
-        profileSchema({
-          name: companyField,
-          country: { type: "string", pattern: COUNTRY_PATTERN },
-          riskAcknowledged: { type: "boolean", const: true },
-        }),
-      ),
-      signupVariant(
-        "business",
-        profileSchema({ company: companyField, vatNumber: { type: "string", pattern: VAT_PATTERN } }),
-      ),
-      signupVariant("public_body", profileSchema({ ipaCode: { type: "string", enum: IPA_CODES } })),
+      profileVariant(credentials, "lender", lenderProfile),
+      profileVariant(credentials, "business", businessProfile),
+      profileVariant(credentials, "public_body", profileSchema({ ipaCode: { type: "string", enum: IPA_CODES } })),
     ],
   },
 } as const;
@@ -195,6 +193,42 @@ export const signinSchema = {
       email: { type: "string", minLength: 1, maxLength: MAX_EMAIL_LENGTH },
       password: { type: "string", minLength: 1, maxLength: MAX_PASSWORD_LENGTH },
     },
+  },
+} as const;
+
+/** Adresse classique : `r` puis 24 à 34 caractères base58 (somme de contrôle vérifiée par la route). */
+const CLASSIC_ADDRESS_PATTERN = "^r[1-9A-HJ-NP-Za-km-z]{24,34}$";
+/** Un AccountSet signé avec un mémo tient en quelques centaines d'octets. */
+const MAX_TX_BLOB_HEX = 4_096;
+const MAX_TOKEN_LENGTH = 256;
+
+export const walletChallengeSchema = {
+  body: {
+    type: "object",
+    additionalProperties: false,
+    required: ["address"],
+    properties: { address: { type: "string", pattern: CLASSIC_ADDRESS_PATTERN } },
+  },
+} as const;
+
+export const walletVerifySchema = {
+  body: {
+    type: "object",
+    additionalProperties: false,
+    required: ["tx_blob"],
+    properties: { tx_blob: { type: "string", pattern: "^([0-9A-Fa-f]{2})+$", maxLength: MAX_TX_BLOB_HEX } },
+  },
+} as const;
+
+const registrationToken = { token: { type: "string", minLength: 1, maxLength: MAX_TOKEN_LENGTH } } as const;
+
+/** Mêmes profils que l'inscription par email ; pas d'organisme public : il n'a pas de compte XRPL. */
+export const walletRegisterSchema = {
+  body: {
+    oneOf: [
+      profileVariant(registrationToken, "lender", lenderProfile),
+      profileVariant(registrationToken, "business", businessProfile),
+    ],
   },
 } as const;
 

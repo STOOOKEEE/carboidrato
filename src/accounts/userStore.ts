@@ -1,4 +1,5 @@
-// Comptes des utilisateurs de Bari (fichier gitignoré) : mot de passe haché scrypt, compte XRPL géré, secret de session.
+// Comptes des utilisateurs de Bari (fichier gitignoré) : compte géré (mot de passe haché scrypt, compte XRPL géré) ou
+// wallet de l'utilisateur (adresse seule, sans seed), secret de session.
 
 import { randomBytes, randomUUID, scrypt, timingSafeEqual } from "node:crypto";
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -40,6 +41,12 @@ export type AccountProfile =
 
 export type NewUser = AccountProfile & { email: string; password: string };
 
+/** Rôles ouverts à la connexion par wallet : un organisme public n'a pas de compte XRPL. */
+export const WALLET_ROLES = ["lender", "business"] as const;
+export type WalletRole = (typeof WALLET_ROLES)[number];
+
+export type NewWalletUser = Extract<AccountProfile, { role: WalletRole }> & { address: string };
+
 /** Compte XRPL ouvert et géré par Bari pour l'utilisateur : la seed ne sort jamais de l'API. */
 export interface ManagedAccount {
   address: string;
@@ -62,22 +69,26 @@ interface PasswordHash {
   hash: string;
 }
 
-export type UserRecord = AccountProfile & {
-  id: string;
-  email: string;
-  password: PasswordHash;
-  account?: ManagedAccount;
-  /** Prix de revient (prêteur), entiers en décimal ; absent tant que le prêteur n'a rien acheté. */
-  costBasis?: { shares: string; cost: string };
-  createdAt: string;
-};
+/** `managed` : email et mot de passe, compte XRPL géré par Bari ; `wallet` : l'utilisateur signe avec son wallet. */
+type Custody =
+  | { custody: "managed"; email: string; password: PasswordHash; address?: undefined }
+  | { custody: "wallet"; address: string; email?: undefined; password?: undefined };
+
+export type UserRecord = AccountProfile &
+  Custody & {
+    id: string;
+    account?: ManagedAccount;
+    /** Prix de revient (prêteur), entiers en décimal ; absent tant que le prêteur n'a rien acheté. */
+    costBasis?: { shares: string; cost: string };
+    createdAt: string;
+  };
 
 interface UsersFile {
   sessionSecret: string;
   users: UserRecord[];
 }
 
-export type DuplicateField = "email" | "vatNumber" | "publicBody";
+export type DuplicateField = "email" | "vatNumber" | "publicBody" | "address";
 
 export class DuplicateUser extends Error {
   constructor(readonly field: DuplicateField) {
@@ -112,9 +123,14 @@ function isUsersFile(value: unknown): value is UsersFile {
   return typeof sessionSecret === "string" && Array.isArray(users);
 }
 
-function normalized(user: NewUser): AccountProfile {
-  if (user.role !== "business") return user;
-  return { role: "business", profile: { ...user.profile, vatNumber: normalizeVat(user.profile.vatNumber) } };
+function normalized(account: AccountProfile): AccountProfile {
+  if (account.role !== "business") return { role: account.role, profile: account.profile } as AccountProfile;
+  return { role: "business", profile: { ...account.profile, vatNumber: normalizeVat(account.profile.vatNumber) } };
+}
+
+/** Comptes enregistrés avant la connexion par wallet : sans `custody`, ils sont gérés. */
+function withCustody(user: UserRecord | Omit<UserRecord, "custody">): UserRecord {
+  return "custody" in user && user.custody !== undefined ? user : ({ ...user, custody: "managed" } as UserRecord);
 }
 
 export class UserStore {
@@ -153,6 +169,11 @@ export class UserStore {
     return this.data.users.find((user) => user.email === wanted);
   }
 
+  /** Utilisateur dont le compte XRPL est `address` : son wallet, ou le compte que Bari gère pour lui. */
+  findByAddress(address: string): UserRecord | undefined {
+    return this.data.users.find((user) => (user.custody === "wallet" ? user.address : user.account?.address) === address);
+  }
+
   findPublicBody(ipaCode: string): Extract<UserRecord, { role: "public_body" }> | undefined {
     return this.data.users.find(
       (user): user is Extract<UserRecord, { role: "public_body" }> =>
@@ -179,23 +200,44 @@ export class UserStore {
     const password = await hashPassword(user.password);
     // Revérifié après le hachage asynchrone : une inscription concurrente a pu passer entre-temps.
     this.assertAvailable(user);
-    const record: UserRecord = {
+    return this.add({
       ...normalized(user),
+      custody: "managed",
       id: randomUUID(),
       email: normalizeEmail(user.email),
       password,
       ...(account === undefined ? {} : { account }),
       createdAt: new Date().toISOString(),
-    };
-    this.data.users.push(record);
-    this.save();
-    return record;
+    });
+  }
+
+  /** Lève `DuplicateUser` si l'adresse ou le n° de TVA a déjà un compte. */
+  createWalletUser(user: NewWalletUser): UserRecord {
+    if (this.findByAddress(user.address) !== undefined) throw new DuplicateUser("address");
+    if (user.role === "business" && this.findBusinessByVat(user.profile.vatNumber) !== undefined) {
+      throw new DuplicateUser("vatNumber");
+    }
+    return this.add({
+      ...normalized(user),
+      custody: "wallet",
+      id: randomUUID(),
+      address: user.address,
+      createdAt: new Date().toISOString(),
+    });
   }
 
   async authenticate(email: string, password: string): Promise<UserRecord | undefined> {
-    const user = this.data.users.find((candidate) => candidate.email === normalizeEmail(email));
+    const user = this.data.users.find(
+      (candidate) => candidate.custody === "managed" && candidate.email === normalizeEmail(email),
+    );
     const matches = await passwordMatches(password, user?.password ?? DECOY_HASH);
     return matches ? user : undefined;
+  }
+
+  private add(record: UserRecord): UserRecord {
+    this.data.users.push(record);
+    this.save();
+    return record;
   }
 
   costBasis(userId: string): CostBasis {
@@ -229,7 +271,7 @@ export class UserStore {
     }
     const parsed: unknown = JSON.parse(readFileSync(this.file, "utf8"));
     if (!isUsersFile(parsed)) throw new Error(`Format inattendu dans ${this.file}`);
-    return parsed;
+    return { ...parsed, users: parsed.users.map(withCustody) };
   }
 
   private save(): void {

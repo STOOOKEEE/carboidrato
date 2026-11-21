@@ -6,6 +6,7 @@ import type {
   CertificateRequest,
   CertificateResponse,
   KybStatus,
+  NetworkInfo,
   OfferSchedule,
   ProofParams,
   PublicBodyOption,
@@ -15,6 +16,12 @@ import type {
   SigninResponse,
   SignupRequest,
   SignupResponse,
+  WalletChallengeRequest,
+  WalletChallengeResponse,
+  WalletRegisterRequest,
+  WalletRegisterResponse,
+  WalletVerifyRequest,
+  WalletVerifyResponse,
 } from "../../src/api/contract";
 import { parseJsonOrUndefined } from "./json";
 import type { FundSnapshot } from "./landing/fundFigures";
@@ -58,6 +65,16 @@ export const fetchPublicBodies = () => request<PublicBodyOption[]>("/api/public-
 export const signUp = (body: SignupRequest) => postJson<SignupResponse>("/api/auth/signup", body);
 
 export const signIn = (body: SigninRequest) => postJson<SigninResponse>("/api/auth/signin", body);
+
+export const fetchNetwork = () => request<NetworkInfo>("/api/network");
+
+export const requestWalletChallenge = (address: string) =>
+  postJson<WalletChallengeResponse>("/api/auth/wallet/challenge", { address } satisfies WalletChallengeRequest);
+
+export const verifyWallet = (txBlob: string) =>
+  postJson<WalletVerifyResponse>("/api/auth/wallet/verify", { tx_blob: txBlob } satisfies WalletVerifyRequest);
+
+export const registerWallet = (body: WalletRegisterRequest) => postJson<WalletRegisterResponse>("/api/auth/wallet/register", body);
 
 export async function signOutSession(): Promise<void> {
   const response = await fetch("/api/auth/signout", { method: "POST" });
