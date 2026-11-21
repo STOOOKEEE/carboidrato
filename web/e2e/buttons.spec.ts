@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import type { AccountView, FundAudit, LoanResponse, ProofParams, SignupResponse, TxDetail, UserRole } from "../../src/api/contract";
 import { fatturaPaXml, PITCH_SUPPLIER, REGIONE_PUGLIA } from "../../src/demo/sampleInvoices";
+import { OTSU_REPO_URL } from "../src/wallet/network";
 import { E2E_PUBLIC_BODY, signInPublicBody } from "./publicBodySession";
 import { signedInvoice } from "./signedInvoice";
 
@@ -287,6 +288,32 @@ function signsOut(page: Page, viewer: Viewer): Effect {
   };
 }
 
+/** Connexion par Otsu sans l'extension : l'écran explique quoi installer, et le lien ouvre le dépôt d'Otsu. */
+function walletControls(page: Page): Control[] {
+  const connect = page.getByRole("button", { name: "Connect Otsu wallet" });
+  return [
+    [
+      'button "Connect Otsu wallet"',
+      async (control) => {
+        await control.click();
+        await expect(page.getByRole("alert")).toContainText("Otsu wallet is not installed in this browser.");
+      },
+    ],
+    [
+      'link "Get Otsu wallet"',
+      async (control) => {
+        await page.context().route(`${OTSU_REPO_URL}**`, (route) => route.fulfill({ status: HTTP_OK, body: "Otsu" }));
+        const popup = page.waitForEvent("popup");
+        await control.click();
+        const opened = await popup;
+        await expect(opened).toHaveURL(OTSU_REPO_URL);
+        await opened.close();
+      },
+      connect,
+    ],
+  ];
+}
+
 /** Connexion par le formulaire : 200 puis l'écran du rôle ; la session est refermée pour la suite de l'écran. */
 function signsIn(page: Page, viewer: Viewer, title: string): Effect {
   return async (control) => {
@@ -428,6 +455,7 @@ test("sign in, the three space doors and the public-body sign-up form, signed ou
   await page.goto("/#/signin");
   await expect(heading(page)).toHaveText(SIGNIN_TITLE);
   await new Screen(page, "sign in", [
+    ...walletControls(page),
     ...ROLES.map(signupLink),
     ...navControls(page),
     ['button "Sign in"', signsIn(page, publicBody, SPACE_TITLES.public_body)],
@@ -437,6 +465,7 @@ test("sign in, the three space doors and the public-body sign-up form, signed ou
     await page.goto(`/${SPACE_ROUTES[space]}`);
     await expect(heading(page)).toHaveText(DOOR_TITLES[space]);
     await new Screen(page, `${space} door`, [
+      ...(space === "public_body" ? [] : walletControls(page)),
       signupLink(space),
       ...navControls(page),
       ['button "Sign in"', signsIn(page, publicBody, spaceTitle(space, "public_body"))],
