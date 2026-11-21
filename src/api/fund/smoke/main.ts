@@ -1,28 +1,52 @@
-// `npm run api:smoke` : parcours complet contre l'API du fonds déjà démarrée (npm run api:fund), comme le ferait
-// le front : fonds et souscription des investisseurs de démo → attestation → entrée du circuit construite ici (jamais
-// par l'API) → preuve calculée côté client avec snarkjs et les artefacts servis par l'API → certificat → rejeu
-// refusé (409) → prêt → audit → remboursement.
+// `npm run api:smoke` : parcours complet contre l'API du fonds déjà démarrée (npm run api:fund avec
+// BARI_STATE_FILE=/tmp/…), comme le front : fonds et souscription des investisseurs de démo → inscription d'une
+// entreprise (cookie de session) → attestation signée localement pour son compte → preuve calculée côté client au palier
+// de la facture → certificat → prêt → rejeu refusé (409) → audit → remboursement par le compte de l'entreprise.
 // SMOKE_DUMP_FILE=<fichier> enregistre toutes les réponses (exemples pour le front).
 
 import { groth16 } from "snarkjs";
-import { eurToCents } from "../../../lib/amounts.js";
+import { CENTS_PER_EUR, eurToCents } from "../../../lib/amounts.js";
 import { log } from "../../../lib/logger.js";
-import { attestInvoice, deriveDebtor, fromHex, releaseZkResources } from "../../../zk/index.js";
+import { attestInvoice, deriveDebtor, fromHex, PUBLIC_SIGNAL_ORDER, releaseZkResources } from "../../../zk/index.js";
 import { parseAttestedInvoice, toAttestedInvoiceFile } from "../../attestedInvoice.js";
 import { buildProveInput, toCircuitInput, type ProofExpectations } from "../zkInputs.js";
 import { ApiClient, field, stringField } from "./http.js";
 import { EventCounter } from "./sse.js";
 
 const DEFAULT_API_URL = "http://127.0.0.1:8788";
-const INVOICE_AMOUNT_EUR = 10_000;
+/** Facture de 23 450 € : prouvée au palier de 20 000 €, avance de 18 000 € (sous la limite de concentration). */
+const INVOICE_AMOUNT_EUR = 23_450;
+const EXPECTED_THRESHOLD_CENTS = "2000000";
+const EXPECTED_PRINCIPAL_UNITS = "18000000000";
 const INVOICE_TERM_DAYS = 90;
 const MS_PER_DAY = 86_400_000;
 const MS_PER_SECOND = 1_000;
 const HTTP_CONFLICT = 409;
 const DEMO_DEBTOR = "Comune di Bari";
+const PASSWORD = "correct horse battery";
 
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(`Échec du smoke test : ${message}`);
+}
+
+function logTransactions(response: unknown): void {
+  const transactions = field(response, "transactions");
+  if (!Array.isArray(transactions)) throw new Error("Liste des transactions illisible");
+  for (const tx of transactions) log.info(`  ${stringField(tx, "label")} ${stringField(tx, "hash")} ${stringField(tx, "result")}`);
+}
+
+/** Entreprise inscrite par l'API, avec un n° de TVA unique : le client garde son cookie de session. */
+async function signUpBusiness(api: ApiClient, unique: string): Promise<string> {
+  const signup = await api.call("POST", "/api/auth/signup", {
+    email: `smoke-${unique}@smoke.example`,
+    password: PASSWORD,
+    role: "business",
+    profile: { company: `Smoke Forniture ${unique} S.r.l.`, vatNumber: `IT${unique}` },
+  });
+  const address = stringField(field(signup, "user"), "address");
+  log.info(`entreprise inscrite, compte géré ${address}`);
+  logTransactions(signup);
+  return address;
 }
 
 /** Côté navigateur : entrée du circuit construite localement, puis preuve Groth16 calculée localement. */
@@ -37,60 +61,68 @@ async function proveLikeBrowser(attested: unknown, expected: ProofExpectations, 
 
 async function run(api: ApiClient, events: EventCounter): Promise<void> {
   log.step("Fonds · comptes, création (stablecoin, KYC, domaine, Vault + broker, souscription des investisseurs de démo)");
-  const actors = await api.call("GET", "/api/actors");
-  if (!Array.isArray(actors)) throw new Error("Liste des acteurs illisible");
-  const sme = actors.find((actor) => field(actor, "name") === "sme");
-  const smeAccount = stringField(sme, "address");
   const created = await api.call("POST", "/api/fund", { replace: true });
   const vaultId = stringField(field(field(created, "fund"), "cohort"), "vaultId");
-  log.info(`Vault ${vaultId} (KYB de la PME de démo : émis par npm run demo:fund)`);
+  log.info(`Vault ${vaultId}`);
 
-  log.step("Organisme public · attestation signée localement ; PME · entrée du circuit et preuve côté client");
+  log.step("Entreprise · inscription (compte géré, KYB émis par Bari, EURc autorisé)");
+  const runId = Date.now();
+  const businessAccount = await signUpBusiness(api, String(runId));
+
+  log.step("Organisme public · attestation signée localement ; entreprise · entrée du circuit et preuve côté client");
   const path = await api.call("GET", `/api/debtors/path?debtor=${encodeURIComponent(DEMO_DEBTOR)}`);
   const fund = await api.call("GET", "/api/fund");
   const debtorsRoot = stringField(field(fund, "manifest"), "debtorsRoot");
   assert(stringField(path, "rootHex") === debtorsRoot, "racine Merkle ≠ fiche du fonds");
   const params = await api.call("GET", "/api/proof/params");
   const expected: ProofExpectations = {
-    smeAccount,
+    smeAccount: businessAccount,
     registry: stringField(params, "registry"),
     networkId: Number(field(params, "networkId")),
     debtorsRoot: fromHex(debtorsRoot),
     vintage: BigInt(Number(field(params, "vintage"))),
   };
-  const invoiceNumber = `FT-SMOKE/${Date.now().toString(36)}`;
+  const invoiceNumber = `FT-SMOKE/${runId.toString(36)}`;
   const dueDate = new Date(Date.now() + INVOICE_TERM_DAYS * MS_PER_DAY);
-  const attest = async () =>
-    toAttestedInvoiceFile(
-      { number: invoiceNumber, debtorName: DEMO_DEBTOR, description: "Smoke test", issueDate: new Date() },
-      await attestInvoice(await deriveDebtor(DEMO_DEBTOR), {
-        account: smeAccount,
-        amount: eurToCents(INVOICE_AMOUNT_EUR),
-        dueDate: BigInt(Math.floor(dueDate.getTime() / MS_PER_SECOND)),
-        invoiceNumber,
-        networkId: expected.networkId,
-        registry: expected.registry,
-      }),
-    );
+  const attested = toAttestedInvoiceFile(
+    { number: invoiceNumber, debtorName: DEMO_DEBTOR, description: "Smoke test", issueDate: new Date() },
+    await attestInvoice(await deriveDebtor(DEMO_DEBTOR), {
+      account: businessAccount,
+      amount: eurToCents(INVOICE_AMOUNT_EUR),
+      dueDate: BigInt(Math.floor(dueDate.getTime() / MS_PER_SECOND)),
+      invoiceNumber,
+      networkId: expected.networkId,
+      registry: expected.registry,
+    }),
+  );
   const artifacts = await Promise.all([api.bytes("/api/zk/bari_invoice.wasm"), api.bytes("/api/zk/bari_invoice_final.zkey")]);
-  const proof = await proveLikeBrowser(await attest(), expected, artifacts);
+  const proof = await proveLikeBrowser(attested, expected, artifacts);
+  const threshold = proof.publicSignals[PUBLIC_SIGNAL_ORDER.indexOf("threshold")];
+  assert(threshold === EXPECTED_THRESHOLD_CENTS, `palier prouvé ${threshold} ≠ ${EXPECTED_THRESHOLD_CENTS}`);
+  assert(!proof.publicSignals.includes(attested.attestation.amountCents), "le montant exact figure dans les signaux publics");
+  log.info(`facture de ${INVOICE_AMOUNT_EUR} € prouvée au palier de ${Number(threshold) / CENTS_PER_EUR} €`);
 
-  log.step("Certificat, puis rejeu de la même facture");
+  log.step("Certificat puis prêt co-signé, avec la session de l'entreprise");
   const certificate = await api.call("POST", "/api/sme/certificate", proof);
   const tokenId = stringField(certificate, "tokenId");
-  const replayProof = await proveLikeBrowser(await attest(), expected, artifacts);
-  const replay = await api.call("POST", "/api/sme/certificate", replayProof, [HTTP_CONFLICT]);
-  log.info(`rejeu refusé (409) : ${stringField(field(replay, "rejectedBy"), "label")} ${stringField(replay, "hash")}`);
-
-  log.step("Prêt co-signé, audit");
+  logTransactions(certificate);
   const loan = await api.call("POST", "/api/sme/loan", { tokenId });
   const loanId = stringField(loan, "loanId");
+  assert(stringField(loan, "principal") === EXPECTED_PRINCIPAL_UNITS, `principal ${stringField(loan, "principal")} ≠ 18 000 €`);
+  log.info(`prêt ${loanId} : LoanSet ${stringField(loan, "txHash")}`);
+
+  log.step("Rejeu du même certificat");
+  const replay = await api.call("POST", "/api/sme/certificate", proof, [HTTP_CONFLICT]);
+  log.info(`rejeu refusé (409) : ${stringField(field(replay, "rejectedBy"), "label")} ${stringField(replay, "hash")}`);
+
+  log.step("Audit");
   const audit = await api.call("GET", "/api/audit");
   assert(field(audit, "anomalies") === 0, "anomalies à l'audit");
   assert(field(audit, "verifiedProofs") === 1 && field(audit, "loans") === 1, "preuve non vérifiée à l'audit");
 
-  log.step("Remboursement");
-  await api.call("POST", `/api/loans/${loanId}/repay`);
+  log.step("Remboursement par le compte de l'entreprise");
+  const repaid = await api.call("POST", `/api/loans/${loanId}/repay`);
+  logTransactions(repaid);
 
   const transactions = events.counts.get("tx") ?? 0;
   log.info(`SSE : ${events.total()} événements (${[...events.counts].map(([type, count]) => `${type} ${count}`).join(", ")})`);

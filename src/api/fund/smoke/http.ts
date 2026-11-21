@@ -1,4 +1,5 @@
-// Client HTTP minimal du smoke test : appel JSON avec statut attendu, et journal des réponses (exemples pour le front).
+// Client HTTP minimal du smoke test : appel JSON avec statut attendu, cookie de session gardé comme le ferait le
+// navigateur, et journal des réponses (exemples pour le front).
 
 import { writeFileSync } from "node:fs";
 
@@ -11,15 +12,21 @@ export interface RecordedCall {
 
 export class ApiClient {
   readonly calls: RecordedCall[] = [];
+  private sessionCookie: string | undefined;
 
   constructor(readonly baseUrl: string) {}
 
   async call(method: "GET" | "POST", path: string, body?: unknown, expectedStatus: number[] = [200, 201]): Promise<unknown> {
     const response = await fetch(`${this.baseUrl}${path}`, {
       method,
-      headers: body === undefined ? {} : { "Content-Type": "application/json" },
+      headers: {
+        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+        ...(this.sessionCookie === undefined ? {} : { Cookie: this.sessionCookie }),
+      },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
+    const setCookie = response.headers.get("set-cookie");
+    if (setCookie !== null) this.sessionCookie = setCookie.split(";")[0];
     const parsed: unknown = await response.json();
     this.calls.push({ method, path, status: response.status, body: parsed });
     if (!expectedStatus.includes(response.status)) {

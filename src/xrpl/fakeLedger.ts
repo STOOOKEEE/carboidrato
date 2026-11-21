@@ -14,6 +14,7 @@ export class FakeLedger implements Ledger {
   private readonly balances = new Map<string, bigint>();
   private readonly vaults = new Map<string, LedgerEntry.Vault>();
   private readonly brokers = new Map<string, LedgerEntry.LoanBroker>();
+  private readonly loans = new Map<string, LedgerEntry.Loan>();
   private readonly objects = new Map<string, LedgerEntry.LedgerEntry[]>();
   private readonly transactions = new Map<string, LedgerTransaction>();
   private time = 0;
@@ -40,6 +41,10 @@ export class FakeLedger implements Ledger {
   putLoanBroker(broker: LedgerEntry.LoanBroker): void {
     this.brokers.set(key(broker.index), broker);
     this.putAccountObject(broker.Owner, "loan_broker", broker);
+  }
+
+  putLoan(loan: LedgerEntry.Loan): void {
+    this.loans.set(key(loan.index), loan);
   }
 
   putAccountObject(account: string, type: AccountObjectType, entry: LedgerEntry.LedgerEntry): void {
@@ -82,6 +87,12 @@ export class FakeLedger implements Ledger {
     const broker = this.brokers.get(key(id));
     if (broker === undefined) throw new Error(`LoanBroker introuvable : ${id}`);
     return broker;
+  }
+
+  async loan(id: string): Promise<LedgerEntry.Loan> {
+    const loan = this.loans.get(key(id));
+    if (loan === undefined) throw new Error(`Loan introuvable : ${id}`);
+    return loan;
   }
 
   async accountObjects(account: string, type: AccountObjectType): Promise<LedgerEntry.LedgerEntry[]> {

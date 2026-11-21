@@ -57,6 +57,18 @@ export function isListed(tree: DebtorTree, key: DebtorKey): boolean {
   return tree.levels[0].includes(leafOf(key));
 }
 
+/**
+ * Seuil que prouvera la facture : le plus grand palier public (centimes) qui ne dépasse pas son montant, undefined
+ * sous le premier. Seul ce palier devient un signal public, le montant exact reste dans le témoin.
+ */
+export function provenThreshold(amountCents: string, thresholdsCents: readonly string[]): bigint | undefined {
+  const amount = BigInt(amountCents);
+  return thresholdsCents
+    .map((tier) => BigInt(tier))
+    .filter((tier) => tier <= amount)
+    .reduce<bigint | undefined>((best, tier) => (best === undefined || tier > best ? tier : best), undefined);
+}
+
 /** Chemin d'appartenance d'un débiteur ; échoue s'il n'est pas dans la liste, la preuve serait impossible. */
 export function merklePathOf(tree: DebtorTree, key: DebtorKey): MerklePath {
   let index = tree.levels[0].indexOf(leafOf(key));

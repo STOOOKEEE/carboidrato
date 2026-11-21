@@ -4,7 +4,7 @@
 import { createReadStream } from "node:fs";
 import type { FastifyInstance } from "fastify";
 import { FUND_VINTAGE } from "../../../config/cohort.js";
-import { loanTerms } from "../../../lending/loanTerms.js";
+import { OFFER_TIER_CENTS } from "../../../lending/loanTerms.js";
 import { CIRCUIT_WASM_PATH, PROVING_KEY_PATH, VERIFICATION_KEY_PATH } from "../../../zk/constants.js";
 import type { ProofParams } from "../../contract.js";
 import { networkId, type ApiContext } from "../context.js";
@@ -32,7 +32,7 @@ export function registerZkRoutes(app: FastifyInstance, context: ApiContext): voi
   app.get("/api/proof/params", async (): Promise<ProofParams> => ({
     networkId: networkId(context),
     registry: context.actors.bari_registry.address,
-    thresholdCents: loanTerms().provenThresholdCents.toString(),
+    thresholdsCents: OFFER_TIER_CENTS.map(String),
     // Sans fonds ouvert, le millésime par défaut : celui que le prochain fonds publiera.
     vintage: context.store.current?.fund.manifest.vintage ?? FUND_VINTAGE,
     artifacts: {

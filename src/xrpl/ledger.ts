@@ -4,6 +4,7 @@
 import type { AccountObjectType, Client, LedgerEntry, TxResponse } from "xrpl";
 import {
   getCredential,
+  getLoan,
   getLoanBroker,
   getMptBalance,
   getMptIssuance,
@@ -26,6 +27,8 @@ export interface Ledger {
   vault(id: string): Promise<LedgerEntry.Vault>;
   /** Lève une erreur si le LoanBroker n'existe pas. */
   loanBroker(id: string): Promise<LedgerEntry.LoanBroker>;
+  /** Lève une erreur si le Loan n'existe pas. */
+  loan(id: string): Promise<LedgerEntry.Loan>;
   accountObjects(account: string, type: AccountObjectType): Promise<LedgerEntry.LedgerEntry[]>;
   /** Transaction par son hash, undefined si le nœud ne la connaît pas. */
   transaction(hash: string): Promise<LedgerTransaction | undefined>;
@@ -50,6 +53,7 @@ export function xrplLedger(client: Client): Ledger {
     mptBalance: (id, holder) => getMptBalance(client, id, holder),
     vault: (id) => getVault(client, id),
     loanBroker: (id) => getLoanBroker(client, id),
+    loan: (id) => getLoan(client, id),
     accountObjects: (account, type) => listAccountObjects(client, account, type),
     transaction: (hash) => findTransaction(client, hash),
     closeTime: () => ledgerTime(client),
