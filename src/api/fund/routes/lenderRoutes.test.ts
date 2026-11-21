@@ -1,23 +1,45 @@
-// Espace prêteur : position lue sur un faux ledger, chemin natif ou immédiat selon la phase, plafonds de Bari, garde de rôle.
+// Espace prêteur : position lue sur un faux ledger, chemin natif ou immédiat selon la phase, plafonds de Bari, garde de rôle ;
+// prêteur wallet (Otsu) : ordre préparé par Bari, signé dans le wallet, vérifié octet par octet puis soumis, sans seed.
 
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, test } from "node:test";
 import type { FastifyInstance } from "fastify";
-import { Wallet, type LedgerEntry, type SubmittableTransaction } from "xrpl";
+import {
+  decode,
+  hashes,
+  signMultiBatch,
+  Wallet,
+  type Batch,
+  type LedgerEntry,
+  type SubmittableTransaction,
+  type Transaction,
+} from "xrpl";
+import type { UserRecord } from "../../../accounts/userStore.js";
 import type { Fund } from "../../../fund/fund.js";
 import { exitPayout, immediateLimits } from "../../../fund/sharePrice.js";
-import { FakeLedger } from "../../../xrpl/fakeLedger.js";
 import type { PendingInner } from "../../../xrpl/batch.js";
+import { FakeLedger } from "../../../xrpl/fakeLedger.js";
+import type { LedgerTransaction } from "../../../xrpl/ledger.js";
+import { SIGNING_WINDOW_LEDGERS, type WalletTxPorts } from "../../../xrpl/preparedTx.js";
 import { RLUSD_CURRENCY, unitsToValue, valueToUnits, type Stablecoin } from "../../../xrpl/stablecoin.js";
-import type { TxOutcome } from "../../../xrpl/submit.js";
-import type { LenderFaucetResponse, LenderPosition, LenderTradeResponse } from "../../contract.js";
+import { UnexpectedTxResult, type TxOutcome } from "../../../xrpl/submit.js";
+import type {
+  LenderFaucetResponse,
+  LenderOrderResponse,
+  LenderPosition,
+  LenderTradeResponse,
+  PreparedSignature,
+} from "../../contract.js";
 import { buildApp } from "../app.js";
+import { issueSession, SESSION_COOKIE } from "../auth.js";
 import { fakeApiConfig, fakeContext } from "../fakeContext.js";
 
 const HTTP_OK = 200;
+const HTTP_BAD_REQUEST = 400;
 const HTTP_UNAUTHORIZED = 401;
 const HTTP_FORBIDDEN = 403;
 const HTTP_NOT_FOUND = 404;
+const HTTP_CONFLICT = 409;
 const HTTP_UNPROCESSABLE = 422;
 const PASSWORD = "correct horse battery";
 /** 1 RLUSD en unités (6 décimales) ; une part affichée vaut aussi 10^6 unités de part. */
@@ -30,6 +52,10 @@ const TX_HASH = "EE".repeat(32);
 const SUBSCRIPTION_END = 1_000;
 const REDEMPTION_START = 2_000;
 const PHASE_TIME = { subscription: 500, investment: 1_500, redemption: 2_500 } as const;
+const WALLET_SEQUENCE = 40;
+const BARI_SEQUENCE = 300;
+const LEDGER_INDEX = 900;
+const AUTOFILLED_FEE = "36";
 
 const ledger = new FakeLedger(1000);
 const brokerAccount = Wallet.generate().address;
@@ -57,7 +83,7 @@ const fund = {
 } satisfies Fund;
 
 let app: FastifyInstance;
-const sessions = { lender: "", business: "" };
+const sessions = { lender: "", business: "", wallet: "" };
 const lender = () => {
   const wallet = managedWallets.get("lender");
   if (wallet === undefined) throw new Error("prêteur non inscrit");
@@ -65,8 +91,7 @@ const lender = () => {
 };
 
 /** Faux nœud : un VaultDeposit (RLUSD) ou un VaultWithdraw (parts) au pair déplace les soldes, comme le ferait le ledger. */
-async function fakeSubmit(tx: SubmittableTransaction, wallet: Wallet): Promise<TxOutcome> {
-  sent.push({ tx, signer: wallet.address });
+async function moveVaultBalances(tx: SubmittableTransaction): Promise<void> {
   if ((tx.TransactionType === "VaultDeposit" || tx.TransactionType === "VaultWithdraw") && typeof tx.Amount === "object") {
     const units = "mpt_issuance_id" in tx.Amount ? BigInt(tx.Amount.value) : valueToUnits(tx.Amount.value);
     const sign = tx.TransactionType === "VaultDeposit" ? 1n : -1n;
@@ -74,8 +99,43 @@ async function fakeSubmit(tx: SubmittableTransaction, wallet: Wallet): Promise<T
     ledger.putMptBalance(SHARE_ID, tx.Account, shares + sign * units);
     ledger.putStablecoinBalance(asset, tx.Account, balance - sign * units);
   }
+}
+
+async function fakeSubmit(tx: SubmittableTransaction, wallet: Wallet): Promise<TxOutcome> {
+  sent.push({ tx, signer: wallet.address });
+  await moveVaultBalances(tx);
   return outcome;
 }
+
+const walletSubmitted: string[] = [];
+const autofillSigners: (number | undefined)[] = [];
+/** Résultat des transactions internes d'un Batch soumis ; undefined : absentes du ledger (rien n'est appliqué). */
+let innerResult: string | undefined = "tesSUCCESS";
+let submitFailure: Error | undefined;
+
+/** Faux nœud du wallet : séquences fixes, frais complétés, blob signé « validé » (soldes déplacés, Batch appliqué). */
+const walletPorts: WalletTxPorts = {
+  accountState: async (account) => ({ sequence: account === bari.address ? BARI_SEQUENCE : WALLET_SEQUENCE, ledgerIndex: LEDGER_INDEX }),
+  autofill: async (tx, signersCount) => {
+    autofillSigners.push(signersCount);
+    if (tx.TransactionType !== "Batch") return { ...tx, Fee: AUTOFILLED_FEE };
+    const RawTransactions = tx.RawTransactions.map(({ RawTransaction }) => ({ RawTransaction: { ...RawTransaction, Fee: "0", SigningPubKey: "" } }));
+    return { ...tx, Fee: AUTOFILLED_FEE, RawTransactions };
+  },
+  submitSigned: async (txBlob, hash) => {
+    walletSubmitted.push(txBlob);
+    if (submitFailure !== undefined) throw submitFailure;
+    const tx = decode(txBlob) as unknown as SubmittableTransaction;
+    await moveVaultBalances(tx);
+    if (tx.TransactionType === "Batch" && innerResult !== undefined) {
+      for (const { RawTransaction } of tx.RawTransactions) {
+        const inner = { hash: hashes.hashSignedTx(RawTransaction), validated: true, meta: { TransactionResult: innerResult } };
+        ledger.putTransaction(inner as unknown as LedgerTransaction);
+      }
+    }
+    return { ...outcome, hash };
+  },
+};
 
 function putVault(assetsTotal: bigint, lossUnrealized: bigint, sharesOutstanding: bigint): void {
   ledger.putVault({
@@ -135,10 +195,16 @@ const activeLoan: LedgerEntry.Loan = {
 function resetMarket(phase: keyof typeof PHASE_TIME, bariReserve = 5_000n * RLUSD): void {
   sent.length = 0;
   batches.length = 0;
+  walletSubmitted.length = 0;
+  autofillSigners.length = 0;
+  innerResult = "tesSUCCESS";
+  submitFailure = undefined;
   ledger.setCloseTime(PHASE_TIME[phase]);
   putVault(103_000n * RLUSD, 1_000n * RLUSD, 100_000n * RLUSD);
-  ledger.putStablecoinBalance(asset, lender().address, 20_000n * RLUSD);
-  ledger.putMptBalance(SHARE_ID, lender().address, 1_000n * RLUSD);
+  for (const holder of [lender().address, otsu.address]) {
+    ledger.putStablecoinBalance(asset, holder, 20_000n * RLUSD);
+    ledger.putMptBalance(SHARE_ID, holder, 1_000n * RLUSD);
+  }
   ledger.putMptBalance(SHARE_ID, bari.address, 10_000n * RLUSD);
   ledger.putStablecoinBalance(asset, bari.address, bariReserve);
 }
@@ -153,14 +219,23 @@ const get = (url: string, cookie?: string) => app.inject({ method: "GET", url, h
 const post = (url: string, payload: object, cookie?: string) =>
   app.inject({ method: "POST", url, payload, headers: cookie === undefined ? {} : { cookie } });
 
+/** Prêteur connecté par Otsu : Bari ne connaît que son adresse. */
+const otsu = Wallet.generate();
+let walletLender: UserRecord;
+
 before(async () => {
-  app = await buildApp(fakeApiConfig, context, {
-    submit: fakeSubmit,
-    submitBatch: async (submitter, cosigner, inner, label) => {
-      batches.push({ submitter: submitter.address, cosigner: cosigner.address, inner, label });
-      return outcome;
+  app = await buildApp(
+    fakeApiConfig,
+    context,
+    {
+      submit: fakeSubmit,
+      submitBatch: async (submitter, cosigner, inner, label) => {
+        batches.push({ submitter: submitter.address, cosigner: cosigner.address, inner, label });
+        return outcome;
+      },
     },
-  });
+    walletPorts,
+  );
   await app.ready();
   context.store.reset(fund);
   ledger.putLoanBroker({
@@ -193,21 +268,23 @@ before(async () => {
     role: "business",
     profile: { company: "Marco Costruzioni S.r.l.", vatNumber: "IT01234567890" },
   });
+  walletLender = context.users.createWalletUser({ role: "lender", profile: { name: "Wanda Verdi", country: "IT" }, address: otsu.address });
+  sessions.wallet = `${SESSION_COOKIE}=${issueSession(context.users.sessionSecret, walletLender.id)}`;
 });
 
 after(() => app.close());
 
 describe("garde de rôle", () => {
   const routes = [
-    ["GET", "/api/lender/position"],
-    ["POST", "/api/lender/faucet"],
-    ["POST", "/api/lender/deposit"],
-    ["POST", "/api/lender/withdraw"],
+    ["GET", "/api/lender/position", undefined],
+    ["POST", "/api/lender/faucet", { amount: "1" }],
+    ["POST", "/api/lender/deposit", { amount: "1" }],
+    ["POST", "/api/lender/withdraw", { amount: "1" }],
+    ["POST", "/api/lender/submit", { tx_blob: "00" }],
   ] as const;
 
   test("sans session → 401 ; entreprise → 403", async () => {
-    for (const [method, url] of routes) {
-      const payload = method === "POST" ? { amount: "1" } : undefined;
+    for (const [method, url, payload] of routes) {
       assert.equal((await app.inject({ method, url, payload })).statusCode, HTTP_UNAUTHORIZED, url);
       const forbidden = await app.inject({ method, url, payload, headers: { cookie: sessions.business } });
       assert.equal(forbidden.statusCode, HTTP_FORBIDDEN, url);
@@ -398,5 +475,168 @@ describe("POST /api/lender/faucet", () => {
         },
       },
     ]);
+  });
+});
+
+describe("prêteur wallet (Otsu) : Bari prépare, le wallet signe, Bari soumet", () => {
+  /** Ce que fait Otsu : signe la transaction reçue, sans rien y changer. */
+  const signed = (tx: Record<string, unknown>) => otsu.sign(tx as unknown as Transaction).tx_blob;
+  const submitBlob = (txBlob: string, cookie = sessions.wallet) => post("/api/lender/submit", { tx_blob: txBlob }, cookie);
+
+  async function prepared(action: "deposit" | "withdraw", amount: bigint): Promise<PreparedSignature> {
+    const response = await post(`/api/lender/${action}`, { amount: amount.toString() }, sessions.wallet);
+    assert.equal(response.statusCode, HTTP_OK, response.body);
+    const body = response.json<LenderOrderResponse>();
+    assert.ok("status" in body && body.status === "sign", response.body);
+    return body;
+  }
+
+  test("position et faucet : l'adresse du wallet, sans seed", async () => {
+    resetMarket("investment");
+    ledger.putStablecoinBalance(asset, otsu.address, 7n * RLUSD);
+    const position = (await get("/api/lender/position", sessions.wallet)).json<LenderPosition>();
+    assert.equal(position.rlusdBalance, (7n * RLUSD).toString());
+    const faucet = await post("/api/lender/faucet", {}, sessions.wallet);
+    assert.equal(faucet.statusCode, HTTP_OK, faucet.body);
+    assert.deepEqual(
+      sent.map(({ tx, signer }) => [tx.TransactionType, signer, "Destination" in tx ? tx.Destination : undefined]),
+      [["Payment", stableIssuer.address, otsu.address]],
+    );
+  });
+
+  test("période de prêt : Batch préparé, compte du wallet à l'extérieur, BatchSigners de Bari, rien de soumis", async () => {
+    resetMarket("investment");
+    const body = await prepared("deposit", 1_020n * RLUSD);
+    const tx = body.tx as unknown as Batch;
+    assert.deepEqual(
+      [tx.TransactionType, tx.Account, tx.Sequence, tx.Fee, tx.LastLedgerSequence],
+      ["Batch", otsu.address, WALLET_SEQUENCE, AUTOFILLED_FEE, LEDGER_INDEX + SIGNING_WINDOW_LEDGERS],
+    );
+    assert.deepEqual(
+      tx.RawTransactions.map(({ RawTransaction: inner }) => (inner.TransactionType === "Payment" ? [inner.Account, inner.Destination, inner.Amount, inner.Sequence] : [])),
+      [
+        [otsu.address, bari.address, { currency: RLUSD_CURRENCY, issuer: asset.issuer, value: "1020" }, WALLET_SEQUENCE + 1],
+        [bari.address, otsu.address, { mpt_issuance_id: SHARE_ID, value: (1_000n * RLUSD).toString() }, BARI_SEQUENCE],
+      ],
+    );
+    // Signature de Bari recalculée sur le même Batch : elle couvre le compte, la séquence, les flags et les ID internes.
+    const { BatchSigners, ...unsigned } = tx;
+    const expected = { ...unsigned } as Batch;
+    signMultiBatch(bari, expected);
+    assert.deepEqual(BatchSigners, expected.BatchSigners);
+    assert.equal(BatchSigners?.[0]?.BatchSigner.Account, bari.address);
+    assert.deepEqual(autofillSigners, [1]);
+    assert.equal(body.labels.length, 2);
+    assert.deepEqual(body.transactions, []);
+    assert.equal(sent.length + batches.length + walletSubmitted.length, 0);
+    assert.equal(walletLender.account, undefined);
+  });
+
+  test("blob signé tel quel : soumis, Batch entièrement appliqué, prix de revient suivi ; rejoué → 409", async () => {
+    resetMarket("investment");
+    const before = context.users.costBasis(walletLender.id);
+    const body = await prepared("deposit", 1_020n * RLUSD);
+    const txBlob = signed(body.tx);
+    const response = await submitBlob(txBlob);
+    assert.equal(response.statusCode, HTTP_OK, response.body);
+    const trade = response.json<LenderTradeResponse>();
+    const innerHashes = (body.tx as unknown as Batch).RawTransactions.map(({ RawTransaction }) => hashes.hashSignedTx(RawTransaction));
+    assert.deepEqual(
+      [trade.hash, trade.route, trade.phase, trade.amount, trade.shares],
+      [hashes.hashSignedTx(txBlob), "immediate", "investment", (1_020n * RLUSD).toString(), (1_000n * RLUSD).toString()],
+    );
+    assert.deepEqual(trade.transactions.map(({ hash }) => hash), innerHashes);
+    assert.deepEqual(walletSubmitted, [txBlob]);
+    assert.deepEqual(context.users.costBasis(walletLender.id), { shares: before.shares + 1_000n * RLUSD, cost: before.cost + 1_020n * RLUSD });
+    assert.equal((await submitBlob(txBlob)).statusCode, HTTP_CONFLICT);
+  });
+
+  test("blob modifié → 400, rien de soumis ; sans ordre préparé → 409", async () => {
+    resetMarket("investment");
+    const body = await prepared("deposit", 1_020n * RLUSD);
+    const response = await submitBlob(signed({ ...body.tx, Fee: "1000" }));
+    assert.equal(response.statusCode, HTTP_BAD_REQUEST);
+    assert.equal(response.json<{ error: string }>().error, "This is not the transaction Bari prepared. Start again.");
+    assert.equal(walletSubmitted.length, 0);
+    const managed = await submitBlob(signed(body.tx), sessions.lender);
+    assert.equal(managed.statusCode, HTTP_CONFLICT);
+    assert.match(managed.json<{ error: string }>().error, /Nothing is waiting for your signature/);
+  });
+
+  test("souscription : VaultDeposit du wallet préparé, parts reçues lues sur le ledger après validation", async () => {
+    resetMarket("subscription");
+    putVault(100_000n * RLUSD, 0n, 100_000n * RLUSD);
+    const before = context.users.costBasis(walletLender.id);
+    const body = await prepared("deposit", 2_000n * RLUSD);
+    assert.deepEqual(body.tx, {
+      TransactionType: "VaultDeposit",
+      Account: otsu.address,
+      VaultID: VAULT_ID,
+      Amount: { currency: RLUSD_CURRENCY, issuer: asset.issuer, value: "2000" },
+      Sequence: WALLET_SEQUENCE,
+      LastLedgerSequence: LEDGER_INDEX + SIGNING_WINDOW_LEDGERS,
+      Fee: AUTOFILLED_FEE,
+    });
+    const response = await submitBlob(signed(body.tx));
+    assert.equal(response.statusCode, HTTP_OK, response.body);
+    const trade = response.json<LenderTradeResponse>();
+    assert.deepEqual([trade.route, trade.amount, trade.shares], ["native", (2_000n * RLUSD).toString(), (2_000n * RLUSD).toString()]);
+    assert.deepEqual(context.users.costBasis(walletLender.id), { shares: before.shares + 2_000n * RLUSD, cost: before.cost + 2_000n * RLUSD });
+  });
+
+  test("période de prêt, retrait : Batch de sortie (parts → Bari, RLUSD de Bari → wallet), vente enregistrée", async () => {
+    resetMarket("investment");
+    const shares = 500n * RLUSD;
+    const body = await prepared("withdraw", shares);
+    const tx = body.tx as unknown as Batch;
+    assert.deepEqual(
+      tx.RawTransactions.map(({ RawTransaction: inner }) => (inner.TransactionType === "Payment" ? [inner.Account, inner.Destination, inner.Amount] : [])),
+      [
+        [otsu.address, bari.address, { mpt_issuance_id: SHARE_ID, value: shares.toString() }],
+        [bari.address, otsu.address, { currency: RLUSD_CURRENCY, issuer: asset.issuer, value: "507.45" }],
+      ],
+    );
+    const before = context.users.costBasis(walletLender.id);
+    const response = await submitBlob(signed(body.tx));
+    assert.equal(response.statusCode, HTTP_OK, response.body);
+    const trade = response.json<LenderTradeResponse>();
+    assert.deepEqual([trade.route, trade.amount, trade.shares], ["immediate", "507450000", shares.toString()]);
+    assert.equal(context.users.costBasis(walletLender.id).shares, before.shares - shares);
+  });
+
+  test("rachat : VaultWithdraw du wallet, RLUSD reçus lus sur le ledger", async () => {
+    resetMarket("redemption");
+    const body = await prepared("withdraw", 400n * RLUSD);
+    assert.equal(body.tx.TransactionType, "VaultWithdraw");
+    const trade = (await submitBlob(signed(body.tx))).json<LenderTradeResponse>();
+    assert.deepEqual([trade.route, trade.amount, trade.shares], ["native", (400n * RLUSD).toString(), (400n * RLUSD).toString()]);
+  });
+
+  test("Batch validé sans ses transactions internes → 409, prix de revient inchangé", async () => {
+    resetMarket("investment");
+    innerResult = undefined;
+    const before = context.users.costBasis(walletLender.id);
+    // Montant propre à ce test : les mêmes transactions internes validées plus haut resteraient sur le faux ledger.
+    const body = await prepared("deposit", 510n * RLUSD);
+    const response = await submitBlob(signed(body.tx));
+    assert.equal(response.statusCode, HTTP_CONFLICT);
+    assert.match(response.json<{ error: string }>().error, /Nothing moved/);
+    assert.deepEqual(context.users.costBasis(walletLender.id), before);
+  });
+
+  test("signé après son échéance → 409 : recommencer", async () => {
+    resetMarket("investment");
+    submitFailure = new UnexpectedTxResult("ordre", "tefMAX_LEDGER (Ledger sequence too high)", TX_HASH);
+    const body = await prepared("deposit", 1_020n * RLUSD);
+    const response = await submitBlob(signed(body.tx));
+    assert.equal(response.statusCode, HTTP_CONFLICT);
+    assert.match(response.json<{ error: string }>().error, /expired/);
+  });
+
+  test("les contrôles du compte géré s'appliquent : au-delà du solde → 422, rien de préparé", async () => {
+    resetMarket("subscription");
+    const response = await post("/api/lender/deposit", { amount: (20_001n * RLUSD).toString() }, sessions.wallet);
+    assert.equal(response.statusCode, HTTP_UNPROCESSABLE);
+    assert.equal(autofillSigners.length, 0);
   });
 });

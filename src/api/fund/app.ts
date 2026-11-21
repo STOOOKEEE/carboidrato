@@ -49,7 +49,7 @@ export async function buildApp(
   registerOnboardingRoutes(app, context, ports.submit, walletPorts);
   registerFundRoutes(app, context);
   registerPublicBodyRoutes(app, context);
-  registerLenderRoutes(app, context, ports);
+  registerLenderRoutes(app, context, ports, walletPorts);
   registerDebtorRoutes(app);
   registerZkRoutes(app, context);
   registerSmeRoutes(app, context, walletPorts);

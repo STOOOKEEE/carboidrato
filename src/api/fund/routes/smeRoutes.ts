@@ -52,8 +52,8 @@ import {
   certificateSchema,
   loanSchema,
   offerSchema,
-  onboardingSubmitSchema,
   registrySchema,
+  signedTxSchema,
   type AccountParams,
   type CertificateBody,
   type LoanBody,
@@ -369,7 +369,7 @@ export function registerSmeRoutes(app: FastifyInstance, context: ApiContext, por
 
   app.post<{ Body: OnboardingSubmitRequest }>(
     "/api/sme/certificate/submit",
-    { schema: onboardingSubmitSchema, preHandler: businessOnly },
+    { schema: signedTxSchema, preHandler: businessOnly },
     async (request, reply) => {
       const user = sessionUser(request, "business");
       const response = await wallet.submitCertificate(user, requireBusinessAccount(user), request.body.tx_blob);
@@ -386,7 +386,7 @@ export function registerSmeRoutes(app: FastifyInstance, context: ApiContext, por
 
   app.post<{ Body: OnboardingSubmitRequest }>(
     "/api/sme/loan/submit",
-    { schema: onboardingSubmitSchema, preHandler: businessOnly },
+    { schema: signedTxSchema, preHandler: businessOnly },
     async (request, reply) => {
       const user = sessionUser(request, "business");
       const response = await wallet.submitLoan(user, requireBusinessAccount(user), request.body.tx_blob);

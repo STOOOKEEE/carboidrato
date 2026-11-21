@@ -493,7 +493,18 @@ export interface LenderTradeResponse {
   transactions: SubmittedTx[];
 }
 
-/** `POST /api/lender/faucet` : RLUSD de test envoyés au compte géré du prêteur. */
+/**
+ * `POST /api/lender/deposit` et `/withdraw` : ordre exécuté par Bari pour un compte géré ; pour un wallet, l'ordre
+ * préparé à signer dans Otsu, puis à renvoyer à `POST /api/lender/submit` (qui répond `LenderTradeResponse`).
+ */
+export type LenderOrderResponse = LenderTradeResponse | PreparedSignature;
+
+export interface LenderSubmitRequest {
+  /** L'ordre préparé par Bari, signé par le wallet. */
+  tx_blob: string;
+}
+
+/** `POST /api/lender/faucet` : RLUSD de test envoyés au compte du prêteur (géré ou wallet). */
 export interface LenderFaucetResponse {
   hash: string;
   amount: RlusdUnits;

@@ -1,8 +1,15 @@
-// Tests de l'espace prêteur : saisie des montants sans dérive, aperçus des ordres, transitions et historique.
+// Tests de l'espace prêteur : saisie des montants sans dérive, aperçus des ordres, transitions et historique, ordre d'un
+// wallet signé dans Otsu.
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import type { LenderFaucetResponse, LenderPosition, LenderTradeResponse } from "../../../../src/api/contract";
+import type {
+  LenderFaucetResponse,
+  LenderOrderResponse,
+  LenderPosition,
+  LenderTradeResponse,
+} from "../../../../src/api/contract";
+import { WalletRejected } from "../../wallet/sign";
 import {
   checkDeposit,
   checkWithdraw,
@@ -11,10 +18,13 @@ import {
   formatSharePrice,
   formatShares,
   initialLendState,
+  isBusy,
   lendTransition,
   movementSummary,
+  orderFailure,
   parseRlusd,
   parseShares,
+  placeOrder,
   sharesInput,
   tradeMovement,
   utilisationPercent,
@@ -284,5 +294,87 @@ describe("lendTransition", () => {
     ] as [LendState, LendEvent][]) {
       assert.equal(lendTransition(state, event), state);
     }
+  });
+});
+
+describe("ordre d'un wallet : préparé par Bari, signé dans Otsu, soumis par Bari", () => {
+  const trade: LenderTradeResponse = {
+    hash: "B".repeat(64),
+    route: "immediate",
+    phase: "investment",
+    amount: "1020000000",
+    shares: "1000000000",
+    transactions: [],
+  };
+  const sign: LenderOrderResponse = { status: "sign", tx: { TransactionType: "Batch" }, labels: ["Pay 1,020.00 RLUSD to Bari"], transactions: [] };
+
+  test("compte géré : la réponse de Bari, sans signature", async () => {
+    const events: LendEvent[] = [];
+    const deps = {
+      place: async () => trade,
+      sign: async () => assert.fail("pas de signature pour un compte géré"),
+      submit: async () => assert.fail("rien à soumettre"),
+    };
+    assert.equal(await placeOrder(deps, (event) => events.push(event)), trade);
+    assert.deepEqual(events, []);
+  });
+
+  test("wallet : signature demandée avec ses libellés, blob tel quel à Bari, puis le résultat", async () => {
+    const events: LendEvent[] = [];
+    const signed: Record<string, unknown>[] = [];
+    const submitted: string[] = [];
+    const deps = {
+      place: async () => sign,
+      sign: async (tx: Record<string, unknown>) => {
+        signed.push(tx);
+        return "BLOB";
+      },
+      submit: async (txBlob: string) => {
+        submitted.push(txBlob);
+        return trade;
+      },
+    };
+    assert.equal(await placeOrder(deps, (event) => events.push(event)), trade);
+    assert.deepEqual(signed, [sign.tx]);
+    assert.deepEqual(submitted, ["BLOB"]);
+    assert.deepEqual(events, [{ type: "SIGN_REQUESTED", labels: sign.labels }, { type: "SIGNED" }]);
+  });
+
+  test("transitions : envoi → signature dans Otsu → enregistrement → fait ; occupé pendant la signature", () => {
+    const movement = tradeMovement("deposit", trade);
+    const submitting = lendTransition(initialLendState, { type: "SUBMIT", action: "deposit" });
+    const signing = lendTransition(submitting, { type: "SIGN_REQUESTED", labels: sign.labels });
+    assert.deepEqual(signing.operation, { status: "signing", action: "deposit", labels: sign.labels });
+    assert.equal(isBusy(signing.operation), true);
+    assert.equal(lendTransition(signing, { type: "SUBMIT", action: "withdraw" }), signing);
+    assert.equal(lendTransition(signing, { type: "SUCCEEDED", movement }), signing);
+    const recording = lendTransition(signing, { type: "SIGNED" });
+    assert.deepEqual(recording.operation, { status: "submitting", action: "deposit" });
+    assert.deepEqual(lendTransition(recording, { type: "SUCCEEDED", movement }).operation, { status: "done", movement });
+    assert.equal(isBusy(lendTransition(recording, { type: "SUCCEEDED", movement }).operation), false);
+  });
+
+  test("refus dans Otsu : un échec avec la marche à suivre", () => {
+    const signing: LendState = { operation: { status: "signing", action: "withdraw", labels: [] }, history: [] };
+    const failure = orderFailure(new WalletRejected());
+    assert.deepEqual(failure, {
+      message: "The request was declined in Otsu.",
+      fix: "Try again and approve the request in the Otsu window.",
+    });
+    assert.deepEqual(lendTransition(signing, { type: "FAILED", ...failure }).operation, { status: "failed", action: "withdraw", ...failure });
+  });
+
+  test("autres erreurs : le message de Bari, sans marche à suivre particulière", () => {
+    assert.deepEqual(orderFailure(new Error("This request expired before it reached the ledger. Start again.")), {
+      message: "This request expired before it reached the ledger. Start again.",
+    });
+    assert.deepEqual(orderFailure("boom"), { message: "boom" });
+  });
+
+  test("SIGN_REQUESTED ou SIGNED hors de leur étape : état inchangé", () => {
+    const faucet: LendState = { operation: { status: "submitting", action: "faucet" }, history: [] };
+    assert.equal(lendTransition(faucet, { type: "SIGN_REQUESTED", labels: [] }), faucet);
+    assert.equal(lendTransition(faucet, { type: "SIGNED" }), faucet);
+    assert.equal(lendTransition(initialLendState, { type: "SIGNED" }), initialLendState);
   });
 });

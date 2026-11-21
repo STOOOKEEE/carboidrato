@@ -11,7 +11,7 @@ import type { OnboardingSubmitRequest, PreparedSignature } from "../../contract.
 import { requireFund, type ApiContext } from "../context.js";
 import { HttpError } from "../errors.js";
 import { fundView } from "../fundView.js";
-import { loanParamsSchema, onboardingSubmitSchema, type LoanParams } from "../schemas.js";
+import { loanParamsSchema, signedTxSchema, type LoanParams } from "../schemas.js";
 import type { LoanState, LoanStatus } from "../stateStore.js";
 import { signatureRequest, submitBeforeExpiry, takeSigned } from "../walletSignature.js";
 
@@ -93,7 +93,7 @@ export function registerLoanRoutes(app: FastifyInstance, context: ApiContext, su
 
   app.post<{ Params: LoanParams; Body: OnboardingSubmitRequest }>(
     "/api/loans/:id/repay/submit",
-    { schema: { ...loanParamsSchema, ...onboardingSubmitSchema } },
+    { schema: { ...loanParamsSchema, ...signedTxSchema } },
     async (request) => {
       const loan = activeLoan(context, request.params.id);
       const state = requireFund(context);

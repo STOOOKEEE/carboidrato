@@ -5,7 +5,14 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { decode, encode, hashes, type SubmittableTransaction } from "xrpl";
 import { credentialOffer, missingHoldings, ROLE_CREDENTIALS, userSteps, userTransaction } from "../../../kyb/onboarding.js";
 import { textToHex } from "../../../lib/encoding.js";
-import { matchesPrepared, PreparedStore, SIGNING_WINDOW_LEDGERS, type WalletTxPorts } from "../../../xrpl/preparedTx.js";
+import {
+  EXPIRED_RESULT,
+  innerApplied,
+  matchesPrepared,
+  PreparedStore,
+  SIGNING_WINDOW_LEDGERS,
+  type WalletTxPorts,
+} from "../../../xrpl/preparedTx.js";
 import { UnexpectedTxResult, type SubmitTx } from "../../../xrpl/submit.js";
 import type {
   OnboardingPrepareResponse,
@@ -16,15 +23,12 @@ import type {
 import { currentUser } from "../auth.js";
 import { requireFund, type ApiContext } from "../context.js";
 import { HttpError } from "../errors.js";
-import { onboardingSubmitSchema } from "../schemas.js";
+import { signedTxSchema } from "../schemas.js";
 
 const HTTP_BAD_REQUEST = 400;
 const HTTP_UNAUTHORIZED = 401;
 const HTTP_FORBIDDEN = 403;
 const HTTP_CONFLICT = 409;
-const SUCCESS = "tesSUCCESS";
-/** Résultat préliminaire d'une transaction soumise après son LastLedgerSequence. */
-const EXPIRED = "tefMAX_LEDGER";
 const BATCH_LABEL = "All steps signed at once (Batch)";
 
 /** Transaction préparée en attente de signature ; les hashes internes d'un Batch sont connus avant sa soumission. */
@@ -40,12 +44,6 @@ function walletUser(context: ApiContext, request: FastifyRequest) {
   if (user.role === "public_body") throw new HttpError(HTTP_FORBIDDEN, "Public bodies have no XRPL account to open");
   if (user.custody !== "wallet") throw new HttpError(HTTP_CONFLICT, "Bari already opened your account.");
   return user;
-}
-
-/** Toutes les transactions internes validées et en tesSUCCESS (tfAllOrNothing : toutes ou aucune). */
-async function innerApplied(context: ApiContext, innerHashes: readonly string[]): Promise<boolean> {
-  const found = await Promise.all(innerHashes.map((hash) => context.ledger.transaction(hash)));
-  return found.every((tx) => tx?.validated === true && typeof tx.meta === "object" && tx.meta.TransactionResult === SUCCESS);
 }
 
 export function registerOnboardingRoutes(
@@ -93,7 +91,7 @@ export function registerOnboardingRoutes(
 
   app.post<{ Body: OnboardingSubmitRequest }>(
     "/api/onboarding/submit",
-    { schema: onboardingSubmitSchema },
+    { schema: signedTxSchema },
     async (request): Promise<OnboardingSubmitResponse> => {
       const user = walletUser(context, request);
       const pending = prepared.get(user.id);
@@ -108,13 +106,13 @@ export function registerOnboardingRoutes(
       const hash = hashes.hashSignedTx(txBlob);
       const label = `Account opening (${user.address})`;
       await ports.submitSigned(txBlob, hash, label).catch((error: unknown) => {
-        if (error instanceof UnexpectedTxResult && error.result.startsWith(EXPIRED)) {
+        if (error instanceof UnexpectedTxResult && error.result.startsWith(EXPIRED_RESULT)) {
           throw new HttpError(HTTP_CONFLICT, "This request expired before it reached the ledger. Start again.");
         }
         throw error;
       });
       if (pending.innerHashes.length === 0) return { transactions: [{ label: pending.labels[0] ?? label, hash }] };
-      if (!(await innerApplied(context, pending.innerHashes))) {
+      if (!(await innerApplied(context.ledger, pending.innerHashes))) {
         throw new UnexpectedTxResult(label, "inner transactions not applied", hash);
       }
       return {

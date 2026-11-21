@@ -7,7 +7,16 @@ import type { Fund } from "../fund/fund.js";
 import type { PendingInner, SubmitBatch } from "../xrpl/batch.js";
 import type { SubmitTx, TxOutcome } from "../xrpl/submit.js";
 import { RLUSD_CURRENCY, type Stablecoin } from "../xrpl/stablecoin.js";
-import { buySharesFromBari, depositToVault, sellSharesToBari, withdrawFromVault } from "./lenderTrades.js";
+import {
+  buySharesFromBari,
+  depositToVault,
+  entryPayments,
+  exitPayments,
+  sellSharesToBari,
+  vaultDeposit,
+  vaultWithdraw,
+  withdrawFromVault,
+} from "./lenderTrades.js";
 
 const RLUSD: Stablecoin = { currency: RLUSD_CURRENCY, issuer: Wallet.generate().address };
 const SHARE_ID = "11".repeat(24);
@@ -101,6 +110,44 @@ describe("chemin immédiat : Batch atomique co-signé", () => {
       [
         { TransactionType: "Payment", Account: lender.address, Destination: bari.address, Amount: { mpt_issuance_id: SHARE_ID, value: "1000000000" } },
         { TransactionType: "Payment", Account: bari.address, Destination: lender.address, Amount: { currency: RLUSD_CURRENCY, issuer: RLUSD.issuer, value: "1014.5" } },
+      ],
+    );
+  });
+});
+
+describe("transactions d'un prêteur connu par sa seule adresse (wallet, sans seed)", () => {
+  const address = Wallet.generate().address;
+  const parties = { bari: bari.address, lender: address };
+
+  test("VaultDeposit et VaultWithdraw du compte du wallet", () => {
+    assert.deepEqual(vaultDeposit(fund, address, 5_500_000n), {
+      TransactionType: "VaultDeposit",
+      Account: address,
+      VaultID: VAULT_ID,
+      Amount: { currency: RLUSD_CURRENCY, issuer: RLUSD.issuer, value: "5.5" },
+    });
+    assert.deepEqual(vaultWithdraw(fund, address, 7n), {
+      TransactionType: "VaultWithdraw",
+      Account: address,
+      VaultID: VAULT_ID,
+      Amount: { mpt_issuance_id: SHARE_ID, value: "7" },
+    });
+  });
+
+  test("Payment d'entrée puis de sortie, dans l'ordre du Batch", () => {
+    const trade = { amount: 1_020_000_000n, shares: 1_000_000_000n };
+    assert.deepEqual(
+      entryPayments(fund, parties, trade).map(({ tx }) => tx),
+      [
+        { TransactionType: "Payment", Account: address, Destination: bari.address, Amount: { currency: RLUSD_CURRENCY, issuer: RLUSD.issuer, value: "1020" } },
+        { TransactionType: "Payment", Account: bari.address, Destination: address, Amount: { mpt_issuance_id: SHARE_ID, value: "1000000000" } },
+      ],
+    );
+    assert.deepEqual(
+      exitPayments(fund, parties, trade).map(({ tx }) => tx),
+      [
+        { TransactionType: "Payment", Account: address, Destination: bari.address, Amount: { mpt_issuance_id: SHARE_ID, value: "1000000000" } },
+        { TransactionType: "Payment", Account: bari.address, Destination: address, Amount: { currency: RLUSD_CURRENCY, issuer: RLUSD.issuer, value: "1020" } },
       ],
     );
   });
