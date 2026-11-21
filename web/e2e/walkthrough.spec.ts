@@ -1,22 +1,23 @@
-// Parcours complet du pitch dans le vrai produit (SPEC § Parcours de démo), un test.step par étape, trois acteurs séparés.
+// Parcours complet du pitch dans le vrai produit (SPEC § Parcours de démo), un test.step par étape, trois acteurs séparés :
+// le prêteur et l'entreprise connectés par Otsu (faux Otsu qui signe dans Node), l'organisme public par email.
 
 import { readFile } from "node:fs/promises";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import type { LoanResponse } from "../../src/api/contract";
 import { fatturaPaXml, PITCH_SUPPLIER, REGIONE_PUGLIA } from "../../src/demo/sampleInvoices";
 import { capture } from "./capture";
+import { ledgerShares, repayWithOtsu, succeededHashes } from "./fixtures/otsuLedger";
+import { installOtsuMock, type OtsuMock } from "./fixtures/otsuMock";
 import { signInPublicBody } from "./publicBodySession";
 
-const HTTP_OK = 200;
 const HTTP_CREATED = 201;
 const MS_PER_DAY = 86_400_000;
 const TERM_DAYS = 90;
 const TOTAL_CENTS = 1_034_000n;
-const PASSWORD = "correct horse battery";
-/** Ouverture d'un compte géré : 4 à 5 transactions validées, un ledger toutes les 3 s. */
-const SIGNUP_TIMEOUT_MS = 120_000;
+/** Activation du wallet, credential de Bari puis Batch d'ouverture signé dans Otsu. */
+const ONBOARDING_TIMEOUT_MS = 120_000;
 const TX_TIMEOUT_MS = 90_000;
-/** Certificat (Batch) puis LoanSet co-signé, plus la preuve et les contrôles de Bari. */
+/** Certificat (Batch) puis LoanSet signé dans Otsu et co-signé par Bari, plus la preuve et les contrôles de Bari. */
 const FUNDING_TIMEOUT_MS = 180_000;
 const AUDIT_TIMEOUT_MS = 120_000;
 const TX_LINK = 'a[href^="#/tx/"]';
@@ -34,9 +35,17 @@ async function actor(browser: Browser): Promise<Page> {
   return (await browser.newContext()).newPage();
 }
 
-async function expectAccountReady(page: Page): Promise<void> {
-  await expect(page.getByRole("heading", { name: "Your account is ready." })).toBeVisible({ timeout: SIGNUP_TIMEOUT_MS });
-  await page.getByRole("link", { name: "Open my space" }).click();
+/** Ouverture du compte par Otsu depuis l'espace du rôle : credential de Bari, Batch du wallet, puis l'espace. */
+async function openWithOtsu(page: Page, credential: string, fillProfile: () => Promise<void>): Promise<void> {
+  await page.getByRole("button", { name: "Connect Otsu wallet" }).click();
+  await expect(page.getByTestId("wallet-registration")).toBeVisible({ timeout: ONBOARDING_TIMEOUT_MS });
+  await fillProfile();
+  await page.getByRole("button", { name: "Create my account" }).click();
+  const onboarding = page.getByTestId("wallet-onboarding");
+  await expect(onboarding.getByRole("heading", { name: "Your account is ready." })).toBeVisible({ timeout: ONBOARDING_TIMEOUT_MS });
+  await expect(onboarding.getByTestId("verification-steps")).toContainText(`${credential} credential issued by Bari`);
+  await expect(onboarding.getByTestId("verification-steps")).toContainText("All steps signed at once (Batch)");
+  await onboarding.getByRole("button", { name: "Open my space" }).click();
 }
 
 test("the pitch walkthrough, end to end in the real product", async ({ browser }) => {
@@ -49,6 +58,8 @@ test("the pitch walkthrough, end to end in the real product", async ({ browser }
   const lender = await actor(browser);
   const business = await actor(browser);
   const publicBody = await actor(browser);
+  const lenderWallet: OtsuMock = await installOtsuMock(lender);
+  const businessWallet: OtsuMock = await installOtsuMock(business);
   let signedFile: { name: string; mimeType: string; buffer: Buffer } | undefined;
   let loanId: string | undefined;
 
@@ -62,41 +73,42 @@ test("the pitch walkthrough, end to end in the real product", async ({ browser }
       await capture(visitor, "walkthrough-01-landing");
     });
 
-    await test.step("2. lender: sign up with light KYC, add test RLUSD, deposit 5,000 RLUSD", async () => {
-      await lender.goto("/#/signup/lender");
-      await lender.getByLabel("Email").fill(`walk-lender-${id}@e2e.example`);
-      await lender.getByLabel("Password").fill(PASSWORD);
-      await lender.getByLabel("Full name").fill("Ada Lovelace");
-      await lender.getByLabel("Country of residence").selectOption({ label: "Italy" });
-      await lender.getByLabel("I understand my capital is at risk.").check();
-      await lender.getByRole("button", { name: "Create my account" }).click();
-      await expectAccountReady(lender);
+    await test.step("2. lender: connects Otsu with light KYC, adds test RLUSD, deposits 5,000 RLUSD signed in Otsu", async () => {
+      await lender.goto("/#/lend");
+      await openWithOtsu(lender, "KYC_INVESTOR", async () => {
+        await lender.getByLabel("Full name").fill("Ada Lovelace");
+        await lender.getByLabel("Country of residence").selectOption({ label: "Italy" });
+        await lender.getByLabel("I understand my capital is at risk.").check();
+      });
       await expect(lender).toHaveURL(/#\/lend$/);
-      await expect(lender.getByTestId("account-card")).toContainText("KYC_INVESTOR");
+      await expect(lender.getByTestId("account-card")).toContainText("your XRPL wallet, connected with Otsu");
 
       await lender.getByRole("button", { name: "Add test RLUSD" }).click();
       await expect(lender.getByTestId("lend-done-faucet")).toContainText("Received 10,000.00 RLUSD", { timeout: TX_TIMEOUT_MS });
+      // Le montant n'est contrôlé que contre la position relue après le faucet.
+      await expect(lender.getByTestId("lend-balance")).toHaveText("10,000.00 RLUSD");
       const form = lender.getByTestId("lend-deposit");
       await form.getByLabel("Amount in RLUSD").fill("5000");
       await form.getByRole("button", { name: "Deposit", exact: true }).click();
-      await expect(lender.getByTestId("lend-done-deposit")).toContainText("Deposited 5,000.00 RLUSD", { timeout: TX_TIMEOUT_MS });
+      const done = lender.getByTestId("lend-done-deposit");
+      await expect(done).toContainText("Deposited 5,000.00 RLUSD", { timeout: TX_TIMEOUT_MS });
+      expect((await succeededHashes(lenderWallet, done)).length).toBeGreaterThan(0);
+      expect(await ledgerShares(lenderWallet)).toBeGreaterThan(0n);
       await expect(lender.getByTestId("lend-shares")).not.toHaveText("0.00");
       await expect(lender.getByTestId("lend-value")).toHaveText(/^(4,999\.\d\d|5,000\.00) RLUSD$/);
       await expect(lender.getByTestId("lend-yield")).toContainText("% a year");
       await capture(lender, "walkthrough-02-lender-deposit");
     });
 
-    await test.step("3. business: sign up with light KYB", async () => {
-      await business.goto("/#/signup/business");
-      await business.getByLabel("Email").fill(`walk-business-${id}@e2e.example`);
-      await business.getByLabel("Password").fill(PASSWORD);
-      await business.getByLabel("Company name").fill(company);
-      await business.getByLabel("VAT number").fill(vatNumber);
-      await business.getByRole("button", { name: "Create my account" }).click();
-      await expectAccountReady(business);
+    await test.step("3. business: connects Otsu with light KYB", async () => {
+      await business.goto("/#/business");
+      await openWithOtsu(business, "KYB_PME", async () => {
+        await business.getByLabel("Company name").fill(company);
+        await business.getByLabel("VAT number").fill(vatNumber);
+      });
       await expect(business).toHaveURL(/#\/business$/);
       await expect(business.getByRole("heading", { name: "Ask your client to confirm your invoice on Bari." })).toBeVisible();
-      await expect(business.getByTestId("account-card")).toContainText("KYB_PME");
+      await expect(business.getByTestId("account-card")).toContainText(company);
       await capture(business, "walkthrough-03-business");
     });
 
@@ -146,17 +158,21 @@ test("the pitch walkthrough, end to end in the real product", async ({ browser }
       await capture(business, "walkthrough-05-business-offer");
     });
 
-    await test.step("6. Get paid now: 8,955 RLUSD received, the certificate shows the decoded proof", async () => {
-      const loanResponse = business.waitForResponse((response) => response.url().endsWith("/api/sme/loan"), {
+    await test.step("6. Get paid now: certificate and loan signed in Otsu, 8,955 RLUSD received, the certificate shows the decoded proof", async () => {
+      const loanResponse = business.waitForResponse((response) => response.url().endsWith("/api/sme/loan/submit"), {
         timeout: FUNDING_TIMEOUT_MS,
       });
       await business.getByRole("button", { name: "Get paid now" }).click();
       const response = await loanResponse;
       expect(response.status(), await response.text()).toBe(HTTP_CREATED);
-      loanId = ((await response.json()) as LoanResponse).loanId;
+      const loan = (await response.json()) as LoanResponse;
+      loanId = loan.loanId;
+      expect(loan.transactions.map((tx) => tx.result)).toEqual(loan.transactions.map(() => "tesSUCCESS"));
       await expect(business.getByTestId("business-funded")).toContainText("8,955.00 RLUSD");
       const steps = business.getByTestId("funding-steps");
-      await expect(steps.locator("li.done")).toHaveCount(4);
+      await expect(steps.locator("li.done")).toHaveCount(6);
+      await expect(steps.locator('li[data-step="signCertificate"]')).toContainText("Sign the certificate in Otsu");
+      await expect(steps.locator('li[data-step="signLoan"]')).toContainText("Sign the loan in Otsu");
       await capture(business, "walkthrough-06-business-funded");
 
       await steps.locator('li[data-step="certificate"] a').click();
@@ -186,21 +202,22 @@ test("the pitch walkthrough, end to end in the real product", async ({ browser }
       await capture(visitor, "walkthrough-08-transparency");
     });
 
-    await test.step("9. lender withdraws now through Bari: RLUSD come back", async () => {
+    await test.step("9. lender withdraws now through Bari, signed in Otsu: RLUSD come back", async () => {
       const form = lender.getByTestId("lend-withdraw");
       await form.getByRole("button", { name: "All my shares" }).click();
       await form.getByRole("button", { name: "Withdraw", exact: true }).click();
-      await expect(lender.getByTestId("lend-done-withdraw")).toContainText("Sold", { timeout: TX_TIMEOUT_MS });
+      const done = lender.getByTestId("lend-done-withdraw");
+      await expect(done).toContainText("Sold", { timeout: TX_TIMEOUT_MS });
+      expect((await succeededHashes(lenderWallet, done)).length).toBeGreaterThan(0);
+      expect(await ledgerShares(lenderWallet)).toBe(0n);
       await expect(lender.getByTestId("lend-shares")).toHaveText("0.00");
       await expect(lender.getByTestId("lend-balance")).toHaveText(/^9,9\d\d\.\d\d RLUSD$/);
       await capture(lender, "walkthrough-09-lender-withdraw");
     });
   } finally {
-    // Remboursé à la fin : les exécutions répétées ne s'accumulent pas sous la limite de concentration par débiteur.
-    if (loanId !== undefined) {
-      const repaid = await business.request.post(`/api/loans/${loanId}/repay`, { timeout: FUNDING_TIMEOUT_MS });
-      expect(repaid.status(), await repaid.text()).toBe(HTTP_OK);
-    }
+    // Remboursé à la fin, signé dans Otsu : un prêt impayé entamerait la first-loss et la limite de concentration du débiteur.
+    if (loanId !== undefined) await repayWithOtsu(business, loanId);
+    await Promise.all([lenderWallet.close(), businessWallet.close()]);
     for (const page of [visitor, lender, business, publicBody]) await page.context().close();
   }
 });
