@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
-import type { AttestedInvoiceFile, LoanOffer, PrecheckResponse, PublicDebtor } from "../../../../src/api/contract";
+import type { AttestedInvoiceFile, LoanOffer, OfferSchedule, PrecheckResponse, PublicDebtor } from "../../../../src/api/contract";
 import { parseAttestedFile, runPrecheck, type PrecheckSources } from "./precheck";
 
 interface PrecheckFixture {
@@ -35,6 +35,16 @@ const OFFER: LoanOffer = {
   repaymentEur: 9_133.16,
 };
 
+/** Barème servi par l'API : l'offre retenue est celle du palier que lie la preuve (10 000 €). */
+const SCHEDULE: OfferSchedule = {
+  advanceRatePercent: 90,
+  feeRatePercent: 0.5,
+  interestRatePercent: 6,
+  termDays: 90,
+  loanDueDate: "2027-02-18T00:00:00.000Z",
+  tiers: [{ ...OFFER, provenThresholdEur: 5_000, principalEur: 4_500 }, OFFER],
+};
+
 function sources(overrides: Partial<PrecheckSources> = {}): PrecheckSources & { offerCalls: string[] } {
   const offerCalls: string[] = [];
   return {
@@ -49,7 +59,7 @@ function sources(overrides: Partial<PrecheckSources> = {}): PrecheckSources & { 
     kybDone: async () => true,
     offer: async (dueDate) => {
       offerCalls.push(dueDate);
-      return OFFER;
+      return SCHEDULE;
     },
     signatureIsValid: async () => true,
     now: () => BEFORE_DUE_DATE,
