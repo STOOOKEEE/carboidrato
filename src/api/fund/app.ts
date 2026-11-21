@@ -11,6 +11,7 @@ import { registerDebtorRoutes } from "./routes/debtorRoutes.js";
 import { registerEventRoutes } from "./routes/eventRoutes.js";
 import { registerFundRoutes } from "./routes/fundRoutes.js";
 import { registerLoanRoutes } from "./routes/loanRoutes.js";
+import { registerPublicBodyRoutes } from "./routes/publicBodyRoutes.js";
 import { registerSmeRoutes } from "./routes/smeRoutes.js";
 import { registerTxRoutes } from "./routes/txRoutes.js";
 import { registerZkRoutes } from "./routes/zkRoutes.js";
@@ -32,7 +33,8 @@ export async function buildApp(config: ApiConfig, context: ApiContext): Promise<
 
   registerAuthRoutes(app, context);
   registerFundRoutes(app, context);
-  registerDebtorRoutes(app, context);
+  registerPublicBodyRoutes(app, context);
+  registerDebtorRoutes(app);
   registerZkRoutes(app, context);
   registerSmeRoutes(app, context);
   registerLoanRoutes(app, context);

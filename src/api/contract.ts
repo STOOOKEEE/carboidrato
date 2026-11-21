@@ -195,6 +195,27 @@ export interface SigninResponse {
   user: AccountView;
 }
 
+/**
+ * Clés d'attestation de l'organisme de la session (`GET /api/public-body/keys`) : la facture est signée dans
+ * son navigateur. Clés en hex ; clé publique EdDSA BabyJubJub, entiers du corps en décimal.
+ */
+export interface PublicBodyKeys {
+  name: string;
+  ipaCode: string;
+  eddsaPrivateKey: string;
+  /** Clé HMAC de l'uuid : uuid = HMAC(numéro canonique), la même facture signée deux fois donne le même N. */
+  hmacKey: string;
+  publicKey: { ax: string; ay: string };
+}
+
+/** Fournisseur retrouvé par son n° de TVA (`GET /api/businesses/by-vat/:vat`). */
+export interface BusinessLookup {
+  company: string;
+  vatNumber: string;
+  /** Compte XRPL du fournisseur, lié par l'attestation. */
+  address: string;
+}
+
 /** Certificat de facture relu dans les métadonnées du MPT facture : les signaux publics de la preuve. */
 export interface TxCertificate {
   proofSystem: string;

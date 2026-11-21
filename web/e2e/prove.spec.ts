@@ -1,9 +1,10 @@
 // Preuve et pré-contrôle dans le navigateur : la facture attestée ne quitte jamais la page, seule la preuve part.
 
 import { expect, test, type APIRequestContext, type Request } from "@playwright/test";
-import type { AttestedInvoiceFile, CertificateRequest } from "../../src/api/contract";
+import type { AttestedInvoiceFile, CertificateRequest, ProofParams } from "../../src/api/contract";
 import type * as Api from "../src/api";
 import type * as Sources from "../src/features/funding/sources";
+import { signedInvoice } from "./signedInvoice";
 
 const WITNESS_KEYS = ["amount", "amountCents", "uuid", "signature", "pathElements", "pathIndices", "blinding"];
 const INVOICE_AMOUNT_EUR = 10_340;
@@ -18,16 +19,17 @@ async function attestInvoice(request: APIRequestContext): Promise<AttestedInvoic
   const actors = (await (await request.get("/api/actors")).json()) as { name: string; address: string }[];
   const sme = actors.find((actor) => actor.name === "sme");
   expect(sme).toBeDefined();
-  const response = await request.post("/api/debtor/attest", {
-    data: {
-      invoiceNumber: `FT-E2E/${Date.now().toString(36)}`,
+  const params = (await (await request.get("/api/proof/params")).json()) as ProofParams;
+  return signedInvoice(
+    {
+      number: `FT-E2E/${Date.now().toString(36)}`,
+      debtorName: "Comune di Bari",
+      supplierAccount: sme?.address ?? "",
       amountEur: INVOICE_AMOUNT_EUR,
-      dueDate: new Date(Date.now() + TERM_DAYS * MS_PER_DAY).toISOString(),
-      smeAccount: sme?.address,
+      dueDate: new Date(Date.now() + TERM_DAYS * MS_PER_DAY),
     },
-  });
-  expect(response.ok()).toBe(true);
-  return (await response.json()) as AttestedInvoiceFile;
+    params,
+  );
 }
 
 function keysOf(value: unknown): string[] {
