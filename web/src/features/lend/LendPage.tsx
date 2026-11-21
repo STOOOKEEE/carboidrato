@@ -1,8 +1,174 @@
-// Espace prêteur `#/lend` : compte vérifié (KYC_INVESTOR) qui donne accès au vault du fonds.
-import type { AccountView } from "../../../../src/api/contract";
+// Espace prêteur `#/lend` : position et fonds lus sur le ledger, euros de test, dépôt et retrait natifs ou immédiats.
+import { useCallback, useEffect, useReducer, useState } from "react";
+import type { AccountView, LenderPosition } from "../../../../src/api/contract";
+import { formatDate } from "../../format";
+import { Button } from "../../ui/Button";
+import { Notice } from "../../ui/Notice";
 import { AccountCard } from "../account/AccountCard";
+import { addTestEuros, deposit, fetchLendFund, fetchPosition, withdraw } from "./api";
+import { FundCard } from "./FundCard";
+import {
+  checkDeposit,
+  checkWithdraw,
+  faucetMovement,
+  formatEurUnits,
+  formatSharePrice,
+  formatShares,
+  initialLendState,
+  lendTransition,
+  ROUTE_LABELS,
+  sharesInput,
+  tradeMovement,
+  type LendAction,
+  type LendFund,
+  type Movement,
+} from "./lend.machine";
+import { MovementHistory } from "./MovementHistory";
+import { PositionCard } from "./PositionCard";
+import { TradeForm } from "./TradeForm";
+
+type PositionView = { status: "loading" } | { status: "ready"; position: LenderPosition } | { status: "error"; message: string };
+
+const messageOf = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause));
+
+/** Position et fonds ; une relecture garde les chiffres affichés jusqu'à la réponse. */
+function useLenderData() {
+  const [view, setView] = useState<PositionView>({ status: "loading" });
+  const [fund, setFund] = useState<LendFund>();
+  const reload = useCallback(() => {
+    fetchPosition()
+      .then((position) => setView({ status: "ready", position }))
+      .catch((cause: unknown) => setView({ status: "error", message: messageOf(cause) }));
+    fetchLendFund()
+      .then(setFund)
+      .catch(() => setFund(undefined));
+  }, []);
+  useEffect(reload, [reload]);
+  return { view, fund, reload };
+}
+
+function depositExplanation(position: LenderPosition, fund: LendFund | undefined): string {
+  switch (position.entry.route) {
+    case "native":
+      return "Subscription is open: your euros go straight into the fund's vault, which issues your shares.";
+    case "immediate":
+      return `The fund is lending${fund === undefined ? "" : ` until ${formatDate(fund.redemptionStartsAt)}`}: Bari sells you shares from its own stock at the share price, in one atomic transaction.`;
+    case null:
+      return "The fund is repaying its lenders: deposits are closed. You can still withdraw.";
+  }
+}
+
+function withdrawExplanation(position: LenderPosition): string {
+  return position.exit.route === "immediate"
+    ? `Bari buys your shares back now at the share price minus ${position.immediateExitDiscountPercent}%, in one atomic transaction. At maturity, you exit for free.`
+    : "Your shares go back to the fund's vault at the share price, with no fee.";
+}
 
 export function LendPage({ user }: { user: AccountView }) {
+  const { view, fund, reload } = useLenderData();
+  const [state, dispatch] = useReducer(lendTransition, initialLendState);
+
+  const run = (action: LendAction, call: () => Promise<Movement>): Promise<boolean> => {
+    if (state.operation.status === "submitting") return Promise.resolve(false);
+    dispatch({ type: "SUBMIT", action });
+    return call()
+      .then((movement) => {
+        dispatch({ type: "SUCCEEDED", movement });
+        return true;
+      })
+      .catch((cause: unknown) => {
+        dispatch({ type: "FAILED", message: messageOf(cause) });
+        return false;
+      })
+      .finally(reload);
+  };
+
+  let content;
+  switch (view.status) {
+    case "loading":
+      content = <Notice kind="info">Reading your position on the XRP Ledger…</Notice>;
+      break;
+    case "error":
+      content = (
+        <section className="step">
+          <Notice kind="error">{view.message}</Notice>
+          <Button primary onClick={reload}>
+            Try again
+          </Button>
+        </section>
+      );
+      break;
+    case "ready": {
+      const { position } = view;
+      const shares = BigInt(position.shares);
+      const entryCap = position.entry.bariCap;
+      const exitCap = position.exit.bariCap;
+      content = (
+        <>
+          <PositionCard
+            position={position}
+            operation={state.operation}
+            onAddTestEuros={() => void run("faucet", () => addTestEuros().then(faucetMovement))}
+          />
+          <div className="lend-trade">
+            <TradeForm
+              action="deposit"
+              title="Deposit"
+              explanation={depositExplanation(position, fund)}
+              label="Amount in euros"
+              hint={`Available: ${formatEurUnits(BigInt(position.eurcBalance))}${entryCap === undefined ? "" : ` · Bari's share stock: ${formatEurUnits(BigInt(entryCap))}`}`}
+              check={(input) => checkDeposit(position, input)}
+              previewFacts={(preview) => [
+                { label: "Route", value: ROUTE_LABELS[preview.route] },
+                { label: "You pay", value: formatEurUnits(preview.eurc) },
+                { label: "Share price", value: formatSharePrice(position.sharePrice) },
+                { label: "You receive", value: `About ${formatShares(preview.shares)} shares` },
+              ]}
+              submitLabel="Deposit"
+              pendingLabel="Depositing…"
+              primary
+              operation={state.operation}
+              onSubmit={(amount) => run("deposit", () => deposit(amount).then((response) => tradeMovement("deposit", response)))}
+            />
+            <TradeForm
+              action="withdraw"
+              title="Withdraw"
+              explanation={withdrawExplanation(position)}
+              label="Shares to sell"
+              hint={`You hold ${formatShares(shares)} shares${exitCap === undefined ? "" : ` · Bari's reserve buys back up to ${formatShares(BigInt(exitCap))}`}`}
+              check={(input) => checkWithdraw(position, input)}
+              previewFacts={(preview) => [
+                { label: "Route", value: ROUTE_LABELS[preview.route] },
+                { label: "You sell", value: `${formatShares(preview.shares)} shares` },
+                { label: "Value at the share price", value: formatEurUnits(preview.eurc + preview.fee) },
+                {
+                  label: "Fee",
+                  value: preview.fee === 0n ? "None" : `−${formatEurUnits(preview.fee)} (${position.immediateExitDiscountPercent}%)`,
+                },
+                { label: "You receive", value: `About ${formatEurUnits(preview.eurc)}` },
+              ]}
+              submitLabel="Withdraw"
+              pendingLabel="Withdrawing…"
+              fill={
+                shares === 0n
+                  ? undefined
+                  : {
+                      label: BigInt(position.exit.max) < shares ? "As many as Bari buys back now" : "All my shares",
+                      value: sharesInput(BigInt(position.exit.max)),
+                    }
+              }
+              operation={state.operation}
+              onSubmit={(amount) => run("withdraw", () => withdraw(amount).then((response) => tradeMovement("withdraw", response)))}
+            />
+          </div>
+          <FundCard position={position} fund={fund} />
+          <MovementHistory history={state.history} />
+        </>
+      );
+      break;
+    }
+  }
+
   return (
     <main className="app">
       <div className="section-head">
@@ -12,6 +178,7 @@ export function LendPage({ user }: { user: AccountView }) {
           Your shares are a token on the XRP Ledger. Exit anytime: free at maturity, or now through Bari at −0.5%.
         </p>
       </div>
+      {content}
       <AccountCard user={user} />
     </main>
   );
