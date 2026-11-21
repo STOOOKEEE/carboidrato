@@ -494,3 +494,13 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 - Les comptes du pitch créés pendant ces échecs étaient sans mot de passe : fichier des comptes supprimé puis recréé (le secret de session est régénéré au passage).
 
 **Limite :** l'application dépend du nœud alphanet (genesis neuf à chaque redémarrage) et de son tunnel public. Si l'un des deux redémarre, il faut relancer `INIT_FUND=1 bash infra/app/deploy.sh`.
+
+## 2026-11-21 · Front sur Vercel (https://atlas-invoices.vercel.app)
+
+**Quoi :** `infra/app/deploy-vercel.sh` publie sur Vercel (projet `atlas-invoice`) le front compilé sur hermes. `/api/*` est relayé par une rewrite Vercel vers le tunnel de hermes, et l'API reste sur hermes, car elle garde wallets, état et connexion au nœud, ce qui ne passe pas en serverless.
+
+**Vérifié :** landing en 200, `/api/network` relayé, zkey (5 Mo) relayée en environ 1 s, Transparence 2/2 dans le navigateur, connexion e-mail d'un compte du pitch avec cookie de session conservé à travers la rewrite (`/api/me` → lender).
+
+**Bugs & fix :** l'alias ajouté à la main était protégé par « Vercel Authentication » (page de login). Fix : `vercel project protection disable atlas-invoice --sso`, puis `vercel domains add atlas-invoices.vercel.app atlas-invoice` pour qu'il suive la production.
+
+**Limite :** si l'URL du tunnel `bari-web-public` change, relancer `deploy-vercel.sh`.
