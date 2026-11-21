@@ -1,13 +1,15 @@
 // `npm run api:fund` : serveur HTTP du fonds pour le front (mode démo : il détient les wallets des acteurs et
 // signe pour eux). Écoute sur 127.0.0.1 ; l'état du fonds courant est persisté dans un fichier gitignoré.
 
-import { Client } from "xrpl";
+import { Client, unixTimeToRippleTime } from "xrpl";
 import { ensureActors } from "../../accounts/actors.js";
-import { makeProvisioner } from "../../accounts/provisioning.js";
+import { makeFunder } from "../../accounts/funding.js";
 import { UserStore } from "../../accounts/userStore.js";
 import { loadNetworkConfig } from "../../config/network.js";
+import { makeProvisioner } from "../../kyb/onboarding.js";
 import { log } from "../../lib/logger.js";
 import { xrplLedger } from "../../xrpl/ledger.js";
+import { clientSubmitter } from "../../xrpl/submit.js";
 import { releaseZkResources } from "../../zk/index.js";
 import { buildApp } from "./app.js";
 import { loadApiConfig } from "./config.js";
@@ -36,7 +38,16 @@ async function main(): Promise<void> {
     events,
     operations: new OperationQueue(events),
     users: new UserStore(config.usersFile),
-    provisionAccount: makeProvisioner(client, network),
+    provisionAccount: makeProvisioner({
+      submit: clientSubmitter(client),
+      fundAccount: makeFunder(client, network),
+      kycIssuer: actors.kyb_issuer,
+      fund: () => {
+        const fund = store.current?.fund;
+        return fund === undefined ? undefined : { assetId: fund.assetId, shareMptId: fund.cohort.shareMptId };
+      },
+      now: () => unixTimeToRippleTime(Date.now()),
+    }),
   });
   app.addHook("onClose", async () => {
     events.close();

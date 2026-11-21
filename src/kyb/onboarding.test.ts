@@ -24,7 +24,7 @@ interface Submitted {
   signer: string;
 }
 
-function setup(fund: FundTokens | undefined = FUND) {
+function setup({ fundOpen } = { fundOpen: true }) {
   const issuer = Wallet.generate();
   const submitted: Submitted[] = [];
   const funded: string[] = [];
@@ -37,7 +37,7 @@ function setup(fund: FundTokens | undefined = FUND) {
       funded.push(wallet.address);
     },
     kycIssuer: issuer,
-    fund: () => fund,
+    fund: () => (fundOpen ? FUND : undefined),
     now: () => NOW_RIPPLE,
   });
   return { issuer, submitted, funded, provision };
@@ -101,7 +101,7 @@ describe("makeProvisioner", () => {
   });
 
   test("sans fonds ouvert : refus avant toute transaction", async () => {
-    const { submitted, funded, provision } = setup(undefined);
+    const { submitted, funded, provision } = setup({ fundOpen: false });
     await assert.rejects(provision(lender), /fund/i);
     await assert.rejects(provision(business), /fund/i);
     assert.deepEqual(submitted, []);

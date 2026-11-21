@@ -83,19 +83,6 @@ export const certificateSchema = {
 
 const MAX_COMPANY_FIELD_LENGTH = 120;
 
-export const kybSchema = {
-  body: {
-    type: "object",
-    additionalProperties: false,
-    required: ["account", "company", "vatNumber"],
-    properties: {
-      account: { type: "string", minLength: 1 },
-      company: { type: "string", minLength: 1, maxLength: MAX_COMPANY_FIELD_LENGTH },
-      vatNumber: { type: "string", minLength: 1, maxLength: MAX_COMPANY_FIELD_LENGTH },
-    },
-  },
-} as const;
-
 export interface AccountParams {
   account: string;
 }

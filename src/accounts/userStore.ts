@@ -131,6 +131,10 @@ export class UserStore {
     );
   }
 
+  hasPublicBody(ipaCode: string): boolean {
+    return this.data.users.some((user) => user.role === "public_body" && user.profile.ipaCode === ipaCode);
+  }
+
   /** Lève `DuplicateUser` si l'email, le n° de TVA ou l'organisme public a déjà un compte. */
   assertAvailable(user: NewUser): void {
     const email = normalizeEmail(user.email);
@@ -138,10 +142,7 @@ export class UserStore {
     if (user.role === "business" && this.findBusinessByVat(user.profile.vatNumber) !== undefined) {
       throw new DuplicateUser("vatNumber");
     }
-    const ipaCode = user.role === "public_body" ? user.profile.ipaCode : undefined;
-    if (ipaCode !== undefined && this.data.users.some((u) => u.role === "public_body" && u.profile.ipaCode === ipaCode)) {
-      throw new DuplicateUser("publicBody");
-    }
+    if (user.role === "public_body" && this.hasPublicBody(user.profile.ipaCode)) throw new DuplicateUser("publicBody");
   }
 
   async create(user: NewUser, account: ManagedAccount | undefined): Promise<UserRecord> {

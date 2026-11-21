@@ -1,8 +1,10 @@
-// Espace organisme public : ses clés d'attestation (signature dans son navigateur) et la recherche d'un fournisseur.
+// Espace organisme public : registre proposé à l'inscription, ses clés d'attestation (signature dans son navigateur)
+// et la recherche d'un fournisseur.
 
 import type { FastifyInstance } from "fastify";
+import { VERIFIED_DEBTORS } from "../../../invoice/debtors.js";
 import { deriveDebtor } from "../../../zk/index.js";
-import type { BusinessLookup, PublicBodyKeys } from "../../contract.js";
+import type { BusinessLookup, PublicBodyKeys, PublicBodyOption } from "../../contract.js";
 import { requireRole, sessionUser } from "../auth.js";
 import type { ApiContext } from "../context.js";
 import { HttpError } from "../errors.js";
@@ -12,6 +14,10 @@ const HTTP_NOT_FOUND = 404;
 
 export function registerPublicBodyRoutes(app: FastifyInstance, context: Pick<ApiContext, "users">): void {
   const publicBodyOnly = { preHandler: requireRole(context, "public_body") };
+
+  app.get("/api/public-bodies", async (): Promise<PublicBodyOption[]> =>
+    VERIFIED_DEBTORS.map(({ ipaCode, name }) => ({ ipaCode, name, available: !context.users.hasPublicBody(ipaCode) })),
+  );
 
   app.get("/api/public-body/keys", publicBodyOnly, async (request): Promise<PublicBodyKeys> => {
     const { profile } = sessionUser(request, "public_body");
