@@ -19,18 +19,26 @@ export interface FatturaInvoice {
 export type FatturaReading =
   | { ok: true; invoice: FatturaInvoice }
   | { ok: false; reason: "not-fatturapa" }
+  | { ok: false; reason: "currency"; currency: string | undefined }
   | { ok: false; reason: "missing"; missing: FatturaField[]; found: Partial<FatturaInvoice> };
 
 const ROOT = "FatturaElettronica";
-const DECIMAL_EUROS = /^(\d+)(?:\.(\d{1,2}))?$/;
+const FINANCED_CURRENCY = "USD";
+const DECIMAL_AMOUNT = /^(\d+)(?:\.(\d{1,2}))?$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Montant décimal (point, deux décimales au plus) en centimes, sans passer par un flottant. */
 export function decimalToCents(text: string): bigint | undefined {
-  const match = DECIMAL_EUROS.exec(text);
+  const match = DECIMAL_AMOUNT.exec(text);
   if (match === null) return undefined;
-  const [, euros, cents = ""] = match;
-  return BigInt(euros) * 100n + BigInt(cents.padEnd(2, "0"));
+  const [, dollars, cents = ""] = match;
+  return BigInt(dollars) * 100n + BigInt(cents.padEnd(2, "0"));
+}
+
+/** Refus d'une facture hors dollars US, devise lue comprise. */
+export function currencyRefusal(currency: string | undefined): string {
+  const read = currency === undefined ? "This invoice has no currency." : `This invoice is in ${currency}.`;
+  return `${read} Bari finances invoices in US dollars (${FINANCED_CURRENCY}) only.`;
 }
 
 export function isIsoDate(text: string): boolean {
@@ -62,6 +70,8 @@ export function readFatturaPA(source: string): FatturaReading {
   // Un lot peut compter plusieurs corps : on atteste le premier, celui que le SdI numérote.
   const body = childElement(root, "FatturaElettronicaBody");
   const document = path(body, "DatiGenerali", "DatiGeneraliDocumento");
+  const currency = textAt(document, "Divisa");
+  if (currency?.toUpperCase() !== FINANCED_CURRENCY) return { ok: false, reason: "currency", currency };
   const issueDate = textAt(document, "Data");
   const total = textAt(document, "ImportoTotaleDocumento");
   const amountCents = total === undefined ? undefined : decimalToCents(total);

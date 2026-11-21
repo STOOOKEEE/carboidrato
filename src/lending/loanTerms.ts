@@ -1,23 +1,23 @@
 // Conditions d'un prêt Bari par palier public, dérivées des paramètres de src/config/finance.ts, et son échéance. Palier en
-// unités d'euro, principal et frais en unités RLUSD : 1 € de palier vaut 1 RLUSD (pas encore d'oracle de prix).
+// unités de dollar, principal et frais en unités RLUSD : 1 $ de palier vaut 1 RLUSD (sans oracle de prix).
 
 import {
   LEDGER_LOAN_REDEMPTION_BUFFER_S,
   LEDGER_MIN_PAYMENT_INTERVAL_S,
   LEDGER_TIME_SAFETY_MARGIN_S,
 } from "../config/cohort.js";
-import { ADVANCE_RATE_PERCENT, INVOICE_AMOUNT_EUR, ORIGINATION_FEE_PERCENT } from "../config/finance.js";
-import { eurToCents, eurToUnits, formatEur, percentOf, unitsToCents } from "../lib/amounts.js";
+import { ADVANCE_RATE_PERCENT, INVOICE_AMOUNT_USD, ORIGINATION_FEE_PERCENT } from "../config/finance.js";
+import { usdToCents, usdToUnits, formatUsd, percentOf, unitsToCents } from "../lib/amounts.js";
 
 /** Seuils publics de l'offre, croissants : seul le palier d'une facture devient public, jamais son montant. */
-export const OFFER_TIERS_EUR = [5_000, 10_000, 20_000, 50_000, 100_000] as const;
+export const OFFER_TIERS_USD = [5_000, 10_000, 20_000, 50_000, 100_000] as const;
 
-const OFFER_TIERS = OFFER_TIERS_EUR.map(eurToUnits);
+const OFFER_TIERS = OFFER_TIERS_USD.map(usdToUnits);
 /** Les mêmes seuils en centimes, unité du seuil prouvé (`GET /api/proof/params`). */
-export const OFFER_TIER_CENTS = OFFER_TIERS_EUR.map(eurToCents);
+export const OFFER_TIER_CENTS = OFFER_TIERS_USD.map(usdToCents);
 
 export interface LoanTerms {
-  /** Palier prouvé, en unités d'euro : la facture vaut au moins ce montant (la facture type de la démo vaut exactement son palier). */
+  /** Palier prouvé, en unités de dollar : la facture vaut au moins ce montant (la facture type de la démo vaut exactement son palier). */
   invoice: bigint;
   /** Principal demandé (PrincipalRequested), en unités RLUSD : le taux d'avance appliqué au palier. */
   principal: bigint;
@@ -29,7 +29,7 @@ export interface LoanTerms {
   provenThresholdCents: bigint;
 }
 
-/** Palier d'un montant en unités d'euro : le plus grand seuil public qui ne le dépasse pas, undefined sous le premier. */
+/** Palier d'un montant en unités de dollar : le plus grand seuil public qui ne le dépasse pas, undefined sous le premier. */
 export function offerTier(amount: bigint): bigint | undefined {
   return OFFER_TIERS.filter((tier) => tier <= amount).at(-1);
 }
@@ -44,10 +44,10 @@ export function provenThresholdCents(amountCents: bigint): bigint | undefined {
   return OFFER_TIER_CENTS.filter((tier) => tier <= amountCents).at(-1);
 }
 
-/** Conditions adossées au palier de `amount` unités d'euro garanties par la preuve (par défaut : la facture type). */
-export function loanTerms(amount: bigint = eurToUnits(INVOICE_AMOUNT_EUR)): LoanTerms {
+/** Conditions adossées au palier de `amount` unités de dollar garanties par la preuve (par défaut : la facture type). */
+export function loanTerms(amount: bigint = usdToUnits(INVOICE_AMOUNT_USD)): LoanTerms {
   const tier = offerTier(amount);
-  if (tier === undefined) throw new Error(`Aucune offre sous le premier palier (${formatEur(OFFER_TIERS[0], 0)}) : ${formatEur(amount, 2)}`);
+  if (tier === undefined) throw new Error(`Aucune offre sous le premier palier (${formatUsd(OFFER_TIERS[0], 0)}) : ${formatUsd(amount, 2)}`);
   const principal = percentOf(tier, ADVANCE_RATE_PERCENT);
   const originationFee = percentOf(principal, ORIGINATION_FEE_PERCENT);
   return {

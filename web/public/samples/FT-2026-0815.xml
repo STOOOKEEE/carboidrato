@@ -51,7 +51,7 @@
     <DatiGenerali>
       <DatiGeneraliDocumento>
         <TipoDocumento>TD01</TipoDocumento>
-        <Divisa>EUR</Divisa>
+        <Divisa>USD</Divisa>
         <Data>2026-11-21</Data>
         <Numero>FT-2026-0815</Numero>
         <ImportoTotaleDocumento>10340.00</ImportoTotaleDocumento>

@@ -3,8 +3,8 @@
 
 import { ADVANCE_RATE_PERCENT, INTEREST_RATE_PERCENT, ORIGINATION_FEE_PERCENT } from "../config/finance.js";
 import { theoreticalLoanEconomics } from "../lending/economics.js";
-import { loanTerms, OFFER_TIERS_EUR } from "../lending/loanTerms.js";
-import { CENTS_PER_EUR, eurToUnits, unitsToEur } from "../lib/amounts.js";
+import { loanTerms, OFFER_TIERS_USD } from "../lending/loanTerms.js";
+import { CENTS_PER_USD, usdToUnits, unitsToUsd } from "../lib/amounts.js";
 import type { LoanOffer, OfferSchedule } from "./contract.js";
 
 const SECONDS_PER_DAY = 86_400;
@@ -19,17 +19,17 @@ function tierOffer(tier: bigint, termDays: number): LoanOffer {
   const terms = loanTerms(tier);
   const economics = theoreticalLoanEconomics(tier, termDays);
   return {
-    provenThresholdEur: Number(terms.provenThresholdCents) / CENTS_PER_EUR,
+    provenThresholdUsd: Number(terms.provenThresholdCents) / CENTS_PER_USD,
     advanceRatePercent: ADVANCE_RATE_PERCENT,
-    principalEur: unitsToEur(terms.principal),
-    feeEur: unitsToEur(terms.originationFee),
-    netAdvanceEur: unitsToEur(terms.netAdvance),
-    interestEur: unitsToEur(economics.interest),
+    principalUsd: unitsToUsd(terms.principal),
+    feeUsd: unitsToUsd(terms.originationFee),
+    netAdvanceUsd: unitsToUsd(terms.netAdvance),
+    interestUsd: unitsToUsd(economics.interest),
     interestRatePercent: INTEREST_RATE_PERCENT,
-    totalCostEur: unitsToEur(economics.smeCost),
+    totalCostUsd: unitsToUsd(economics.smeCost),
     annualCostPercent: economics.smeAnnualCostPercent,
     termDays,
-    repaymentEur: unitsToEur(terms.principal + economics.interest),
+    repaymentUsd: unitsToUsd(terms.principal + economics.interest),
   };
 }
 
@@ -51,6 +51,6 @@ export function fundOffer({ dueDate, now, latestMaturity = Number.POSITIVE_INFIN
     interestRatePercent: INTEREST_RATE_PERCENT,
     termDays,
     loanDueDate: new Date(loanDueDate * MS_PER_SECOND).toISOString(),
-    tiers: OFFER_TIERS_EUR.map((eur) => tierOffer(eurToUnits(eur), termDays)),
+    tiers: OFFER_TIERS_USD.map((usd) => tierOffer(usdToUnits(usd), termDays)),
   };
 }

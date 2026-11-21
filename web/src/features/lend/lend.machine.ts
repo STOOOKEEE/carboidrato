@@ -15,7 +15,7 @@ const AMOUNT_PATTERN = /^(\d*)(?:\.(\d*))?$/;
 export type Parsed = { ok: true; units: bigint } | { ok: false; error: string };
 
 function parseFixed(text: string, maxDecimals: number, example: string): Parsed {
-  const cleaned = text.replace(/[\s,€$]/g, "");
+  const cleaned = text.replace(/[\s,$]/g, "");
   if (cleaned === "") return { ok: false, error: "Enter an amount" };
   const match = AMOUNT_PATTERN.exec(cleaned);
   const whole = match?.[1] ?? "";

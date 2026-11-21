@@ -1,7 +1,7 @@
 // Parcours de l'organisme public, pur : fichier lu, champs (formulaire si besoin), fournisseur retrouvé, signature.
 
 import { ATTESTED_INVOICE_EXTENSION, type AttestedInvoiceFile, type BusinessLookup } from "../../../../src/api/contract";
-import { decimalToCents, isIsoDate, type FatturaReading } from "./fatturaPA";
+import { currencyRefusal, decimalToCents, isIsoDate, type FatturaReading } from "./fatturaPA";
 
 export type InvoiceField = "vatNumber" | "number" | "issueDate" | "amount" | "dueDate";
 export type InvoiceForm = Record<InvoiceField, string>;
@@ -42,7 +42,7 @@ interface Review {
 export type ReviewState = { status: "review" } & Review;
 
 export type PublicBodyState =
-  | { status: "empty" }
+  | { status: "empty"; refusal?: string }
   | ReviewState
   | ({ status: "signing" } & Review)
   | { status: "signed"; file: AttestedInvoiceFile; fileName: string; supplier: BusinessLookup };
@@ -63,17 +63,17 @@ export const initialState: PublicBodyState = { status: "empty" };
 
 // Même règle que le schéma de l'API (`src/api/fund/schemas.ts`), après normalisation.
 const VAT_PATTERN = /^[A-Z]{2}[0-9A-Z]{2,20}$/;
-const AMOUNT_ERROR = "Enter the total in euros, e.g. 10340.00";
-const CENTS_PER_EUR = 100n;
+const AMOUNT_ERROR = "Enter the total in US dollars, e.g. 10340.00";
+const CENTS_PER_USD = 100n;
 const FILE_NAME_UNSAFE = /[^A-Za-z0-9._-]+/g;
 
 const normalizeVat = (text: string) => text.replace(/\s+/g, "").toUpperCase();
 
-function euros(cents: bigint): string {
-  return `${cents / CENTS_PER_EUR}.${(cents % CENTS_PER_EUR).toString().padStart(2, "0")}`;
+function dollars(cents: bigint): string {
+  return `${cents / CENTS_PER_USD}.${(cents % CENTS_PER_USD).toString().padStart(2, "0")}`;
 }
 
-function formFromReading(reading: FatturaReading): { source: InvoiceSource; form: InvoiceForm; description: string } {
+function formFromReading(reading: Exclude<FatturaReading, { reason: "currency" }>): { source: InvoiceSource; form: InvoiceForm; description: string } {
   if (!reading.ok && reading.reason === "not-fatturapa") return { source: "other", form: EMPTY_FORM, description: "" };
   const invoice = reading.ok ? reading.invoice : reading.found;
   return {
@@ -82,7 +82,7 @@ function formFromReading(reading: FatturaReading): { source: InvoiceSource; form
       vatNumber: invoice.vatNumber ?? "",
       number: invoice.number ?? "",
       issueDate: invoice.issueDate ?? "",
-      amount: invoice.amountCents === undefined ? "" : euros(invoice.amountCents),
+      amount: invoice.amountCents === undefined ? "" : dollars(invoice.amountCents),
       dueDate: invoice.dueDate ?? "",
     },
     description: invoice.description ?? "",
@@ -169,6 +169,7 @@ export function publicBodyTransition(state: PublicBodyState, event: PublicBodyEv
   switch (event.type) {
     case "FILE_READ":
       if (state.status === "signing") return state;
+      if (!event.reading.ok && event.reading.reason === "currency") return { status: "empty", refusal: currencyRefusal(event.reading.currency) };
       return { status: "review", fileName: event.fileName, ...formFromReading(event.reading), errors: {}, supplier: { status: "none" } };
     case "EDIT": {
       if (state.status !== "review") return state;

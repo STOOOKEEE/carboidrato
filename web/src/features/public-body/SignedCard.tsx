@@ -1,10 +1,10 @@
 // Carte de la facture signée : fichier `.bari.json` à envoyer au fournisseur, téléchargé depuis la page.
 import type { AttestedInvoiceFile, BusinessLookup } from "../../../../src/api/contract";
-import { formatDate, formatEur } from "../../format";
+import { formatDate, formatUsd } from "../../format";
 import { Button } from "../../ui/Button";
 import { Facts } from "../../ui/Facts";
 
-const CENTS_PER_EUR = 100;
+const CENTS_PER_USD = 100;
 const MS_PER_SECOND = 1_000;
 /** L'échéance signée est minuit UTC ; affichée à midi UTC, elle tombe le même jour dans tous les fuseaux. */
 const NOON_MS = 12 * 3_600_000;
@@ -40,7 +40,7 @@ export function SignedCard({ file, fileName, supplier, onAnother }: SignedCardPr
         facts={[
           { label: "Supplier", value: `${supplier.company} · ${supplier.vatNumber}` },
           { label: "Invoice number", value: file.invoice.number },
-          { label: "Total", value: formatEur(Number(attestation.amountCents) / CENTS_PER_EUR) },
+          { label: "Total", value: formatUsd(Number(attestation.amountCents) / CENTS_PER_USD) },
           { label: "Due date", value: formatDate(new Date(Number(attestation.dueDate) * MS_PER_SECOND + NOON_MS).toISOString()) },
         ]}
       />

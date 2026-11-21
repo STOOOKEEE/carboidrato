@@ -1,48 +1,48 @@
-// Montants en unités entières à 6 décimales : euros des factures et RLUSD du fonds (1 € = 1 RLUSD sans oracle de prix).
+// Montants en unités entières à 6 décimales : dollars des factures et RLUSD du fonds (1 $ = 1 RLUSD sans oracle de prix).
 
 import { STABLECOIN_ASSET_SCALE } from "../config/finance.js";
 import { TENTH_BIPS_PER_PERCENT, percentToTenthBips } from "./rates.js";
 
-const UNITS_PER_EUR = 10n ** BigInt(STABLECOIN_ASSET_SCALE);
+const UNITS_PER_USD = 10n ** BigInt(STABLECOIN_ASSET_SCALE);
 const TENTH_BIPS_PER_UNIT = 100n * BigInt(TENTH_BIPS_PER_PERCENT);
 
-export const CENTS_PER_EUR = 100;
+export const CENTS_PER_USD = 100;
 
 function wholeToUnits(amount: number, unit: string): bigint {
   if (!Number.isInteger(amount) || amount <= 0) {
     throw new Error(`Montant invalide : ${amount} ${unit} (entier strictement positif attendu)`);
   }
-  return BigInt(amount) * UNITS_PER_EUR;
+  return BigInt(amount) * UNITS_PER_USD;
 }
 
-export function eurToUnits(eur: number): bigint {
-  return wholeToUnits(eur, "€");
+export function usdToUnits(usd: number): bigint {
+  return wholeToUnits(usd, "$");
 }
 
 export function rlusdToUnits(rlusd: number): bigint {
   return wholeToUnits(rlusd, "RLUSD");
 }
 
-/** Unités → euros (nombre), pour l'affichage et les réponses JSON. */
-export function unitsToEur(units: bigint): number {
-  return Number(units) / Number(UNITS_PER_EUR);
+/** Unités → dollars (nombre), pour l'affichage et les réponses JSON. */
+export function unitsToUsd(units: bigint): number {
+  return Number(units) / Number(UNITS_PER_USD);
 }
 
 export function centsToUnits(cents: number): bigint {
   if (!Number.isInteger(cents) || cents < 0) throw new Error(`Montant en centimes invalide : ${cents}`);
-  return (BigInt(cents) * UNITS_PER_EUR) / BigInt(CENTS_PER_EUR);
+  return (BigInt(cents) * UNITS_PER_USD) / BigInt(CENTS_PER_USD);
 }
 
 /** Unités → centimes, arrondi au centime supérieur : un montant dû n'est jamais sous-estimé. */
 export function unitsToCents(units: bigint): bigint {
-  const unitsPerCent = UNITS_PER_EUR / BigInt(CENTS_PER_EUR);
+  const unitsPerCent = UNITS_PER_USD / BigInt(CENTS_PER_USD);
   return units / unitsPerCent + (units % unitsPerCent === 0n ? 0n : 1n);
 }
 
-/** Euros → centimes (entier), unité des montants prouvés dans le circuit. */
-export function eurToCents(eur: number): bigint {
-  if (!Number.isFinite(eur) || eur < 0) throw new Error(`Montant invalide : ${eur} €`);
-  return BigInt(Math.round(eur * CENTS_PER_EUR));
+/** Dollars → cents (entier), unité des montants prouvés dans le circuit. */
+export function usdToCents(usd: number): bigint {
+  if (!Number.isFinite(usd) || usd < 0) throw new Error(`Montant invalide : ${usd} $`);
+  return BigInt(Math.round(usd * CENTS_PER_USD));
 }
 
 export type Rounding = "down" | "up";
@@ -105,14 +105,14 @@ export function parseUnits(value: string | number | undefined): bigint {
 function formatScaled(units: bigint, decimals: number, unit: string): string {
   const negative = units < 0n;
   const abs = negative ? -units : units;
-  const whole = (abs / UNITS_PER_EUR).toLocaleString("fr-FR");
-  const fraction = (abs % UNITS_PER_EUR).toString().padStart(STABLECOIN_ASSET_SCALE, "0").slice(0, decimals);
+  const whole = (abs / UNITS_PER_USD).toLocaleString("fr-FR");
+  const fraction = (abs % UNITS_PER_USD).toString().padStart(STABLECOIN_ASSET_SCALE, "0").slice(0, decimals);
   return `${negative ? "-" : ""}${whole}${fraction === "" ? "" : `,${fraction}`} ${unit}`;
 }
 
-/** Montant en euros (facture, palier) ; `decimals` tronque l'affichage (2 pour des montants arrondis au centime). */
-export function formatEur(units: bigint, decimals: number = STABLECOIN_ASSET_SCALE): string {
-  return formatScaled(units, decimals, "€");
+/** Montant en dollars (facture, palier) ; `decimals` tronque l'affichage (2 pour des montants arrondis au centime). */
+export function formatUsd(units: bigint, decimals: number = STABLECOIN_ASSET_SCALE): string {
+  return formatScaled(units, decimals, "$");
 }
 
 /** Montant en RLUSD (fonds, prêts, prêteurs) ; `decimals` tronque l'affichage. */

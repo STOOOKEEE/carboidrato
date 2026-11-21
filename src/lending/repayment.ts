@@ -26,7 +26,7 @@ export async function repayLoan(
   fund: Fund,
   originated: Pick<OriginatedLoan, "loanId" | "reference">,
 ): Promise<void> {
-  // La mairie règle la facture en RLUSD, au pair de son montant en euros.
+  // La mairie règle la facture en RLUSD, au pair de son montant en dollars.
   const { invoice } = loanTerms();
   await submit(
     stablecoinPayment(fund.stablecoin, mairie.address, borrower.address, invoice),

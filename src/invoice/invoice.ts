@@ -1,6 +1,6 @@
 // Facture de la PME à la mairie (données hors chaîne : elles ne quittent jamais la PME et le débiteur).
 
-import { INVOICE_AMOUNT_EUR, INVOICE_TERM_DAYS } from "../config/finance.js";
+import { INVOICE_AMOUNT_USD, INVOICE_TERM_DAYS } from "../config/finance.js";
 import type { VerifiedDebtor } from "./debtors.js";
 
 export interface Invoice {
@@ -9,7 +9,7 @@ export interface Invoice {
   number: string;
   issueDate: Date;
   dueDate: Date;
-  amountEur: number;
+  amountUsd: number;
 }
 
 const MS_PER_DAY = 86_400_000;
@@ -25,7 +25,7 @@ export function buildDemoInvoice(debtor: VerifiedDebtor, runId: string, index: n
     number: `FT-2026/${runId}-${index}`,
     issueDate,
     dueDate: new Date(issueDate.getTime() + INVOICE_TERM_DAYS * MS_PER_DAY),
-    amountEur: INVOICE_AMOUNT_EUR,
+    amountUsd: INVOICE_AMOUNT_USD,
   };
 }
 

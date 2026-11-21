@@ -5,7 +5,7 @@
 // SMOKE_DUMP_FILE=<fichier> enregistre toutes les réponses (exemples pour le front).
 
 import { groth16 } from "snarkjs";
-import { CENTS_PER_EUR, eurToCents } from "../../../lib/amounts.js";
+import { CENTS_PER_USD, usdToCents } from "../../../lib/amounts.js";
 import { log } from "../../../lib/logger.js";
 import { attestInvoice, deriveDebtor, fromHex, PUBLIC_SIGNAL_ORDER, releaseZkResources } from "../../../zk/index.js";
 import { parseAttestedInvoice, toAttestedInvoiceFile } from "../../attestedInvoice.js";
@@ -14,8 +14,8 @@ import { ApiClient, field, stringField } from "./http.js";
 import { EventCounter } from "./sse.js";
 
 const DEFAULT_API_URL = "http://127.0.0.1:8788";
-/** Facture de 23 450 € : prouvée au palier de 20 000 €, avance de 18 000 € (sous la limite de concentration). */
-const INVOICE_AMOUNT_EUR = 23_450;
+/** Facture de 23 450 $ : prouvée au palier de 20 000 $, avance de 18 000 $ (sous la limite de concentration). */
+const INVOICE_AMOUNT_USD = 23_450;
 const EXPECTED_THRESHOLD_CENTS = "2000000";
 const EXPECTED_PRINCIPAL_UNITS = "18000000000";
 const INVOICE_TERM_DAYS = 90;
@@ -88,7 +88,7 @@ async function run(api: ApiClient, events: EventCounter): Promise<void> {
     { number: invoiceNumber, debtorName: DEMO_DEBTOR, description: "Smoke test", issueDate: new Date() },
     await attestInvoice(await deriveDebtor(DEMO_DEBTOR), {
       account: businessAccount,
-      amount: eurToCents(INVOICE_AMOUNT_EUR),
+      amount: usdToCents(INVOICE_AMOUNT_USD),
       dueDate: BigInt(Math.floor(dueDate.getTime() / MS_PER_SECOND)),
       invoiceNumber,
       networkId: expected.networkId,
@@ -100,7 +100,7 @@ async function run(api: ApiClient, events: EventCounter): Promise<void> {
   const threshold = proof.publicSignals[PUBLIC_SIGNAL_ORDER.indexOf("threshold")];
   assert(threshold === EXPECTED_THRESHOLD_CENTS, `palier prouvé ${threshold} ≠ ${EXPECTED_THRESHOLD_CENTS}`);
   assert(!proof.publicSignals.includes(attested.attestation.amountCents), "le montant exact figure dans les signaux publics");
-  log.info(`facture de ${INVOICE_AMOUNT_EUR} € prouvée au palier de ${Number(threshold) / CENTS_PER_EUR} €`);
+  log.info(`facture de ${INVOICE_AMOUNT_USD} $ prouvée au palier de ${Number(threshold) / CENTS_PER_USD} $`);
 
   log.step("Certificat puis prêt co-signé, avec la session de l'entreprise");
   const certificate = await api.call("POST", "/api/sme/certificate", proof);
@@ -108,7 +108,7 @@ async function run(api: ApiClient, events: EventCounter): Promise<void> {
   logTransactions(certificate);
   const loan = await api.call("POST", "/api/sme/loan", { tokenId });
   const loanId = stringField(loan, "loanId");
-  assert(stringField(loan, "principal") === EXPECTED_PRINCIPAL_UNITS, `principal ${stringField(loan, "principal")} ≠ 18 000 €`);
+  assert(stringField(loan, "principal") === EXPECTED_PRINCIPAL_UNITS, `principal ${stringField(loan, "principal")} ≠ 18 000 $`);
   log.info(`prêt ${loanId} : LoanSet ${stringField(loan, "txHash")}`);
 
   log.step("Rejeu du même certificat");

@@ -1,13 +1,13 @@
 // Page transaction : états de chargement et textes affichés, sans React.
 
 import type { TxCertificate, TxDetail } from "../../../../src/api/contract";
-import { formatDate, formatEur } from "../../format";
+import { formatDate, formatUsd } from "../../format";
 
 const HTTP_OK = 200;
 const HTTP_NOT_FOUND = 404;
 const HASH_PATTERN = /^[0-9A-F]{64}$/i;
 const SUCCESS = "tesSUCCESS";
-const CENTS_PER_EUR = 100;
+const CENTS_PER_USD = 100;
 const MS_PER_SECOND = 1_000;
 
 export type TxView =
@@ -77,7 +77,7 @@ export function keyFacts(detail: TxDetail): Fact[] {
 export function certificateFacts(certificate: TxCertificate): Fact[] {
   return [
     { label: "Proof system", value: certificate.proofSystem === "groth16" ? "Groth16" : certificate.proofSystem },
-    { label: "Proven minimum amount", value: formatEur(certificate.thresholdCents / CENTS_PER_EUR) },
+    { label: "Proven minimum amount", value: formatUsd(certificate.thresholdCents / CENTS_PER_USD) },
     { label: "Due date", value: formatDate(new Date(certificate.dueDate * MS_PER_SECOND).toISOString()) },
     { label: "Invoice fingerprint N", value: certificate.nullifier },
     { label: "Commitment C", value: certificate.commitment },
