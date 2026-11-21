@@ -148,8 +148,20 @@ export class UserStore {
     );
   }
 
+  findByEmail(email: string): UserRecord | undefined {
+    const wanted = normalizeEmail(email);
+    return this.data.users.find((user) => user.email === wanted);
+  }
+
+  findPublicBody(ipaCode: string): Extract<UserRecord, { role: "public_body" }> | undefined {
+    return this.data.users.find(
+      (user): user is Extract<UserRecord, { role: "public_body" }> =>
+        user.role === "public_body" && user.profile.ipaCode === ipaCode,
+    );
+  }
+
   hasPublicBody(ipaCode: string): boolean {
-    return this.data.users.some((user) => user.role === "public_body" && user.profile.ipaCode === ipaCode);
+    return this.findPublicBody(ipaCode) !== undefined;
   }
 
   /** Lève `DuplicateUser` si l'email, le n° de TVA ou l'organisme public a déjà un compte. */
