@@ -398,3 +398,14 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 **Pourquoi :** décision de Noé : un vrai parcours non-custodial, où l'utilisateur signe lui-même les transactions de son compte. Xaman ne signe pas sur un réseau privé ; Otsu accepte un réseau perso.
 
 **Vérifié :** tests rouges puis verts (signature invalide, nonce rejoué ou expiré, autre adresse, clé non maîtresse → 401) ; `npm test` 432/432 ; AlphaNet : `wallet-signin.spec.ts` 4/4.
+
+## 2026-11-21 · Ouverture du compte signée dans Otsu
+
+**Quoi :**
+- `POST /api/onboarding/prepare` : pour un utilisateur connecté par wallet, Bari émet le credential `KYC_INVESTOR` ou `KYB_PME` (un an) s'il manque, puis prépare ce que le compte de l'utilisateur doit signer lui-même : `CredentialAccept`, ligne de confiance RLUSD et, pour un prêteur, `MPTokenAuthorize` des parts du Vault. Une seule transaction est envoyée seule ; à partir de deux, un `Batch` tfAllOrNothing du seul compte de l'utilisateur.
+- `POST /api/onboarding/submit` : le blob signé doit être, octet pour octet, la transaction préparée (hors signature) ; Bari le soumet et vérifie chaque transaction interne.
+- Pièces réutilisables pour les dépôts, retraits, certificats et prêts signés dans le wallet : `src/xrpl/preparedTx.ts` (comparaison, transaction en attente par utilisateur, ports du nœud) et `web/src/wallet/sign.ts`.
+
+**Pourquoi :** Bari ne garde aucune seed pour un utilisateur wallet ; il prépare, l'utilisateur signe, Bari vérifie qu'on lui renvoie bien ce qu'il a préparé avant de soumettre.
+
+**Vérifié :** tests rouges puis verts (forme de la transaction par rôle, blob modifié → 400, compte géré → 409, sans session → 401, organisme public → 403) ; `npm test` 470/470 ; AlphaNet : `wallet-signin.spec.ts` 4/4, Batch signé par l'utilisateur en tesSUCCESS, credential accepté et ligne RLUSD lus sur le ledger.
