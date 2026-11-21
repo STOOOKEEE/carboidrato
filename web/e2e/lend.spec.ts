@@ -60,7 +60,8 @@ test("a lender adds test RLUSD, deposits 5,000 and withdraws through Bari", asyn
     const form = page.getByTestId("lend-deposit");
     const amount = form.getByLabel("Amount in RLUSD");
     await amount.fill("20000");
-    await expect(form).toContainText("Above your balance of 10,000.00 RLUSD. Enter at most 10,000.00 RLUSD.");
+    // Le plafond est le plus petit du solde et du stock de parts de Bari, qui varie avec les dépôts des autres prêteurs.
+    await expect(form).toContainText(/Above your balance of 10,000\.00 RLUSD\. Enter at most [\d,]+\.\d\d RLUSD\./);
     await amount.fill("5000");
     await expect(form).toContainText("Immediate, through Bari");
     await expect(form).toContainText("You receive");
