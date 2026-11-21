@@ -266,3 +266,30 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 **Pourquoi :** le témoin ne doit jamais atteindre le serveur, même par un champ en trop.
 
 **Vérifié :** `app.test.ts` rouge puis vert (13 cas) ; `npm test` 93/93 ; AlphaNet : `npm run api:smoke` réussi en 346 s (preuve côté client en 0,7 s, rejeu refusé en 409, prêt, remboursement, rachat) sur un état séparé (`BARI_STATE_FILE`).
+
+## 2026-11-21 · Comptes, sessions et espace organisme public (API)
+
+**Quoi :**
+- `src/accounts/userStore.ts` : comptes email + mot de passe (haché `scrypt`, sel par utilisateur, `timingSafeEqual`), un rôle par compte (`lender`, `business`, `public_body`), email et n° de TVA normalisés et uniques, un seul compte par organisme public. Fichier `.bari-state.<réseau>.users.json` (gitignoré, mode 600), avec le secret de session et les seeds des comptes gérés.
+- `src/api/fund/auth.ts` : cookie `bari_session` signé HMAC, `httpOnly`, `SameSite=Lax`, 7 jours ; garde `requireRole` (401 sans session, 403 pour un autre rôle).
+- Routes `POST /api/auth/signup|signin|signout`, `GET /api/me`. L'inscription ouvre le compte XRPL géré par le port `ProvisionAccount` (`src/accounts/provisioning.ts` : compte créé et financé ; les credentials suivent).
+- `GET /api/public-body/keys` : les clés d'attestation de l'organisme de la session, et seulement les siennes. `GET /api/businesses/by-vat/:vat` : raison sociale et compte d'un fournisseur inscrit.
+- `POST /api/debtor/attest` supprimée : la facture sera signée dans le navigateur de l'organisme. `api:smoke` et l'e2e `prove.spec.ts` signent localement (`web/e2e/signedInvoice.ts`).
+
+**Pourquoi :** trois espaces avec de vrais comptes ; le serveur de Bari ne voit plus jamais une facture, même pour la signer.
+
+**Vérifié :** `userStore.test.ts`, `authRoutes.test.ts`, `publicBodyRoutes.test.ts` rouges puis verts (sans réseau, `fakeContext.ts`) ; `npm test` 127/127 ; e2e `prove.spec.ts` 2/2 sur l'AlphaNet.
+
+## 2026-11-21 · Fonds ouvert jusqu'au pitch
+
+**Quoi :**
+- `npm run demo:fund` crée un Vault fermé dont le rachat tombe le 2027-03-31 (accepté par le ledger), réutilisé tant que le rachat est à plus de 24 h.
+- Bari dépose un stock de parts de 20 000 EURc pendant la souscription et garde une réserve de 20 000 EURc (`BARI_SHARE_STOCK_EUR`, `BARI_EURC_RESERVE_EUR`) : de quoi servir l'entrée et la sortie immédiates des prêteurs pendant la période de prêt.
+- Deux prêts d'historique à 90 jours sur la Comune di Lecce, dont un remboursé.
+- Échéance d'un prêt = échéance prouvée de la facture, bornée par le rachat moins la marge du ledger (`loanPaymentInterval`, `loanTerms.ts`).
+
+**Pourquoi :** le fonds doit rester en phase de prêt jusqu'au pitch, et un prêt ne doit pas durer plus que la facture qu'il finance.
+
+**Vérifié :** `fundReuse.test.ts` et `loanTerms.test.ts` rouges puis verts ; AlphaNet : fonds créé en 120 s (Vault `01B19D79…99D0`), second lancement sans transaction ; `GET /api/fund` → `phase: "investment"`, rachat au 2027-03-31, un prêt remboursé et un en cours ; 20 000 parts et 20 091 EURc sur le compte de Bari.
+
+À savoir : sur ce fonds, la mise en défaut d'un prêt attendrait son échéance (~90 jours) ; le scénario `npm run demo` (cohorte courte) n'est pas touché.
