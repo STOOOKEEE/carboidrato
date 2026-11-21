@@ -245,6 +245,11 @@ export class UserStore {
     return record;
   }
 
+  remove(userId: string): void {
+    this.data.users = this.data.users.filter((user) => user.id !== userId);
+    this.save();
+  }
+
   costBasis(userId: string): CostBasis {
     const stored = this.findById(userId)?.costBasis;
     return stored === undefined ? NO_COST_BASIS : { shares: BigInt(stored.shares), cost: BigInt(stored.cost) };

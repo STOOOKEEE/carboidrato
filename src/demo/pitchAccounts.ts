@@ -1,7 +1,7 @@
 // Comptes du pitch (prêteur, fournisseur des factures, Comune di Bari) : définitions, réutilisation, fichier des identifiants.
 
 import { randomBytes } from "node:crypto";
-import type { AccountProfile, UserRecord, UserStore } from "../accounts/userStore.js";
+import { userAddress, type AccountProfile, type UserRecord, type UserStore } from "../accounts/userStore.js";
 import { DEMO_DEBTOR } from "../invoice/debtors.js";
 import { PITCH_SUPPLIER } from "./sampleInvoices.js";
 
@@ -17,7 +17,11 @@ export const PITCH_ACCOUNTS: readonly PitchAccount[] = [
   { email: "ragioneria@comune.bari.example", role: "public_body", profile: { ...DEMO_DEBTOR } },
 ];
 
-export type PitchPlan = { action: "reuse"; user: UserRecord } | { action: "create" } | { action: "conflict"; reason: string };
+export type PitchPlan =
+  | { action: "reuse"; user: UserRecord }
+  | { action: "wallet"; user: UserRecord }
+  | { action: "create" }
+  | { action: "conflict"; reason: string };
 
 type UserLookup = Pick<UserStore, "findByEmail" | "findBusinessByVat" | "findPublicBody">;
 
@@ -34,11 +38,31 @@ export function planPitchAccount(account: PitchAccount, users: UserLookup): Pitc
       : account.role === "public_body"
         ? users.findPublicBody(account.profile.ipaCode)
         : undefined;
+  if (account.role === "business" && holder?.custody === "wallet") return { action: "wallet", user: holder };
   if (holder !== undefined) {
     const what = account.role === "business" ? `VAT ${account.profile.vatNumber}` : account.profile.name;
     return { action: "conflict", reason: `${what} already has an account under ${holder.email}` };
   }
   return { action: "create" };
+}
+
+/**
+ * Libère la TVA du fournisseur du pitch pour un wallet Otsu : son compte email est supprimé du fichier des comptes,
+ * sauf s'il a un prêt en cours (il doit d'abord être remboursé).
+ */
+export function releasePitchBusiness(
+  users: Pick<UserStore, "findByEmail" | "remove">,
+  activeBorrowers: ReadonlySet<string>,
+): UserRecord | undefined {
+  const business = PITCH_ACCOUNTS.find(({ role }) => role === "business");
+  const user = business === undefined ? undefined : users.findByEmail(business.email);
+  if (user === undefined || user.role !== "business" || user.custody !== "managed") return undefined;
+  const address = userAddress(user);
+  if (address !== undefined && activeBorrowers.has(address)) {
+    throw new Error(`${user.email} has an active loan: repay it before opening the supplier with Otsu`);
+  }
+  users.remove(user.id);
+  return user;
 }
 
 export interface PitchCredential {

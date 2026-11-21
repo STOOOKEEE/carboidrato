@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { Client, isoTimeToRippleTime, rippleTimeToISOTime, unixTimeToRippleTime, Wallet } from "xrpl";
 import { loadActors, type Actors } from "../accounts/actors.js";
 import { makeFunder } from "../accounts/funding.js";
-import { UserStore, type UserRecord } from "../accounts/userStore.js";
+import { userAddress, UserStore, type UserRecord } from "../accounts/userStore.js";
 import { loadApiConfig } from "../api/fund/config.js";
 import { FundStateStore, loanState, type LoanStatus } from "../api/fund/stateStore.js";
 import { loadCohortTiming } from "../config/cohort.js";
@@ -31,6 +31,7 @@ import {
   parsePitchCredentials,
   PITCH_ACCOUNTS,
   planPitchAccount,
+  releasePitchBusiness,
   renderPitchCredentials,
   shortAddress,
   type PitchCredential,
@@ -93,13 +94,17 @@ async function topUpMairie(client: Client, actors: Actors, fund: Fund): Promise<
   await issueStablecoin(client, fund.stablecoin, actors.stable_issuer, actors.mairie.address, missing, "mairie");
 }
 
-/** Crée les comptes du pitch absents par le chemin de l'inscription ; renvoie les comptes prêts et les conflits. */
+/**
+ * Crée les comptes du pitch absents par le chemin de l'inscription ; renvoie les comptes prêts et les conflits.
+ * `otsuBusiness` : le compte email du fournisseur est libéré et pas recréé, le fournisseur s'ouvre avec Otsu.
+ */
 async function ensurePitchAccounts(
   client: Client,
   network: NetworkConfig,
   actors: Actors,
   fund: Fund,
   users: UserStore,
+  options: { otsuBusiness: boolean; activeBorrowers: ReadonlySet<string> },
 ): Promise<{ ready: UserRecord[]; conflicts: string[] }> {
   const passwords = existsSync(PITCH_CREDENTIALS_FILE)
     ? parsePitchCredentials(readFileSync(PITCH_CREDENTIALS_FILE, "utf8"))
@@ -120,12 +125,27 @@ async function ensurePitchAccounts(
     writeFileSync(PITCH_CREDENTIALS_FILE, renderPitchCredentials(entries), { mode: 0o600 });
   };
 
+  const released = options.otsuBusiness ? releasePitchBusiness(users, options.activeBorrowers) : undefined;
+  if (released?.email !== undefined) {
+    log.info(`compte email du fournisseur supprimé : ${released.email}, sa TVA est libre pour un wallet Otsu`);
+    passwords.delete(released.email);
+  }
+
   const ready: UserRecord[] = [];
   const conflicts: string[] = [];
   for (const account of PITCH_ACCOUNTS) {
     const plan = planPitchAccount(account, users);
     if (plan.action === "conflict") {
       conflicts.push(plan.reason);
+      continue;
+    }
+    if (plan.action === "wallet") {
+      log.info(`fournisseur du pitch ouvert avec Otsu : ${shortAddress(plan.user.address ?? "")}`);
+      ready.push(plan.user);
+      continue;
+    }
+    if (plan.action === "create" && account.role === "business" && options.otsuBusiness) {
+      log.warn(`fournisseur du pitch à ouvrir avec Otsu : ${account.profile.company}, TVA ${account.profile.vatNumber}`);
       continue;
     }
     if (plan.action === "reuse") {
@@ -185,16 +205,23 @@ async function main(): Promise<void> {
     } else {
       await createFund(client, store);
     }
-    const { fund } = store.current ?? {};
+    const { fund, loans = [] } = store.current ?? {};
     if (fund === undefined) throw new Error("fonds absent de l'état après sa création");
     const actors = loadActors(network);
     await topUpMairie(client, actors, fund);
 
-    const { ready, conflicts } = await ensurePitchAccounts(client, network, actors, fund, new UserStore(apiConfig.usersFile));
+    const activeBorrowers = new Set(
+      loans.flatMap(({ status, borrower }) => (status === "active" && borrower !== undefined ? [borrower] : [])),
+    );
+    const { ready, conflicts } = await ensurePitchAccounts(client, network, actors, fund, new UserStore(apiConfig.usersFile), {
+      otsuBusiness: process.env.PITCH_BUSINESS === "otsu",
+      activeBorrowers,
+    });
     log.step("Comptes du pitch prêts");
     for (const user of ready) {
-      const where = user.account === undefined ? "pas de compte XRPL" : shortAddress(user.account.address);
-      log.info(`${user.email} · ${user.role} · ${where}`);
+      const address = userAddress(user);
+      const where = address === undefined ? "pas de compte XRPL" : shortAddress(address);
+      log.info(`${user.email ?? "wallet Otsu"} · ${user.role} · ${where}`);
     }
     log.info(`mots de passe : ${PITCH_CREDENTIALS_FILE}`);
     for (const conflict of conflicts) log.warn(`compte du pitch non créé : ${conflict}`);
