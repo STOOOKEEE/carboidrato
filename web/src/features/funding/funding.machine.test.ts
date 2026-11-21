@@ -54,14 +54,24 @@ const refused: FundingState = {
   checks: failedChecks,
 };
 const duplicate: FundingState = { status: "duplicate", txHash: "D0UBLE" };
-const failedFromProved: FundingState = { status: "error", message: "ledger timeout", retry: proved };
+const failedFromProved: FundingState = { status: "error", message: "ledger timeout", retry: proved, failedAt: "certifying" };
+const batchTx = { TransactionType: "Batch", Account: "rWANDA" };
+const loanSetTx = { TransactionType: "LoanSet", Account: "rWANDA" };
+const signingCertificate: FundingState = { status: "signingCertificate", proof, durationMs: 1_200, tx: batchTx };
+const submittingCertificate: FundingState = { status: "submittingCertificate", proof, durationMs: 1_200, txBlob: "B10B" };
+const signingLoan: FundingState = { status: "signingLoan", durationMs: 1_200, certificate, checks: passed, tx: loanSetTx };
+const submittingLoan: FundingState = { status: "submittingLoan", durationMs: 1_200, certificate, checks: passed, txBlob: "L0B" };
+const DECLINED = "The request was declined in Otsu.";
 
 const ALL_EVENTS: FundingEvent[] = [
   { type: "PROVE" },
   { type: "PROVED", proof, durationMs: 1_200 },
   { type: "CERTIFY" },
+  { type: "SIGN_CERTIFICATE", tx: batchTx },
   { type: "CERTIFIED", certificate },
   { type: "UNDERWRITE" },
+  { type: "SIGN_LOAN", tx: loanSetTx, checks: passed },
+  { type: "SIGNED", txBlob: "B10B" },
   { type: "FUNDED", loan },
   { type: "REFUSED", reason: "Exposure above 20 %", checks: failedChecks },
   { type: "DUPLICATE", txHash: "D0UBLE" },
@@ -105,6 +115,7 @@ describe("funding machine", () => {
         status: "error",
         message: "witness rejected",
         retry: initialFundingState,
+        failedAt: "proving",
       });
     });
 
@@ -136,8 +147,46 @@ describe("funding machine", () => {
       assert.deepEqual(transition(certifying, { type: "FAILED", message: "ledger timeout" }), failedFromProved);
     });
 
+    test("SIGN_CERTIFICATE: a wallet business signs the prepared Batch in Otsu", () => {
+      assert.deepEqual(transition(certifying, { type: "SIGN_CERTIFICATE", tx: batchTx }), signingCertificate);
+    });
+
     test("ignores every other event", () => {
-      assertIgnores(certifying, ["CERTIFIED", "DUPLICATE", "FAILED"]);
+      assertIgnores(certifying, ["CERTIFIED", "DUPLICATE", "FAILED", "SIGN_CERTIFICATE"]);
+    });
+  });
+
+  describe("signingCertificate", () => {
+    test("SIGNED sends the signed blob to Bari", () => {
+      assert.deepEqual(transition(signingCertificate, { type: "SIGNED", txBlob: "B10B" }), submittingCertificate);
+    });
+
+    test("FAILED (declined in Otsu) goes to error at this step, retrying from proved", () => {
+      assert.deepEqual(transition(signingCertificate, { type: "FAILED", message: DECLINED }), {
+        status: "error",
+        message: DECLINED,
+        retry: proved,
+        failedAt: "signingCertificate",
+      });
+    });
+
+    test("ignores every other event", () => {
+      assertIgnores(signingCertificate, ["SIGNED", "FAILED"]);
+    });
+  });
+
+  describe("submittingCertificate", () => {
+    test("CERTIFIED, DUPLICATE or FAILED, like a managed certificate", () => {
+      assert.deepEqual(transition(submittingCertificate, { type: "CERTIFIED", certificate }), certified);
+      assert.deepEqual(transition(submittingCertificate, { type: "DUPLICATE", txHash: "D0UBLE" }), duplicate);
+      assert.deepEqual(transition(submittingCertificate, { type: "FAILED", message: "ledger timeout" }), {
+        ...failedFromProved,
+        failedAt: "submittingCertificate",
+      });
+    });
+
+    test("ignores every other event", () => {
+      assertIgnores(submittingCertificate, ["CERTIFIED", "DUPLICATE", "FAILED"]);
     });
   });
 
@@ -168,11 +217,52 @@ describe("funding machine", () => {
         status: "error",
         message: "api down",
         retry: certified,
+        failedAt: "underwriting",
+      });
+    });
+
+    test("SIGN_LOAN: Bari's checks passed, a wallet business signs the LoanSet in Otsu", () => {
+      assert.deepEqual(transition(underwriting, { type: "SIGN_LOAN", tx: loanSetTx, checks: passed }), signingLoan);
+    });
+
+    test("ignores every other event", () => {
+      assertIgnores(underwriting, ["FUNDED", "REFUSED", "FAILED", "SIGN_LOAN"]);
+    });
+  });
+
+  describe("signingLoan", () => {
+    test("SIGNED sends the signed LoanSet to Bari for its counter-signature", () => {
+      assert.deepEqual(transition(signingLoan, { type: "SIGNED", txBlob: "L0B" }), submittingLoan);
+    });
+
+    test("FAILED (declined in Otsu) goes to error at this step, retrying from certified", () => {
+      assert.deepEqual(transition(signingLoan, { type: "FAILED", message: DECLINED }), {
+        status: "error",
+        message: DECLINED,
+        retry: certified,
+        failedAt: "signingLoan",
       });
     });
 
     test("ignores every other event", () => {
-      assertIgnores(underwriting, ["FUNDED", "REFUSED", "FAILED"]);
+      assertIgnores(signingLoan, ["SIGNED", "FAILED"]);
+    });
+  });
+
+  describe("submittingLoan", () => {
+    test("FUNDED, REFUSED or FAILED, like a managed loan", () => {
+      assert.deepEqual(transition(submittingLoan, { type: "FUNDED", loan }), funded);
+      assert.deepEqual(transition(submittingLoan, { type: "REFUSED", reason: "Exposure above 20 %", checks: failedChecks }), refused);
+      assert.deepEqual(transition(submittingLoan, { type: "FAILED", message: "api down" }), {
+        status: "error",
+        message: "api down",
+        retry: certified,
+        failedAt: "submittingLoan",
+      });
+    });
+
+    test("ignores every other event", () => {
+      assertIgnores(submittingLoan, ["FUNDED", "REFUSED", "FAILED"]);
     });
   });
 
@@ -207,10 +297,20 @@ describe("funding machine", () => {
     });
   });
 
-  test("busy from the proof until Bari answers", () => {
-    const busy = [proving, proved, certifying, certified, underwriting].map(isFundingBusy);
+  test("busy from the proof until Bari answers, signatures in Otsu included", () => {
+    const busy = [
+      proving,
+      proved,
+      certifying,
+      signingCertificate,
+      submittingCertificate,
+      certified,
+      underwriting,
+      signingLoan,
+      submittingLoan,
+    ].map(isFundingBusy);
     const idle = [initialFundingState, funded, refused, duplicate, failedFromProved].map(isFundingBusy);
-    assert.deepEqual(busy, [true, true, true, true, true]);
+    assert.ok(busy.every(Boolean));
     assert.deepEqual(idle, [false, false, false, false, false]);
   });
 });
