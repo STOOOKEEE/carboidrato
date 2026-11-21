@@ -420,3 +420,15 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 **Pourquoi :** l'utilisateur signe chaque transaction de son compte ; Bari n'ajoute que ses propres signatures.
 
 **Vérifié :** tests rouges puis verts (Batch co-signé par Bari, blob modifié → 400, rien de préparé → 409, parcours géré inchangé, 403 pour les autres rôles) ; `npm test` 532/532 ; `prepareTransaction` de la bibliothèque d'Otsu laisse un Batch co-signé et un `LoanSet` identiques octet pour octet ; AlphaNet : `lend.spec.ts` 2/2 et `business.spec.ts` 2/2 avec le faux Otsu (dépôt et retrait en tesSUCCESS, 8 955 RLUSD reçus, « Already financed », prêt remboursé).
+
+## 2026-11-21 · Parcours du pitch signé dans Otsu
+
+**Quoi :**
+- `walkthrough.spec.ts` déroule les 9 étapes du pitch avec le prêteur et l'entreprise connectés par le faux Otsu (ouverture du compte, dépôt de 5 000 RLUSD, certificat et prêt, retrait, tous signés dans le wallet) ; l'organisme public reste en email. Les vérifications sur le ledger communes aux e2e Otsu sont dans `web/e2e/fixtures/otsuLedger.ts`.
+- Correctif : un organisme public ne retrouvait pas par sa TVA une entreprise connectée par wallet (la recherche lisait le seul compte géré). Un seul helper, `userAddress`, donne désormais le compte XRPL d'un utilisateur, géré ou wallet.
+- `PITCH_BUSINESS=otsu npm run demo:fund` libère la TVA du fournisseur du pitch (compte email supprimé s'il n'a pas de prêt en cours, pas recréé) pour l'ouvrir avec Otsu ; ensuite `demo:fund` reconnaît ce wallet comme le compte du pitch.
+- README : tout en dollars et RLUSD, « Connect Otsu », tableau « qui signe quoi », limites (Xaman et GemWallet ne signent pas sur un réseau privé, comptes email gérés par Bari).
+
+**Pourquoi :** le pitch se fait avec Otsu ; la facture FT-2026-0815 porte la TVA du fournisseur du pitch, qui ne peut appartenir qu'à un compte.
+
+**Vérifié :** tests rouges puis verts (recherche par TVA d'une entreprise wallet ; fournisseur du pitch tenu par un wallet, compte email libéré, refus avec un prêt en cours) ; `npm test` 537/537 ; AlphaNet : `walkthrough.spec.ts`, `lend.spec.ts` et `business.spec.ts` verts ; `demo:fund` avec et sans `PITCH_BUSINESS=otsu` sur une copie de l'état.
