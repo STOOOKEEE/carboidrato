@@ -35,6 +35,7 @@
 - Certificat en un seul `Batch` `tfAllOrNothing` (enregistrement de N → MPT facture → MPTokenAuthorize de Bari → transfert), puis LoanSet à part (pas de Lending en Batch sur devnet). En cas de rejeu, le Batch externe reste `tesSUCCESS` mais aucune transaction interne n'est appliquée : la détection se fait par les hash internes. Ne jamais supprimer un enregistrement N.
 - Paramètres IDEE §4 dans `src/config/finance.ts` (90 %, 45 € de frais, 6 %/an, 1 % des intérêts, mise de 10 %, plafond de 20 % par débiteur).
 - Seeds dans `.wallets.<réseau>.json` (gitignoré), jamais dans les logs.
+- Git : ne jamais mettre Claude en contributeur. Aucune ligne `Co-Authored-By: Claude` dans les commits, aucune mention « Generated with Claude Code » dans les PR.
 
 ## Où on en est
 - Fait : circuit + tests (11/11), flow IDEE sur devnet, audit, preuve réelle branchée dans le certificat et dans l'audit ; premier jet du front (UI en anglais, DA dither) : simulation réelle contre devnet + KYB.
