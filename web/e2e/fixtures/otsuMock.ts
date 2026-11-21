@@ -16,6 +16,8 @@ const BRIDGE = "__otsuRequest";
 
 export interface OtsuMock {
   wallet: Wallet;
+  /** Client du nœud du wallet, pour lire le ledger dans les assertions. */
+  client: Client;
   close(): Promise<void>;
 }
 
@@ -58,5 +60,5 @@ export async function installOtsuMock(page: Page, wallet: Wallet = Wallet.genera
     });
   }, BRIDGE);
 
-  return { wallet, close: () => client.disconnect() };
+  return { wallet, client, close: () => client.disconnect() };
 }

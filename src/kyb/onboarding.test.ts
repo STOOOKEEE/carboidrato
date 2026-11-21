@@ -1,14 +1,22 @@
-// Ouverture d'un compte géré par rôle, sans réseau : transactions soumises dans l'ordre, credentials valables un an.
+// Ouverture d'un compte par rôle, sans réseau : compte géré (transactions soumises dans l'ordre, credentials valables
+// un an) ou wallet de l'utilisateur (transactions qu'il signe lui-même, seules ou en un Batch).
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { Wallet, type LedgerEntry, type SubmittableTransaction, type TransactionMetadata } from "xrpl";
+import { BatchFlags, GlobalFlags, Wallet, type Batch, type LedgerEntry, type SubmittableTransaction, type TransactionMetadata } from "xrpl";
 import type { AccountProfile } from "../accounts/userStore.js";
 import { textToHex } from "../lib/encoding.js";
 import { FakeLedger } from "../xrpl/fakeLedger.js";
 import { RLUSD_CURRENCY, type Stablecoin } from "../xrpl/stablecoin.js";
 import { CREDENTIAL_TYPES } from "./kycCredentials.js";
-import { makeProvisioner, missingHoldings, type FundTokens } from "./onboarding.js";
+import {
+  credentialOffer,
+  makeProvisioner,
+  missingHoldings,
+  userSteps,
+  userTransaction,
+  type FundTokens,
+} from "./onboarding.js";
 
 const NOW_RIPPLE = 817_000_000;
 const ONE_YEAR_S = 365 * 86_400;
@@ -182,5 +190,68 @@ describe("missingHoldings", () => {
     );
     ledger.putAccountObject(holder, "state", trustLineEntry(FUND.stablecoin, holder));
     assert.deepEqual(await missingHoldings(ledger, FUND, holder, "business"), []);
+  });
+});
+
+describe("compte wallet : ce que Bari émet et ce que l'utilisateur signe", () => {
+  const issuer = Wallet.generate().address;
+  const holder = Wallet.generate().address;
+  const trust: SubmittableTransaction = { TransactionType: "TrustSet", Account: holder, LimitAmount: { ...FUND.stablecoin, value: "1" } };
+  const shares: SubmittableTransaction = { TransactionType: "MPTokenAuthorize", Account: holder, MPTokenIssuanceID: FUND.shareMptId };
+
+  function credential(accepted: boolean): LedgerEntry.Credential {
+    return { Flags: accepted ? 0x00010000 : 0 } as unknown as LedgerEntry.Credential;
+  }
+
+  test("credentialOffer : KYC_INVESTOR ou KYB_PME de l'émetteur, un an, URI = haché du dossier", () => {
+    const offer = credentialOffer(issuer, holder, lender, NOW_RIPPLE);
+    assert.equal(offer.TransactionType, "CredentialCreate");
+    assert.equal(offer.Account, issuer);
+    assert.equal(offer.Subject, holder);
+    assert.equal(offer.CredentialType, textToHex(CREDENTIAL_TYPES.kycInvestor));
+    assert.equal(offer.Expiration, NOW_RIPPLE + ONE_YEAR_S);
+    assert.ok(String(offer.URI).startsWith(SHA256_URI_PREFIX));
+    assert.equal(credentialOffer(issuer, holder, business, NOW_RIPPLE).CredentialType, textToHex(CREDENTIAL_TYPES.kybSme));
+  });
+
+  test("userSteps : acceptation du credential s'il ne l'est pas, puis les jetons manquants, avec leurs libellés", () => {
+    const steps = userSteps(issuer, holder, "lender", credential(false), [trust, shares]);
+    assert.deepEqual(
+      steps.map(({ tx, label }) => [tx.TransactionType, label]),
+      [
+        ["CredentialAccept", "Accept your KYC credential"],
+        ["TrustSet", "Open your RLUSD trust line"],
+        ["MPTokenAuthorize", "Authorize vault shares"],
+      ],
+    );
+    const accept = steps[0]?.tx as unknown as Record<string, unknown>;
+    assert.deepEqual([accept.Account, accept.Issuer, accept.CredentialType], [holder, issuer, textToHex(CREDENTIAL_TYPES.kycInvestor)]);
+    assert.equal(userSteps(issuer, holder, "business", undefined, [])[0]?.label, "Accept your KYB credential");
+    assert.deepEqual(userSteps(issuer, holder, "lender", credential(true), []), []);
+  });
+
+  test("userTransaction : une seule transaction reste seule, séquence et échéance fixées", () => {
+    assert.deepEqual(userTransaction(holder, [trust], 12, 500), { ...trust, Sequence: 12, LastLedgerSequence: 500 });
+  });
+
+  test("userTransaction : plusieurs transactions → un Batch tfAllOrNothing du seul compte, séquences à la suite", () => {
+    const batch = userTransaction(holder, [trust, shares], 12, 500) as Batch;
+    assert.equal(batch.TransactionType, "Batch");
+    assert.equal(batch.Account, holder);
+    assert.equal(batch.Flags, BatchFlags.tfAllOrNothing);
+    assert.equal(batch.Sequence, 12);
+    assert.equal(batch.LastLedgerSequence, 500);
+    assert.equal(batch.BatchSigners, undefined);
+    assert.deepEqual(
+      batch.RawTransactions.map(({ RawTransaction }) => RawTransaction),
+      [
+        { ...trust, Flags: GlobalFlags.tfInnerBatchTxn, Fee: "0", SigningPubKey: "", Sequence: 13 },
+        { ...shares, Flags: GlobalFlags.tfInnerBatchTxn, Fee: "0", SigningPubKey: "", Sequence: 14 },
+      ],
+    );
+  });
+
+  test("userTransaction : rien à signer → erreur", () => {
+    assert.throws(() => userTransaction(holder, [], 12, 500));
   });
 });
