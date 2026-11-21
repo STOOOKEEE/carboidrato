@@ -11,7 +11,7 @@ describe("barème de l'offre", () => {
   test("un palier par seuil public, avec le taux d'avance, les frais et la durée", () => {
     const offer = fundOffer({ dueDate: NOW + 90 * DAY_S, now: NOW });
     assert.deepEqual(
-      offer?.tiers.map((tier) => tier.provenThresholdEur),
+      offer?.tiers.map((tier) => tier.provenThresholdUsd),
       [5_000, 10_000, 20_000, 50_000, 100_000],
     );
     assert.equal(offer?.advanceRatePercent, 90);
@@ -20,13 +20,13 @@ describe("barème de l'offre", () => {
     assert.equal(offer?.loanDueDate, new Date((NOW + 90 * DAY_S) * 1_000).toISOString());
   });
 
-  test("palier de 10 000 € à 90 jours : 9 000 € avancés, 45 € de frais, 8 955 € reçus pour 178,16 €", () => {
+  test("palier de 10 000 $ à 90 jours : 9 000 $ avancés, 45 $ de frais, 8 955 $ reçus pour 178,16 $", () => {
     const tier = fundOffer({ dueDate: NOW + 90 * DAY_S, now: NOW })?.tiers[1];
-    assert.equal(tier?.provenThresholdEur, 10_000);
-    assert.equal(tier?.principalEur, 9_000);
-    assert.equal(tier?.feeEur, 45);
-    assert.equal(tier?.netAdvanceEur, 8_955);
-    assert.equal(tier?.totalCostEur, 178.16);
+    assert.equal(tier?.provenThresholdUsd, 10_000);
+    assert.equal(tier?.principalUsd, 9_000);
+    assert.equal(tier?.feeUsd, 45);
+    assert.equal(tier?.netAdvanceUsd, 8_955);
+    assert.equal(tier?.totalCostUsd, 178.16);
     assert.equal(tier?.termDays, 90);
   });
 

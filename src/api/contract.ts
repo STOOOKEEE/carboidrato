@@ -51,23 +51,23 @@ export interface CheckResult {
   ok: boolean;
 }
 
-/** Offre de financement du fonds, montants en euros arrondis au centime : l'avance est fixe, adossée au seuil prouvé. */
+/** Offre de financement du fonds, montants en dollars arrondis au centime : l'avance est fixe, adossée au seuil prouvé. */
 export interface LoanOffer {
   /** La preuve garantit que la facture vaut au moins ce montant ; son montant exact reste privé. */
-  provenThresholdEur: number;
+  provenThresholdUsd: number;
   advanceRatePercent: number;
-  principalEur: number;
-  feeEur: number;
+  principalUsd: number;
+  feeUsd: number;
   /** Ce que la PME reçoit. */
-  netAdvanceEur: number;
-  interestEur: number;
+  netAdvanceUsd: number;
+  interestUsd: number;
   interestRatePercent: number;
   /** Frais + intérêts. */
-  totalCostEur: number;
+  totalCostUsd: number;
   annualCostPercent: number;
   termDays: number;
   /** Ce que la PME rembourse à l'échéance (principal + intérêts). */
-  repaymentEur: number;
+  repaymentUsd: number;
 }
 
 export type Verdict = "eligible" | "rejected";
@@ -78,7 +78,7 @@ export interface PrecheckResponse {
   invoice: {
     number: string;
     debtorName: string;
-    amountEur: number;
+    amountUsd: number;
     /** Échéance ISO. */
     dueDate: string;
   };

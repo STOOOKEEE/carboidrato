@@ -10,7 +10,7 @@ const OUTPUT_DIR = new URL("../../web/public/samples/", import.meta.url);
 const MS_PER_DAY = 86_400_000;
 /** TVA ordinaire italienne (22 %), en scission des paiements pour une administration (EsigibilitaIVA « S »). */
 const VAT_RATE_PERCENT = 22n;
-const CENTS_PER_EUR = 100n;
+const CENTS_PER_USD = 100n;
 
 export interface FatturaAddress {
   street: string;
@@ -81,7 +81,7 @@ export const REGIONE_PUGLIA: FatturaCustomer = {
   address: { street: "Via Gentile", number: "52", postcode: "70126", city: "Bari", province: "BA" },
 };
 
-/** Factures du pitch : jamais financées par un test ; une par palier de l'offre (10 000, 20 000 et 5 000 €). */
+/** Factures du pitch : jamais financées par un test ; une par palier de l'offre (10 000, 20 000 et 5 000 $). */
 export const PITCH_INVOICES = [
   { number: "FT-2026-0815", totalCents: 1_034_000n, termDays: 90, description: "Rifacimento manto stradale, via Sparano (lotto 2)" },
   { number: "FT-2026-0816", totalCents: 2_379_000n, termDays: 60, description: "Manutenzione illuminazione pubblica, quartiere Murat" },
@@ -90,7 +90,7 @@ export const PITCH_INVOICES = [
 
 const XML_ESCAPES: Readonly<Record<string, string>> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" };
 const escapeXml = (text: string) => text.replace(/[&<>"']/g, (char) => XML_ESCAPES[char]);
-const euros = (cents: bigint) => `${cents / CENTS_PER_EUR}.${(cents % CENTS_PER_EUR).toString().padStart(2, "0")}`;
+const dollars = (cents: bigint) => `${cents / CENTS_PER_USD}.${(cents % CENTS_PER_USD).toString().padStart(2, "0")}`;
 const isoDate = (date: Date) => date.toISOString().slice(0, 10);
 
 function sede({ street, number, postcode, city, province }: FatturaAddress): string {
@@ -106,7 +106,7 @@ function sede({ street, number, postcode, city, province }: FatturaAddress): str
 
 /** FatturaPA 1.2 (FPA12) d'une seule ligne au taux de 22 %, payable par virement (MP05) à l'échéance. */
 export function fatturaPaXml({ supplier, customer, number, issueDate, dueDate, totalCents, description }: FatturaSpec): string {
-  const taxable = (totalCents * CENTS_PER_EUR + (CENTS_PER_EUR + VAT_RATE_PERCENT) / 2n) / (CENTS_PER_EUR + VAT_RATE_PERCENT);
+  const taxable = (totalCents * CENTS_PER_USD + (CENTS_PER_USD + VAT_RATE_PERCENT) / 2n) / (CENTS_PER_USD + VAT_RATE_PERCENT);
   const tax = totalCents - taxable;
   const country = supplier.vatNumber.slice(0, 2);
   const code = supplier.vatNumber.slice(2);
@@ -149,10 +149,10 @@ export function fatturaPaXml({ supplier, customer, number, issueDate, dueDate, t
     <DatiGenerali>
       <DatiGeneraliDocumento>
         <TipoDocumento>TD01</TipoDocumento>
-        <Divisa>EUR</Divisa>
+        <Divisa>USD</Divisa>
         <Data>${isoDate(issueDate)}</Data>
         <Numero>${escapeXml(number)}</Numero>
-        <ImportoTotaleDocumento>${euros(totalCents)}</ImportoTotaleDocumento>
+        <ImportoTotaleDocumento>${dollars(totalCents)}</ImportoTotaleDocumento>
         <Causale>${escapeXml(description)}</Causale>
       </DatiGeneraliDocumento>
     </DatiGenerali>
@@ -161,14 +161,14 @@ export function fatturaPaXml({ supplier, customer, number, issueDate, dueDate, t
         <NumeroLinea>1</NumeroLinea>
         <Descrizione>${escapeXml(description)}</Descrizione>
         <Quantita>1.00</Quantita>
-        <PrezzoUnitario>${euros(taxable)}</PrezzoUnitario>
-        <PrezzoTotale>${euros(taxable)}</PrezzoTotale>
+        <PrezzoUnitario>${dollars(taxable)}</PrezzoUnitario>
+        <PrezzoTotale>${dollars(taxable)}</PrezzoTotale>
         <AliquotaIVA>${VAT_RATE_PERCENT}.00</AliquotaIVA>
       </DettaglioLinee>
       <DatiRiepilogo>
         <AliquotaIVA>${VAT_RATE_PERCENT}.00</AliquotaIVA>
-        <ImponibileImporto>${euros(taxable)}</ImponibileImporto>
-        <Imposta>${euros(tax)}</Imposta>
+        <ImponibileImporto>${dollars(taxable)}</ImponibileImporto>
+        <Imposta>${dollars(tax)}</Imposta>
         <EsigibilitaIVA>S</EsigibilitaIVA>
       </DatiRiepilogo>
     </DatiBeniServizi>
@@ -177,7 +177,7 @@ export function fatturaPaXml({ supplier, customer, number, issueDate, dueDate, t
       <DettaglioPagamento>
         <ModalitaPagamento>MP05</ModalitaPagamento>
         <DataScadenzaPagamento>${isoDate(dueDate)}</DataScadenzaPagamento>
-        <ImportoPagamento>${euros(taxable)}</ImportoPagamento>
+        <ImportoPagamento>${dollars(taxable)}</ImportoPagamento>
       </DettaglioPagamento>
     </DatiPagamento>
   </FatturaElettronicaBody>

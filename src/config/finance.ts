@@ -1,11 +1,11 @@
-// Paramètres financiers de Bari (IDEE §4). Factures en euros, fonds et prêts en RLUSD (1 € = 1 RLUSD sans oracle de
+// Paramètres financiers de Bari (IDEE §4). Factures en dollars US, fonds et prêts en RLUSD (1 $ = 1 RLUSD sans oracle de
 // prix), taux en pourcentage (annuel pour les intérêts).
 
 /** Décimales des montants internes (unités) et Scale du Vault RLUSD : 6, pour que les intérêts d'une cohorte compressée restent visibles. */
 export const STABLECOIN_ASSET_SCALE = 6;
 
-/** Facture type de la démo : 10 000 € payables à 90 jours par la mairie. */
-export const INVOICE_AMOUNT_EUR = 10_000;
+/** Facture type de la démo : 10 000 $ payables à 90 jours par la mairie. */
+export const INVOICE_AMOUNT_USD = 10_000;
 export const INVOICE_TERM_DAYS = 90;
 
 /** Avance : le principal du prêt vaut 90 % de la facture (9 000 RLUSD). */

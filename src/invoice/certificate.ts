@@ -11,7 +11,7 @@ import {
   toHex32,
   type DebtorList,
 } from "../zk/index.js";
-import { eurToCents } from "../lib/amounts.js";
+import { usdToCents } from "../lib/amounts.js";
 import { encodeCertificateMetadata, GROTH16_PROOF_SYSTEM } from "./certificateMetadata.js";
 import { VERIFIED_DEBTORS } from "./debtors.js";
 import { normalizeInvoiceNumber, type Invoice } from "./invoice.js";
@@ -63,7 +63,7 @@ export async function produceInvoiceCertificate(request: CertificateRequest): Pr
   const debtor = await deriveDebtor(invoice.debtor.name);
   const attestation = await attestInvoice(debtor, {
     account: request.smeAccount,
-    amount: eurToCents(invoice.amountEur),
+    amount: usdToCents(invoice.amountUsd),
     dueDate: BigInt(Math.floor(invoice.dueDate.getTime() / MS_PER_SECOND)),
     invoiceNumber: normalizeInvoiceNumber(invoice),
     networkId: request.networkId,

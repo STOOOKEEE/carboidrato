@@ -11,11 +11,11 @@ import type { LoanReference } from "../fund/loanData.js";
 import { listOwnerLoanRecords } from "../fund/loanRecords.js";
 import type { CertificateMetadata } from "../invoice/certificateMetadata.js";
 import { isSmeKybDone } from "../kyb/smeKyb.js";
-import { centsToUnits, formatEur, formatPercent, formatRlusd, percentOf, ratioPercent, unitsToEur } from "../lib/amounts.js";
+import { centsToUnits, formatUsd, formatPercent, formatRlusd, percentOf, ratioPercent, unitsToUsd } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
 import type { Ledger } from "../xrpl/ledger.js";
 import { valueToUnits } from "../xrpl/stablecoin.js";
-import { loanTerms, maturityProblem, OFFER_TIERS_EUR, offerTier, type LoanTerms } from "./loanTerms.js";
+import { loanTerms, maturityProblem, OFFER_TIERS_USD, offerTier, type LoanTerms } from "./loanTerms.js";
 
 const MS_PER_SECOND = 1_000;
 
@@ -63,7 +63,7 @@ type Outcome = string | undefined;
 const NEEDS_PROOF = "Not checked: the invoice proof is not valid";
 const NEEDS_TIER = "Not checked: no proven tier";
 
-const eur = (units: bigint) => `€${unitsToEur(units).toLocaleString("en-US")}`;
+const usd = (units: bigint) => `$${unitsToUsd(units).toLocaleString("en-US")}`;
 
 /** Raison du premier contrôle en échec, celle qui explique le refus. */
 export function refusalReason(checks: readonly LoanCheck[]): string | undefined {
@@ -95,13 +95,13 @@ function advanceOutcome(certificate: CertificateMetadata): { outcome: Outcome; t
   const tier = offerTier(provenFloor);
   if (tier === undefined) {
     return {
-      outcome: `Proven threshold ${eur(provenFloor)} is below the smallest tier (€${OFFER_TIERS_EUR[0].toLocaleString("en-US")})`,
+      outcome: `Proven threshold ${usd(provenFloor)} is below the smallest tier ($${OFFER_TIERS_USD[0].toLocaleString("en-US")})`,
     };
   }
   const terms = loanTerms(tier);
   const ceiling = percentOf(provenFloor, ADVANCE_RATE_PERCENT);
   if (terms.principal > ceiling) {
-    return { outcome: `Advance ${eur(terms.principal)} exceeds ${ADVANCE_RATE_PERCENT} % of the proven threshold ${eur(provenFloor)}` };
+    return { outcome: `Advance ${usd(terms.principal)} exceeds ${ADVANCE_RATE_PERCENT} % of the proven threshold ${usd(provenFloor)}` };
   }
   return { outcome: undefined, terms };
 }
@@ -161,6 +161,6 @@ export async function reviewLoan(ledger: Ledger, parties: LoanParties, fund: Fun
     return reason === undefined ? { id, label: LOAN_CHECK_LABELS[id], ok: true } : { id, label: LOAN_CHECK_LABELS[id], ok: false, reason };
   });
   if (certificate === undefined || terms === undefined || checks.some((check) => !check.ok)) return { checks };
-  log.info(`contrôles Bari OK pour ${parties.borrower} : palier ${formatEur(terms.invoice, 2)}, avance ${formatRlusd(terms.principal, 2)}`);
+  log.info(`contrôles Bari OK pour ${parties.borrower} : palier ${formatUsd(terms.invoice, 2)}, avance ${formatRlusd(terms.principal, 2)}`);
   return { checks, approval: { certificate, terms } };
 }

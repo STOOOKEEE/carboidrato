@@ -8,7 +8,7 @@ import {
 } from "../config/finance.js";
 import { theoreticalLoanEconomics } from "../lending/economics.js";
 import { loanTerms } from "../lending/loanTerms.js";
-import { formatEur, formatPercent, formatRlusd } from "../lib/amounts.js";
+import { formatUsd, formatPercent, formatRlusd } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
 
 const CENTS = 2;
@@ -17,7 +17,7 @@ export function logTheoreticalEconomics(): void {
   const terms = loanTerms();
   const theory = theoreticalLoanEconomics();
   log.info(
-    `facture ${formatEur(terms.invoice, CENTS)} · principal ${formatRlusd(terms.principal, CENTS)} · frais de dossier ${formatPercent(ORIGINATION_FEE_PERCENT)} = ${formatRlusd(terms.originationFee, CENTS)} · la PME reçoit ${formatRlusd(terms.netAdvance, CENTS)}`,
+    `facture ${formatUsd(terms.invoice, CENTS)} · principal ${formatRlusd(terms.principal, CENTS)} · frais de dossier ${formatPercent(ORIGINATION_FEE_PERCENT)} = ${formatRlusd(terms.originationFee, CENTS)} · la PME reçoit ${formatRlusd(terms.netAdvance, CENTS)}`,
   );
   log.info(`taux ${formatPercent(INTEREST_RATE_PERCENT)}/an · Bari prend ${formatPercent(MANAGEMENT_FEE_RATE_PERCENT)} des intérêts`);
   log.info(`théorique sur ${INVOICE_TERM_DAYS} jours :`);

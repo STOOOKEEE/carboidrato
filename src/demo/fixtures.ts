@@ -36,7 +36,7 @@ const DUE_DATE_SECONDS = BigInt(Date.parse("2027-02-18T00:00:00Z") / 1_000);
 /** Aléa r fixé (31 octets) pour que le fixture soit reproductible. */
 const BLINDING = BigInt(`0x${"5a".repeat(31)}`);
 const MS_PER_SECOND = 1_000;
-const CENTS_PER_EUR = 100;
+const CENTS_PER_USD = 100;
 
 /** Facture signée par un organisme autre que la mairie du pitch ; numéro saisi sous une forme non canonique. */
 const ATTESTING_BODY = VERIFIED_DEBTORS[2];
@@ -116,7 +116,7 @@ async function attestationFixture(): Promise<void> {
     number: ATTESTED_INVOICE.number,
     issueDate,
     dueDate,
-    amountEur: Number(ATTESTED_INVOICE.amountCents) / CENTS_PER_EUR,
+    amountUsd: Number(ATTESTED_INVOICE.amountCents) / CENTS_PER_USD,
   });
   const attestation = await attestInvoice(body, {
     account: SME_ACCOUNT,

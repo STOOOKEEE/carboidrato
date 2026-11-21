@@ -78,6 +78,11 @@ describe("fichier déposé", () => {
     assert.equal(pendingSupplierVat(state), undefined);
     assert.equal(signBlocker(state), "Enter the supplier's VAT number");
   });
+
+  test("une facture dans une autre devise est refusée, sans formulaire", () => {
+    const state = run([{ type: "FILE_READ", fileName: "f.xml", reading: { ok: false, reason: "currency", currency: "JPY" } }]);
+    assert.deepEqual(state, { status: "empty", refusal: "This invoice is in JPY. Bari finances invoices in US dollars (USD) only." });
+  });
 });
 
 describe("fournisseur retrouvé par son n° de TVA", () => {
@@ -147,7 +152,7 @@ describe("validation des champs", () => {
         vatNumber: "Enter the supplier's VAT number with its country code, e.g. IT01234567890",
         number: "Enter the invoice number",
         issueDate: "Enter the issue date",
-        amount: "Enter the total in euros, e.g. 10340.00",
+        amount: "Enter the total in US dollars, e.g. 10340.00",
         dueDate: "Enter the due date",
       },
     });
@@ -157,7 +162,7 @@ describe("validation des champs", () => {
     const validation = validateForm({ ...VALID_FORM, amount: "0", dueDate: "2026-11-20" }, "x");
     assert.deepEqual(validation, {
       ok: false,
-      errors: { amount: "Enter the total in euros, e.g. 10340.00", dueDate: "The due date must come after the issue date" },
+      errors: { amount: "Enter the total in US dollars, e.g. 10340.00", dueDate: "The due date must come after the issue date" },
     });
   });
 });

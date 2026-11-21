@@ -16,7 +16,7 @@ import {
 import { debtorTree, invoiceNullifier, isListed, provenThreshold } from "./witness";
 
 const MS_PER_SECOND = 1_000;
-const CENTS_PER_EUR = 100;
+const CENTS_PER_USD = 100;
 
 /** Sources publiques du pré-contrôle, injectées pour le tester sans réseau. */
 export interface PrecheckSources {
@@ -50,7 +50,7 @@ export function parseAttestedFile(value: unknown): AttestedInvoiceFile | undefin
 
 /** Offre du palier que prouvera la facture, lue dans le barème du fonds (avance, frais et coût calculés par l'API). */
 function provenTierOffer(schedule: OfferSchedule, thresholdCents: bigint): LoanOffer | undefined {
-  return schedule.tiers.find((tier) => BigInt(Math.round(tier.provenThresholdEur * CENTS_PER_EUR)) === thresholdCents);
+  return schedule.tiers.find((tier) => BigInt(Math.round(tier.provenThresholdUsd * CENTS_PER_USD)) === thresholdCents);
 }
 
 export async function runPrecheck(file: AttestedInvoiceFile, sources: PrecheckSources): Promise<PrecheckResponse> {
@@ -80,7 +80,7 @@ export async function runPrecheck(file: AttestedInvoiceFile, sources: PrecheckSo
     invoice: {
       number: file.invoice.number,
       debtorName: file.invoice.debtorName,
-      amountEur: Number(attestation.amountCents) / CENTS_PER_EUR,
+      amountUsd: Number(attestation.amountCents) / CENTS_PER_USD,
       dueDate: dueDate.toISOString(),
     },
     checks,

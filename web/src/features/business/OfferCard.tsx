@@ -1,6 +1,6 @@
 // Offre de la facture contrôlée et « Get paid now » ; « Already financed » si le registre détient déjà son empreinte.
 import type { PrecheckResponse } from "../../../../src/api/contract";
-import { formatDate, formatEur, formatPercent, formatRlusd } from "../../format";
+import { formatDate, formatUsd, formatPercent, formatRlusd } from "../../format";
 import { Button } from "../../ui/Button";
 import { Facts } from "../../ui/Facts";
 import { Notice } from "../../ui/Notice";
@@ -80,16 +80,16 @@ export function OfferCard({ precheck, funding, onGetPaid, onRetry }: OfferCardPr
     <StepCard index={2} title="Your offer" done={funding.status === "funded"}>
       <Facts
         facts={[
-          { label: `Advance (${formatPercent(offer.advanceRatePercent)} of the proven tier)`, value: formatEur(offer.principalEur) },
-          { label: "Fee", value: formatEur(offer.feeEur) },
-          { label: "You receive now", value: formatEur(offer.netAdvanceEur) },
+          { label: `Advance (${formatPercent(offer.advanceRatePercent)} of the proven tier)`, value: formatUsd(offer.principalUsd) },
+          { label: "Fee", value: formatUsd(offer.feeUsd) },
+          { label: "You receive now", value: formatUsd(offer.netAdvanceUsd) },
           { label: "Due date", value: `${formatDate(precheck.invoice.dueDate)} (${offer.termDays} days)` },
-          { label: "Proven tier", value: `at least ${formatEur(offer.provenThresholdEur)}` },
-          { label: "You repay at the due date", value: formatEur(offer.repaymentEur) },
+          { label: "Proven tier", value: `at least ${formatUsd(offer.provenThresholdUsd)}` },
+          { label: "You repay at the due date", value: formatUsd(offer.repaymentUsd) },
         ]}
       />
       <p className="muted">
-        Bari only learns that your invoice covers at least {formatEur(offer.provenThresholdEur)}. The exact amount stays private.
+        Bari only learns that your invoice covers at least {formatUsd(offer.provenThresholdUsd)}. The exact amount stays private.
       </p>
       {steps.length > 0 && <FundingSteps steps={steps} />}
       <Outcome funding={funding} onGetPaid={onGetPaid} onRetry={onRetry} />

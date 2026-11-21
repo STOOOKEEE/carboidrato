@@ -27,7 +27,7 @@ const REGISTRATION_TX = "AB".repeat(32);
 
 const precheck: PrecheckResponse = {
   verdict: "eligible",
-  invoice: { number: "FT-2026-0815", debtorName: "Comune di Bari", amountEur: 10_340, dueDate: "2027-02-18T00:00:00.000Z" },
+  invoice: { number: "FT-2026-0815", debtorName: "Comune di Bari", amountUsd: 10_340, dueDate: "2027-02-18T00:00:00.000Z" },
   checks: [
     { id: "signature", ok: true },
     { id: "debtor", ok: true },
@@ -39,17 +39,17 @@ const precheck: PrecheckResponse = {
   kyb: { account: ACCOUNT, done: true },
   nullifier: "2A",
   offer: {
-    provenThresholdEur: 10_000,
+    provenThresholdUsd: 10_000,
     advanceRatePercent: 90,
-    principalEur: 9_000,
-    feeEur: 45,
-    netAdvanceEur: 8_955,
-    interestEur: 133.16,
+    principalUsd: 9_000,
+    feeUsd: 45,
+    netAdvanceUsd: 8_955,
+    interestUsd: 133.16,
     interestRatePercent: 6,
-    totalCostEur: 178.16,
+    totalCostUsd: 178.16,
     annualCostPercent: 8.1,
     termDays: 90,
-    repaymentEur: 9_133.16,
+    repaymentUsd: 9_133.16,
   },
 };
 const alreadyFinanced: PrecheckResponse = {

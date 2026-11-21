@@ -2,6 +2,7 @@
 import { useEffect, useReducer } from "react";
 import type { AccountView } from "../../../../src/api/contract";
 import { DropZone } from "../../ui/DropZone";
+import { Notice } from "../../ui/Notice";
 import { AccountCard } from "../account/AccountCard";
 import { findSupplier, signInvoice } from "./api";
 import { readFatturaPA } from "./fatturaPA";
@@ -22,10 +23,11 @@ const SAMPLES = ["FT-2026-0815", "FT-2026-0816", "FT-2026-0817"];
 
 const messageOf = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause));
 
-function EmptyPanel() {
+function EmptyPanel({ refusal }: { refusal?: string }) {
   return (
     <div className="public-panel">
       <h2>Drop the FatturaPA of an invoice addressed to you.</h2>
+      {refusal !== undefined && <Notice kind="error">{refusal}</Notice>}
       <p className="muted">
         Its fields are read in this page. Any other file opens a form to type them from the invoice.
       </p>
@@ -98,7 +100,7 @@ export function PublicBodyPage({ user }: { user: AccountView }) {
           caption="Drop a FatturaPA (.xml)"
           busy={state.status === "signing"}
         >
-          {state.status === "empty" ? <EmptyPanel /> : <ReviewPanel state={state} onEdit={onEdit} onSign={onSign} />}
+          {state.status === "empty" ? <EmptyPanel refusal={state.refusal} /> : <ReviewPanel state={state} onEdit={onEdit} onSign={onSign} />}
         </DropZone>
       )}
       <AccountCard user={user} />

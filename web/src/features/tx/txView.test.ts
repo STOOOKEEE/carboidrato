@@ -65,7 +65,7 @@ describe("textes", () => {
     ]);
   });
 
-  test("certificat : seuil en euros et échéance en date", () => {
+  test("certificat : seuil en dollars et échéance en date", () => {
     const facts = certificateFacts({
       proofSystem: "groth16",
       commitment: "C".repeat(64),
@@ -81,7 +81,7 @@ describe("textes", () => {
     });
     const byLabel = new Map(facts.map((fact) => [fact.label, fact.value]));
     assert.equal(byLabel.get("Proof system"), "Groth16");
-    assert.equal(byLabel.get("Proven minimum amount"), "€10,000.00");
+    assert.equal(byLabel.get("Proven minimum amount"), "$10,000.00");
     assert.equal(byLabel.get("Due date"), "18 Feb 2027");
     assert.equal(byLabel.get("Invoice fingerprint N"), "D".repeat(64));
   });

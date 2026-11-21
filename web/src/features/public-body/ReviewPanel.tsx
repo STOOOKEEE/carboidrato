@@ -1,6 +1,6 @@
 // Panneau de la zone de dépôt : champs lus (ou formulaire), fournisseur retrouvé par son n° de TVA, « Confirm and sign ».
 import type { SubmitEvent } from "react";
-import { formatDate, formatEur } from "../../format";
+import { formatDate, formatUsd } from "../../format";
 import { Button } from "../../ui/Button";
 import { Details } from "../../ui/Details";
 import { Facts, type Fact } from "../../ui/Facts";
@@ -49,7 +49,7 @@ function invoiceFacts({ form }: PanelState): Fact[] {
     { label: "Supplier VAT", value: form.vatNumber },
     { label: "Invoice number", value: form.number },
     { label: "Issue date", value: showDate(form.issueDate) },
-    { label: "Total", value: formatEur(Number(form.amount)) },
+    { label: "Total", value: formatUsd(Number(form.amount)) },
     { label: "Due date", value: showDate(form.dueDate) },
   ];
 }
@@ -68,7 +68,7 @@ function InvoiceForm({ state, onEdit }: Omit<ReviewPanelProps, "onSign">) {
       <Field label="Issue date" error={errors.issueDate}>
         <input type="date" value={form.issueDate} disabled={disabled} onChange={(event) => onEdit("issueDate", event.target.value)} />
       </Field>
-      <Field label="Total amount (EUR)" error={errors.amount} hint="VAT included, e.g. 10340.00">
+      <Field label="Total amount (USD)" error={errors.amount} hint="VAT included, e.g. 10340.00">
         <input inputMode="decimal" value={form.amount} disabled={disabled} onChange={(event) => onEdit("amount", event.target.value)} />
       </Field>
       <Field label="Due date" error={errors.dueDate}>

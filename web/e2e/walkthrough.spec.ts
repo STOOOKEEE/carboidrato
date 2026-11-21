@@ -117,7 +117,7 @@ test("the pitch walkthrough, end to end in the real product", async ({ browser }
         .getByTestId("drop-input")
         .setInputFiles({ name: `${number}.xml`, mimeType: "application/xml", buffer: Buffer.from(xml) });
       await expect(publicBody.getByText(company, { exact: true })).toBeVisible();
-      await expect(publicBody.getByText("€10,340.00", { exact: true })).toBeVisible();
+      await expect(publicBody.getByText("$10,340.00", { exact: true })).toBeVisible();
       const download = publicBody.waitForEvent("download");
       await publicBody.getByRole("button", { name: "Confirm and sign" }).click();
       await expect(publicBody.getByRole("heading", { name: "Signed. Send this file to your supplier" })).toBeVisible();
@@ -141,8 +141,8 @@ test("the pitch walkthrough, end to end in the real product", async ({ browser }
       const checks = business.getByTestId("invoice-checks");
       await expect(checks.locator(".check")).toHaveCount(7);
       await expect(checks.locator(".check.fail")).toHaveCount(0);
-      await expect(business.locator(".offer-row", { hasText: /^Advance/ })).toContainText("€9,000.00");
-      await expect(business.locator(".offer-row", { hasText: /^Proven tier/ })).toContainText("€10,000.00");
+      await expect(business.locator(".offer-row", { hasText: /^Advance/ })).toContainText("$9,000.00");
+      await expect(business.locator(".offer-row", { hasText: /^Proven tier/ })).toContainText("$10,000.00");
       await capture(business, "walkthrough-05-business-offer");
     });
 
@@ -162,7 +162,7 @@ test("the pitch walkthrough, end to end in the real product", async ({ browser }
       await steps.locator('li[data-step="certificate"] a').click();
       await expect(business).toHaveURL(/#\/tx\/[0-9A-F]{64}$/);
       await expect(business.getByRole("heading", { name: "Invoice certificate" })).toBeVisible({ timeout: 30_000 });
-      await expect(business.locator(".offer-row", { hasText: "Proven minimum amount" })).toContainText("€10,000.00");
+      await expect(business.locator(".offer-row", { hasText: "Proven minimum amount" })).toContainText("$10,000.00");
       await capture(business, "walkthrough-06-certificate");
       await business.goBack();
       await expect(business).toHaveURL(/#\/business$/);

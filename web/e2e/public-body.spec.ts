@@ -57,7 +57,7 @@ test("a public body reads a FatturaPA, finds the supplier and signs it in the br
 
   await expect(page.getByText(company, { exact: true })).toBeVisible();
   await expect(page.getByText(number, { exact: true })).toBeVisible();
-  await expect(page.getByText("€10,340.00", { exact: true })).toBeVisible();
+  await expect(page.getByText("$10,340.00", { exact: true })).toBeVisible();
   await expect(page.getByText(vatNumber, { exact: true })).toBeVisible();
   await capture(page, "public-body");
 

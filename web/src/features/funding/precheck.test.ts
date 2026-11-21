@@ -19,27 +19,27 @@ const fixture = JSON.parse(
 const BEFORE_DUE_DATE = new Date("2026-11-21T10:00:00Z");
 const AFTER_DUE_DATE = new Date("2027-03-01T00:00:00Z");
 const REGISTRATION_TX = "AB".repeat(32);
-const TIERS_EUR = [5_000, 10_000, 20_000, 50_000, 100_000];
+const TIERS_USD = [5_000, 10_000, 20_000, 50_000, 100_000];
 
 const OFFER: LoanOffer = {
-  provenThresholdEur: 10_000,
+  provenThresholdUsd: 10_000,
   advanceRatePercent: 90,
-  principalEur: 9_000,
-  feeEur: 45,
-  netAdvanceEur: 8_955,
-  interestEur: 133.16,
+  principalUsd: 9_000,
+  feeUsd: 45,
+  netAdvanceUsd: 8_955,
+  interestUsd: 133.16,
   interestRatePercent: 6,
-  totalCostEur: 178.16,
+  totalCostUsd: 178.16,
   annualCostPercent: 8.1,
   termDays: 90,
-  repaymentEur: 9_133.16,
+  repaymentUsd: 9_133.16,
 };
 
 /** Offre d'un palier comme la calcule l'API : avance de 90 % du palier, frais de 0,5 % de l'avance. */
-function tierOffer(tierEur: number): LoanOffer {
-  const principalEur = (tierEur * 90) / 100;
-  const feeEur = (principalEur * 5) / 1_000;
-  return { ...OFFER, provenThresholdEur: tierEur, principalEur, feeEur, netAdvanceEur: principalEur - feeEur };
+function tierOffer(tierUsd: number): LoanOffer {
+  const principalUsd = (tierUsd * 90) / 100;
+  const feeUsd = (principalUsd * 5) / 1_000;
+  return { ...OFFER, provenThresholdUsd: tierUsd, principalUsd, feeUsd, netAdvanceUsd: principalUsd - feeUsd };
 }
 
 /** Barème servi par l'API, une offre par palier : le navigateur y lit celle du palier qu'il prouvera. */
@@ -49,13 +49,13 @@ const SCHEDULE: OfferSchedule = {
   interestRatePercent: 6,
   termDays: 90,
   loanDueDate: "2027-02-18T00:00:00.000Z",
-  tiers: TIERS_EUR.map(tierOffer),
+  tiers: TIERS_USD.map(tierOffer),
 };
 
 const PARAMS = {
   networkId: fixture.file.attestation.networkId,
   registry: fixture.file.attestation.registry,
-  thresholdsCents: TIERS_EUR.map((eur) => String(eur * 100)),
+  thresholdsCents: TIERS_USD.map((usd) => String(usd * 100)),
 };
 
 function sources(overrides: Partial<PrecheckSources> = {}): PrecheckSources & { offerCalls: string[] } {
@@ -86,7 +86,7 @@ function failedChecks(result: PrecheckResponse): string[] {
 }
 
 describe("pré-contrôle dans le navigateur", () => {
-  test("une facture attestée de 10 340 € est éligible, avec l'offre du palier de 10 000 € et le N public", async () => {
+  test("une facture attestée de 10 340 $ est éligible, avec l'offre du palier de 10 000 $ et le N public", async () => {
     const deps = sources();
     const result = await runPrecheck(fixture.file, deps);
     assert.equal(fixture.file.attestation.amountCents, "1034000");
@@ -95,14 +95,14 @@ describe("pré-contrôle dans le navigateur", () => {
     assert.equal(result.nullifier, fixture.nullifier);
     assert.deepEqual(result.offer, OFFER);
     assert.deepEqual(deps.offerCalls, [result.invoice.dueDate]);
-    assert.equal(result.invoice.amountEur, 10_340);
+    assert.equal(result.invoice.amountUsd, 10_340);
     assert.deepEqual(result.kyb, { account: fixture.file.attestation.account, done: true });
   });
 
-  test("une facture de 250 000 € reçoit l'offre du plus haut palier, 100 000 €", async () => {
+  test("une facture de 250 000 $ reçoit l'offre du plus haut palier, 100 000 $", async () => {
     const result = await runPrecheck(withAmount("25000000"), sources());
     assert.equal(result.verdict, "eligible");
-    assert.deepEqual(result.offer, { ...OFFER, provenThresholdEur: 100_000, principalEur: 90_000, feeEur: 450, netAdvanceEur: 89_550 });
+    assert.deepEqual(result.offer, { ...OFFER, provenThresholdUsd: 100_000, principalUsd: 90_000, feeUsd: 450, netAdvanceUsd: 89_550 });
   });
 
   test("une signature invalide refuse la facture sans offre", async () => {
@@ -126,7 +126,7 @@ describe("pré-contrôle dans le navigateur", () => {
     assert.deepEqual(failedChecks(await runPrecheck(fixture.file, otherRegistry)), ["network"]);
   });
 
-  test("une facture de 4 999 €, sous le premier palier, est refusée au contrôle du montant, sans offre", async () => {
+  test("une facture de 4 999 $, sous le premier palier, est refusée au contrôle du montant, sans offre", async () => {
     const deps = sources();
     const result = await runPrecheck(withAmount("499900"), deps);
     assert.equal(result.verdict, "rejected");

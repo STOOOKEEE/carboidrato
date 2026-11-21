@@ -3,7 +3,7 @@
 
 import type { ShapeDrawer } from "./engine";
 
-export type ShapeName = "invoice" | "euro" | "check" | "cross" | "shield" | "upload";
+export type ShapeName = "invoice" | "dollar" | "check" | "cross" | "shield" | "upload";
 
 function shade(ctx: CanvasRenderingContext2D, top: number, bottom: number, darkest = "#7a7a7a"): CanvasGradient {
   const gradient = ctx.createLinearGradient(0, top, 0, bottom);
@@ -43,17 +43,18 @@ const invoice: ShapeDrawer = (ctx, s) => {
   ctx.fillRect(x + w * 0.5, y + h * 0.8, w * 0.38, h * 0.08);
 };
 
-const euro: ShapeDrawer = (ctx, s) => {
-  const gradient = shade(ctx, s * 0.15, s * 0.85);
+const dollar: ShapeDrawer = (ctx, s) => {
+  const gradient = shade(ctx, s * 0.1, s * 0.9);
   ctx.strokeStyle = gradient;
-  ctx.lineWidth = s * 0.12;
+  ctx.lineWidth = s * 0.1;
+  // Le S en deux arcs : panse haute dans le sens antihoraire, panse basse dans le sens horaire.
   ctx.beginPath();
-  ctx.arc(s * 0.6, s * 0.5, s * 0.27, Math.PI * 0.27, Math.PI * 1.73);
+  ctx.arc(s * 0.5, s * 0.36, s * 0.14, Math.PI * 1.8, Math.PI * 0.5, true);
+  ctx.arc(s * 0.5, s * 0.64, s * 0.14, Math.PI * 1.5, Math.PI * 0.8);
   ctx.stroke();
-  // Les deux barres dépassent nettement à gauche de l'arc, sinon elles s'y fondent en points.
+  // La barre dépasse nettement en haut et en bas du S, sinon elle s'y fond en points.
   ctx.fillStyle = gradient;
-  ctx.fillRect(s * 0.06, s * 0.35, s * 0.52, s * 0.08);
-  ctx.fillRect(s * 0.06, s * 0.57, s * 0.48, s * 0.08);
+  ctx.fillRect(s * 0.455, s * 0.08, s * 0.09, s * 0.84);
 };
 
 function ring(ctx: CanvasRenderingContext2D, s: number): void {
@@ -125,4 +126,4 @@ const upload: ShapeDrawer = (ctx, s) => {
   ctx.stroke();
 };
 
-export const SHAPES: Record<ShapeName, ShapeDrawer> = { invoice, euro, check, cross, shield, upload };
+export const SHAPES: Record<ShapeName, ShapeDrawer> = { invoice, dollar, check, cross, shield, upload };

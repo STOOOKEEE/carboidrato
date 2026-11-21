@@ -1,5 +1,5 @@
 // Panneau de la zone de dépôt : consigne sans fichier, contrôle en cours, fichier refusé, ou facture lue et ses contrôles.
-import { formatDate, formatEur } from "../../format";
+import { formatDate, formatUsd } from "../../format";
 import { Notice } from "../../ui/Notice";
 import { invoiceChecks, type BusinessState } from "./business.machine";
 import { CheckList } from "./CheckList";
@@ -26,7 +26,7 @@ export function InvoicePanel({ state }: { state: BusinessState }) {
         <div className="result">
           <h3 className="panel-title">Invoice {invoice.number}</h3>
           <p className="muted">
-            {invoice.debtorName} · {formatEur(invoice.amountEur)} · due {formatDate(invoice.dueDate)}. This amount stays in this
+            {invoice.debtorName} · {formatUsd(invoice.amountUsd)} · due {formatDate(invoice.dueDate)}. This amount stays in this
             page.
           </p>
           <CheckList checks={invoiceChecks(state.precheck)} testId="invoice-checks" />

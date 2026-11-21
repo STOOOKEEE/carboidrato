@@ -7,7 +7,7 @@ import { FundFacts } from "./FundFacts";
 const HERO_LOOP: { shape: ShapeName; scanning: boolean; durationMs: number }[] = [
   { shape: "invoice", scanning: false, durationMs: 2200 },
   { shape: "invoice", scanning: true, durationMs: 2600 },
-  { shape: "euro", scanning: false, durationMs: 3200 },
+  { shape: "dollar", scanning: false, durationMs: 3200 },
 ];
 
 function useLoop() {

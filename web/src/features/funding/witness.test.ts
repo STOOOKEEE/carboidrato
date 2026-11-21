@@ -70,11 +70,11 @@ describe("témoin construit dans le navigateur", () => {
 
 describe("palier prouvé choisi dans le navigateur", () => {
   const cases: [string, string, bigint | undefined][] = [
-    ["10 340 €", "1034000", 1_000_000n],
-    ["4 999 €", "499900", undefined],
-    ["5 000 €", "500000", 500_000n],
-    ["100 000 €", "10000000", 10_000_000n],
-    ["250 000 €", "25000000", 10_000_000n],
+    ["10 340 $", "1034000", 1_000_000n],
+    ["4 999 $", "499900", undefined],
+    ["5 000 $", "500000", 500_000n],
+    ["100 000 $", "10000000", 10_000_000n],
+    ["250 000 $", "25000000", 10_000_000n],
   ];
   for (const [label, amountCents, expected] of cases) {
     test(`une facture de ${label} est prouvée au plus grand palier qui ne la dépasse pas`, () => {

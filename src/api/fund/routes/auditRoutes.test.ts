@@ -137,7 +137,7 @@ before(async () => {
       number: "IT-PA-2026-000999",
       issueDate: new Date("2026-11-01T00:00:00Z"),
       dueDate: new Date(DUE_DATE_ISO),
-      amountEur: 12_000,
+      amountUsd: 12_000,
     },
     smeAccount: business.address,
     registry,
