@@ -1,12 +1,12 @@
-// Comptes utilisateurs : hachés scrypt, unicité (email, TVA, organisme public), persistance du fichier gitignoré.
+// Comptes utilisateurs : hachés scrypt, unicité (email, TVA, organisme public, adresse), persistance du fichier gitignoré.
 
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, statSync } from "node:fs";
+import { mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
 import { Wallet } from "xrpl";
-import { DuplicateUser, UserStore, type NewUser } from "./userStore.js";
+import { DuplicateUser, UserStore, type NewUser, type NewWalletUser } from "./userStore.js";
 
 const PASSWORD = "correct horse battery";
 const OWNER_ONLY = 0o600;
@@ -32,6 +32,11 @@ const publicBody = {
 } satisfies NewUser;
 const wallet = Wallet.generate();
 const managed = { address: wallet.address, seed: wallet.seed ?? "" };
+const walletLender = {
+  address: Wallet.generate().address,
+  role: "lender",
+  profile: { name: "Wanda Verdi", country: "IT" },
+} satisfies NewWalletUser;
 
 function freshFile(): string {
   return join(mkdtempSync(join(tmpdir(), "bari-users-")), "users.json");
@@ -147,5 +152,68 @@ describe("UserStore", () => {
     const raw = JSON.parse(readFileSync(file, "utf8")) as { users: Record<string, unknown>[] };
     assert.equal(raw.users[0]?.costBasis, undefined);
     assert.deepEqual(new UserStore(file).costBasis(id), { shares: 0n, cost: 0n });
+  });
+
+  test("utilisateur d'un wallet : custody « wallet », ni email, ni mot de passe, ni seed ; retrouvé par adresse", () => {
+    const file = freshFile();
+    const store = new UserStore(file);
+    const created = store.createWalletUser(walletLender);
+    assert.equal(created.custody, "wallet");
+    assert.equal(created.email, undefined);
+    assert.equal(created.account, undefined);
+    assert.equal(store.findByAddress(walletLender.address)?.id, created.id);
+    assert.equal(new UserStore(file).findByAddress(walletLender.address)?.id, created.id);
+
+    const raw = JSON.parse(readFileSync(file, "utf8")) as { users: Record<string, unknown>[] };
+    assert.deepEqual(Object.keys(raw.users[0] ?? {}).sort(), ["address", "createdAt", "custody", "id", "profile", "role"]);
+  });
+
+  test("adresse d'un wallet : un seul compte, et jamais celle d'un compte géré", async () => {
+    const store = new UserStore(freshFile());
+    store.createWalletUser(walletLender);
+    assert.throws(
+      () => store.createWalletUser({ ...walletLender, profile: { name: "Other", country: "FR" } }),
+      (error) => error instanceof DuplicateUser && error.field === "address",
+    );
+    await store.create(lender, managed);
+    assert.equal(store.findByAddress(managed.address)?.custody, "managed");
+    assert.throws(
+      () => store.createWalletUser({ ...walletLender, address: managed.address }),
+      (error) => error instanceof DuplicateUser && error.field === "address",
+    );
+  });
+
+  test("entreprise par wallet : n° de TVA unique avec les comptes gérés", async () => {
+    const store = new UserStore(freshFile());
+    await store.create(business, managed);
+    const walletBusiness = {
+      address: Wallet.generate().address,
+      role: "business",
+      profile: { company: "Other S.r.l.", vatNumber: "IT01234567890" },
+    } satisfies NewWalletUser;
+    assert.throws(
+      () => store.createWalletUser(walletBusiness),
+      (error) => error instanceof DuplicateUser && error.field === "vatNumber",
+    );
+    const created = store.createWalletUser({ ...walletBusiness, profile: { company: "Other S.r.l.", vatNumber: "it 999 999" } });
+    assert.equal(store.findBusinessByVat("IT999999")?.id, created.id);
+  });
+
+  test("un utilisateur d'un wallet ne se connecte jamais par mot de passe", async () => {
+    const store = new UserStore(freshFile());
+    store.createWalletUser(walletLender);
+    assert.equal(await store.authenticate("", ""), undefined);
+    assert.equal(await store.authenticate("undefined", "undefined"), undefined);
+  });
+
+  test("fichier d'avant la custody : comptes relus comme gérés", async () => {
+    const file = freshFile();
+    const { id } = await new UserStore(file).create(lender, managed);
+    const raw = JSON.parse(readFileSync(file, "utf8")) as { users: Record<string, unknown>[] };
+    for (const user of raw.users) delete user.custody;
+    writeFileSync(file, JSON.stringify(raw));
+    const reloaded = new UserStore(file);
+    assert.equal(reloaded.findById(id)?.custody, "managed");
+    assert.equal((await reloaded.authenticate(lender.email, PASSWORD))?.id, id);
   });
 });

@@ -7,6 +7,7 @@ import { guardRoute, parseRoute, signupRoute, spaceRoute, type Route } from "./r
 
 const lender: AccountView = {
   email: "ada@example.com",
+  custody: "managed",
   role: "lender",
   verification: "basic (self-declared)",
   address: "rLender",
@@ -14,6 +15,7 @@ const lender: AccountView = {
 };
 const business: AccountView = {
   email: "ops@acme.it",
+  custody: "managed",
   role: "business",
   verification: "basic (self-declared)",
   address: "rBusiness",

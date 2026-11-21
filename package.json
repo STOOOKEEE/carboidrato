@@ -2,7 +2,17 @@
   "name": "xrpl-bari",
   "version": "0.1.0",
   "description": "Invoice financing on the XRP Ledger: tokenized invoices that carry a Groth16 zero-knowledge proof, funded by a Single Asset Vault through the Lending Protocol.",
-  "keywords": ["xrpl", "tokenization", "real-world-assets", "zero-knowledge", "groth16", "invoice-financing", "mpt", "vault", "lending"],
+  "keywords": [
+    "xrpl",
+    "tokenization",
+    "real-world-assets",
+    "zero-knowledge",
+    "groth16",
+    "invoice-financing",
+    "mpt",
+    "vault",
+    "lending"
+  ],
   "private": true,
   "type": "module",
   "engines": {
@@ -47,6 +57,7 @@
     "@types/react-dom": "19.3.0",
     "@types/snarkjs": "0.7.9",
     "@vitejs/plugin-react": "6.3.0",
+    "@xrpl-commons/xrpl": "4.6.0",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
     "vite": "8.3.8"
