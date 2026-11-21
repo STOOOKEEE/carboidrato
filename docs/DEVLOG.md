@@ -368,3 +368,11 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 **Pourquoi :** le parcours du pitch et chaque bouton de l'interface sont rejoués sur le réseau avant la démo ; le README explique le projet au jury.
 
 **Vérifié :** AlphaNet : `walkthrough.spec.ts` 1/1 (1,3 min), `buttons.spec.ts` 7/7 (1,9 min), puis la suite e2e complète ; `npm test`, typecheck et build verts.
+
+## 2026-11-21 · Favicon
+
+**Quoi :** `web/public/icon.svg`, la grille 3×3 du logo (centre en bleu d'accent) sur fond noir, liée dans `web/index.html` avec un `theme-color` noir.
+
+**Pourquoi :** l'onglet du navigateur montrait l'icône par défaut ; la marque reste lisible en 16 px.
+
+**Vérifié :** rendu en 16, 32 et 64 px ; `npm run web:build` copie `icon.svg` dans `web/dist` ; suite e2e complète sur l'AlphaNet (16/16).
