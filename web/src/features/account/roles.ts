@@ -13,8 +13,8 @@ interface RoleCopy {
 
 export const ROLE_COPY: Record<UserRole, RoleCopy> = {
   lender: { name: "Lender", space: "Lend", audience: "lenders" },
-  business: { name: "Business", space: "Business", audience: "businesses" },
-  public_body: { name: "Public body", space: "Public bodies", audience: "public bodies" },
+  business: { name: "Business", space: "Tokenize invoice", audience: "businesses" },
+  public_body: { name: "Public body", space: "Declare invoice", audience: "public bodies" },
 };
 
 /** Nom affiché d'un compte : personne, entreprise ou organisme. */

@@ -8,7 +8,7 @@ import { AccountMenu } from "./AccountMenu";
 const LINKS = [
   { href: spaceRoute("lender"), label: "Lend" },
   { href: spaceRoute("public_body"), label: ROLE_COPY.public_body.space },
-  { href: spaceRoute("business"), label: "Businesses" },
+  { href: spaceRoute("business"), label: ROLE_COPY.business.space },
   { href: TRANSPARENCY_ROUTE, label: "Transparency" },
 ];
 

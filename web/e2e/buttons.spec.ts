@@ -102,7 +102,10 @@ function controlKeys(page: Page): Promise<string[]> {
         .map((element) => {
           if (element.matches('a[href^="#/tx/"]')) return "tx link";
           if (element.matches('[data-testid="account-menu"] > summary')) return "account menu";
-          const name = (element.getAttribute("aria-label") ?? element.innerText).replace(/\s+/g, " ").trim();
+          // Le nom accessible : le texte tel qu'écrit (sans la casse imposée par le style), sans les ornements aria-hidden.
+          const label = element.cloneNode(true) as HTMLElement;
+          label.querySelectorAll('[aria-hidden="true"]').forEach((hidden) => hidden.remove());
+          const name = (element.getAttribute("aria-label") ?? label.textContent ?? "").replace(/\s+/g, " ").trim();
           return `${element.localName === "a" ? "link" : element.localName} "${name}"`;
         }),
     );
@@ -216,6 +219,17 @@ function goesTo(page: Page, route: string | RegExp, title: string | RegExp): Eff
     if (page.url() === before) return;
     await page.goBack();
     await expect(page).toHaveURL(before);
+  };
+}
+
+/** Ancre de la page : la section visée défile à l'écran, sans changer de route. */
+function scrollsTo(page: Page, selector: string): Effect {
+  return async (control) => {
+    const before = page.url();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await control.click();
+    await expect(page.locator(selector)).toBeInViewport();
+    expect(page.url()).toBe(before);
   };
 }
 
@@ -337,8 +351,8 @@ function navControls(page: Page, viewer?: Viewer): Control[] {
   const common: Control[] = [
     ['link "bari"', goesTo(page, "#/", LANDING_TITLE)],
     ['link "Lend"', goesTo(page, SPACE_ROUTES.lender, spaceTitle("lender", role))],
-    ['link "Public bodies"', goesTo(page, SPACE_ROUTES.public_body, spaceTitle("public_body", role))],
-    ['link "Businesses"', goesTo(page, SPACE_ROUTES.business, spaceTitle("business", role))],
+    ['link "Declare invoice"', goesTo(page, SPACE_ROUTES.public_body, spaceTitle("public_body", role))],
+    ['link "Tokenize invoice"', goesTo(page, SPACE_ROUTES.business, spaceTitle("business", role))],
     ['link "Transparency"', goesTo(page, "#/transparency", TRANSPARENCY_TITLE)],
     ['link "Every loan, re-verifiable →"', goesTo(page, "#/transparency", TRANSPARENCY_TITLE)],
   ];
@@ -441,6 +455,9 @@ test("the landing, signed out", async ({ page }) => {
     ['link "Confirm an invoice"', goesTo(page, SPACE_ROUTES.public_body, DOOR_TITLES.public_body)],
     ['link "Get paid now"', goesTo(page, SPACE_ROUTES.business, DOOR_TITLES.business)],
     ['link "Open Transparency →"', goesTo(page, "#/transparency", TRANSPARENCY_TITLE)],
+    ['link "Verify every loan"', goesTo(page, "#/transparency", TRANSPARENCY_TITLE)],
+    ['link "Explore"', scrollsTo(page, "#doors")],
+    ['link "Scroll to discover"', scrollsTo(page, "#doors")],
     ...navControls(page),
   ]).cover();
 });
