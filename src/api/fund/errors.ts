@@ -52,17 +52,17 @@ function describe(error: unknown, explorerUrl: (hash: string) => string): { stat
     };
   }
   if (error instanceof RippledError) {
-    return { status: HTTP_UNPROCESSABLE, body: { error: `Requête refusée par le nœud XRPL : ${error.message}` } };
+    return { status: HTTP_UNPROCESSABLE, body: { error: `The XRP Ledger node refused the request: ${error.message}` } };
   }
   if (error instanceof ConnectionError || error instanceof TimeoutError || error instanceof XrplError) {
-    return { status: HTTP_BAD_GATEWAY, body: { error: `Nœud XRPL injoignable : ${error.message}` } };
+    return { status: HTTP_BAD_GATEWAY, body: { error: `The XRP Ledger node did not answer. Try again in a few seconds. (${error.message})` } };
   }
   if (error instanceof Error && !PROGRAMMING_ERRORS.some((type) => error instanceof type)) {
     // Refus métier (contrôles de Bari, phase du Vault, débiteur hors liste…) : message explicite.
     return { status: HTTP_UNPROCESSABLE, body: { error: error.message } };
   }
   log.warn(`erreur interne de l'API : ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
-  return { status: HTTP_INTERNAL_ERROR, body: { error: "Erreur interne du serveur" } };
+  return { status: HTTP_INTERNAL_ERROR, body: { error: "Something went wrong on Bari's side. Try again." } };
 }
 
 export function makeErrorHandler(explorerUrl: (hash: string) => string) {
