@@ -1,6 +1,6 @@
-// Remboursement d'un prêt : signé par le compte géré de l'entreprise emprunteuse enregistrée, ou par la PME de démo
-// pour les prêts de npm run demo:fund ; pour une entreprise wallet, LoanPay préparé puis signé dans Otsu ; soumissions
-// et ledger simulés.
+// Remboursement d'un prêt avec la session de l'entreprise emprunteuse : signé par son compte géré, ou, pour une
+// entreprise wallet, LoanPay préparé puis signé dans Otsu ; toute autre session est refusée et aucune route ne met un
+// prêt en défaut. Soumissions et ledger simulés.
 
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, test } from "node:test";
@@ -13,12 +13,15 @@ import { RLUSD_CURRENCY, type Stablecoin } from "../../../xrpl/stablecoin.js";
 import type { TxOutcome } from "../../../xrpl/submit.js";
 import type { PreparedSignature } from "../../contract.js";
 import { buildApp } from "../app.js";
+import { issueSession, SESSION_COOKIE } from "../auth.js";
 import { fakeApiConfig, fakeContext } from "../fakeContext.js";
 import type { LoanState } from "../stateStore.js";
 
 const HTTP_OK = 200;
 const HTTP_BAD_REQUEST = 400;
-const HTTP_CONFLICT = 409;
+const HTTP_UNAUTHORIZED = 401;
+const HTTP_FORBIDDEN = 403;
+const HTTP_NOT_FOUND = 404;
 const TX_HASH = "EE".repeat(32);
 const VAULT_ID = "0C".repeat(32);
 const BROKER_ID = "0D".repeat(32);
@@ -39,6 +42,8 @@ const outcome: TxOutcome = { hash: TX_HASH, result: "tesSUCCESS", meta: { Affect
 let business: Wallet | undefined;
 /** Entreprise connectée par son wallet : elle signe son LoanPay dans Otsu. */
 const walletBorrower = Wallet.generate();
+/** Prêteur connecté par son wallet : la session d'un autre rôle. */
+const walletLender = Wallet.generate();
 const walletSubmitted: string[] = [];
 const walletPorts: WalletTxPorts = {
   accountState: async () => ({ sequence: WALLET_SEQUENCE, ledgerIndex: LEDGER_INDEX }),
@@ -107,7 +112,21 @@ function managedBusiness(): Wallet {
   return business;
 }
 
-const repay = (loanId: string) => app.inject({ method: "POST", url: `/api/loans/${loanId}/repay` });
+const post = (url: string, cookie?: string, payload?: Record<string, unknown>) =>
+  app.inject({
+    method: "POST",
+    url,
+    ...(cookie === undefined ? {} : { headers: { cookie } }),
+    ...(payload === undefined ? {} : { payload }),
+  });
+const repay = (loanId: string, cookie?: string) => post(`/api/loans/${loanId}/repay`, cookie);
+
+/** Cookie de session de l'utilisateur dont le compte XRPL est `address`. */
+function cookieOf(address: string): string {
+  const user = context.users.findByAddress(address);
+  if (user === undefined) throw new Error(`aucun utilisateur pour ${address}`);
+  return `${SESSION_COOKIE}=${issueSession(context.users.sessionSecret, user.id)}`;
+}
 const signerOf = (type: string) => sent.find(({ tx }) => tx.TransactionType === type);
 
 before(async () => {
@@ -124,6 +143,7 @@ before(async () => {
     profile: { company: "Wanda Forniture S.r.l.", vatNumber: "IT05556667778" },
     address: walletBorrower.address,
   });
+  context.users.createWalletUser({ role: "lender", profile: { name: "Wanda Verdi", country: "IT" }, address: walletLender.address });
   const signup = await app.inject({
     method: "POST",
     url: "/api/auth/signup",
@@ -160,7 +180,7 @@ after(() => app.close());
 describe("POST /api/loans/:id/repay", () => {
   test("le prêt d'une entreprise inscrite est remboursé en RLUSD par son compte géré, qui récupère son MPT facture", async () => {
     const borrower = managedBusiness().address;
-    const response = await repay(BUSINESS_LOAN_ID);
+    const response = await repay(BUSINESS_LOAN_ID, cookieOf(borrower));
     assert.equal(response.statusCode, HTTP_OK, response.body);
     assert.equal(response.json<{ status: string }>().status, "repaid");
 
@@ -181,32 +201,32 @@ describe("POST /api/loans/:id/repay", () => {
     assert.ok(sent.every(({ signer }) => signer !== actors.sme.address));
   });
 
-  test("un prêt de la PME de démo, ou sans emprunteur enregistré, reste remboursé par la PME de démo", async () => {
-    for (const loanId of [DEMO_LOAN_ID, LEGACY_LOAN_ID]) {
-      sent.length = 0;
-      const response = await repay(loanId);
-      assert.equal(response.statusCode, HTTP_OK, response.body);
-      assert.equal(signerOf("LoanPay")?.signer, actors.sme.address);
-    }
+  test("sans session, 401 ; avec la session d'un prêteur, 403 ; aucune transaction", async () => {
+    assert.equal((await repay(DEMO_LOAN_ID)).statusCode, HTTP_UNAUTHORIZED);
+    assert.equal((await repay(DEMO_LOAN_ID, cookieOf(walletLender.address))).statusCode, HTTP_FORBIDDEN);
+    assert.deepEqual(sent, []);
   });
 
-  test("un emprunteur sans compte géré connu de Bari est refusé sans transaction", async () => {
-    const response = await repay(ORPHAN_LOAN_ID);
-    assert.equal(response.statusCode, HTTP_CONFLICT);
+  test("une entreprise ne rembourse que ses prêts : ceux d'une autre, de la PME de démo ou sans emprunteur sont refusés", async () => {
+    const cookie = cookieOf(managedBusiness().address);
+    for (const loanId of [WALLET_LOAN_ID, DEMO_LOAN_ID, LEGACY_LOAN_ID, ORPHAN_LOAN_ID]) {
+      assert.equal((await repay(loanId, cookie)).statusCode, HTTP_FORBIDDEN, loanId);
+    }
     assert.deepEqual(sent, []);
   });
 });
 
 describe("POST /api/loans/:id/repay pour une entreprise connectée par son wallet", () => {
-  const submitRepayment = (txBlob: string) =>
-    app.inject({ method: "POST", url: `/api/loans/${WALLET_LOAN_ID}/repay/submit`, payload: { tx_blob: txBlob } });
+  const borrowerCookie = () => cookieOf(walletBorrower.address);
+  const submitRepayment = (txBlob: string, cookie?: string) =>
+    post(`/api/loans/${WALLET_LOAN_ID}/repay/submit`, cookie, { tx_blob: txBlob });
   const signed = (tx: Record<string, unknown>) => walletBorrower.sign(tx as unknown as Transaction).tx_blob;
   const cityPayments = () =>
     sent.filter(({ tx, signer }) => tx.TransactionType === "Payment" && signer === actors.mairie.address && tx.Destination === walletBorrower.address);
   let prepared: PreparedSignature | undefined;
 
   test("la mairie paie l'entreprise, puis Bari prépare son LoanPay à signer dans Otsu, sans rien signer pour elle", async () => {
-    const response = await repay(WALLET_LOAN_ID);
+    const response = await repay(WALLET_LOAN_ID, borrowerCookie());
     assert.equal(response.statusCode, HTTP_OK, response.body);
     prepared = response.json<PreparedSignature>();
     assert.equal(prepared.status, "sign");
@@ -225,7 +245,7 @@ describe("POST /api/loans/:id/repay pour une entreprise connectée par son walle
   });
 
   test("redemandé : la mairie ne paie pas deux fois", async () => {
-    const response = await repay(WALLET_LOAN_ID);
+    const response = await repay(WALLET_LOAN_ID, borrowerCookie());
     assert.equal(response.statusCode, HTTP_OK, response.body);
     prepared = response.json<PreparedSignature>();
     assert.equal(cityPayments().length, 0);
@@ -233,15 +253,24 @@ describe("POST /api/loans/:id/repay pour une entreprise connectée par son walle
 
   test("un LoanPay modifié est refusé en 400, sans soumission", async () => {
     assert.ok(prepared !== undefined);
-    const response = await submitRepayment(signed({ ...prepared.tx, Amount: { currency: RLUSD_CURRENCY, issuer: asset.issuer, value: "1" } }));
+    const forged = signed({ ...prepared.tx, Amount: { currency: RLUSD_CURRENCY, issuer: asset.issuer, value: "1" } });
+    const response = await submitRepayment(forged, borrowerCookie());
     assert.equal(response.statusCode, HTTP_BAD_REQUEST);
+    assert.deepEqual(walletSubmitted, []);
+  });
+
+  test("la soumission exige la session de l'entreprise emprunteuse : 401 sans session, 403 pour une autre", async () => {
+    assert.ok(prepared !== undefined);
+    const txBlob = signed(prepared.tx);
+    assert.equal((await submitRepayment(txBlob)).statusCode, HTTP_UNAUTHORIZED);
+    assert.equal((await submitRepayment(txBlob, cookieOf(managedBusiness().address))).statusCode, HTTP_FORBIDDEN);
     assert.deepEqual(walletSubmitted, []);
   });
 
   test("le LoanPay signé tel quel est soumis, puis Bari rend le MPT facture et le prêt est remboursé", async () => {
     assert.ok(prepared !== undefined);
     const txBlob = signed(prepared.tx);
-    const response = await submitRepayment(txBlob);
+    const response = await submitRepayment(txBlob, borrowerCookie());
     assert.equal(response.statusCode, HTTP_OK, response.body);
     assert.equal(response.json<{ status: string }>().status, "repaid");
     assert.deepEqual(walletSubmitted, [txBlob]);
@@ -252,5 +281,13 @@ describe("POST /api/loans/:id/repay pour une entreprise connectée par son walle
       { mpt_issuance_id: "05".repeat(24), value: "1" },
     ]);
     assert.equal(context.store.current?.loans.find(({ loanId }) => loanId === WALLET_LOAN_ID)?.status, "repaid");
+  });
+});
+
+describe("POST /api/loans/:id/default", () => {
+  test("aucune route HTTP ne met un prêt en défaut : le défaut attend l'échéance en bloquant la file des opérations", async () => {
+    const response = await post(`/api/loans/${DEMO_LOAN_ID}/default`, cookieOf(managedBusiness().address));
+    assert.equal(response.statusCode, HTTP_NOT_FOUND);
+    assert.deepEqual(sent, []);
   });
 });
