@@ -12,6 +12,7 @@ import {
   parsePitchCredentials,
   PITCH_ACCOUNTS,
   planPitchAccount,
+  releasePitchBusiness,
   renderPitchCredentials,
   shortAddress,
 } from "./pitchAccounts.js";
@@ -20,9 +21,19 @@ import { PITCH_SUPPLIER } from "./sampleInvoices.js";
 const wallet = Wallet.generate();
 const managed = { address: wallet.address, seed: wallet.seed ?? "" };
 
-function freshStore(): UserStore {
-  return new UserStore(join(mkdtempSync(join(tmpdir(), "bari-pitch-")), "users.json"));
+function usersFile(): string {
+  return join(mkdtempSync(join(tmpdir(), "bari-pitch-")), "users.json");
 }
+
+function freshStore(): UserStore {
+  return new UserStore(usersFile());
+}
+
+const otsuSupplier = {
+  role: "business",
+  profile: { company: PITCH_SUPPLIER.name, vatNumber: PITCH_SUPPLIER.vatNumber },
+  address: Wallet.generate().address,
+} as const;
 
 function account(role: string) {
   const found = PITCH_ACCOUNTS.find((candidate) => candidate.role === role);
@@ -83,6 +94,37 @@ describe("planPitchAccount", () => {
     const plan = planPitchAccount(business, store);
     assert.equal(plan.action, "conflict");
     assert.match(plan.action === "conflict" ? plan.reason : "", /other@sparano\.example/);
+  });
+
+  test("TVA du fournisseur ouverte avec un wallet Otsu → le compte du pitch est ce wallet", () => {
+    const store = freshStore();
+    const user = store.createWalletUser(otsuSupplier);
+    assert.deepEqual(planPitchAccount(account("business"), store), { action: "wallet", user });
+  });
+});
+
+describe("releasePitchBusiness", () => {
+  test("compte email du fournisseur sans prêt en cours → supprimé du fichier, TVA libre pour un wallet", async () => {
+    const file = usersFile();
+    const store = new UserStore(file);
+    const business = account("business");
+    const user = await store.create({ ...business, password: "password-1" } as NewUser, managed);
+    assert.deepEqual(releasePitchBusiness(store, new Set()), user);
+    const reloaded = new UserStore(file);
+    assert.equal(reloaded.findByEmail(business.email), undefined);
+    assert.equal(reloaded.createWalletUser(otsuSupplier).address, otsuSupplier.address);
+  });
+
+  test("aucun compte email du fournisseur → rien à libérer", () => {
+    assert.equal(releasePitchBusiness(freshStore(), new Set()), undefined);
+  });
+
+  test("prêt en cours sur son compte → refus, le compte reste", async () => {
+    const store = freshStore();
+    const business = account("business");
+    await store.create({ ...business, password: "password-1" } as NewUser, managed);
+    assert.throws(() => releasePitchBusiness(store, new Set([managed.address])), /active loan/);
+    assert.ok(store.findByEmail(business.email));
   });
 });
 
