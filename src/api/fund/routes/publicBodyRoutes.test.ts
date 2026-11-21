@@ -5,7 +5,7 @@ import { after, before, describe, test } from "node:test";
 import type { FastifyInstance } from "fastify";
 import { Wallet } from "xrpl";
 import { deriveDebtor } from "../../../zk/index.js";
-import type { BusinessLookup, PublicBodyKeys } from "../../contract.js";
+import type { BusinessLookup, PublicBodyKeys, PublicBodyOption } from "../../contract.js";
 import { buildApp } from "../app.js";
 import { fakeApiConfig, fakeContext } from "../fakeContext.js";
 
@@ -103,6 +103,18 @@ describe("GET /api/businesses/by-vat/:vat", () => {
   test("sans session → 401 ; autre rôle → 403", async () => {
     assert.equal((await get("/api/businesses/by-vat/IT01234567890")).statusCode, HTTP_UNAUTHORIZED);
     assert.equal((await get("/api/businesses/by-vat/IT01234567890", sessions.business)).statusCode, HTTP_FORBIDDEN);
+  });
+});
+
+describe("GET /api/public-bodies", () => {
+  test("registre public sans clé : les organismes déjà inscrits ne sont plus disponibles", async () => {
+    const response = await get("/api/public-bodies");
+    assert.equal(response.statusCode, HTTP_OK);
+    assert.deepEqual(response.json<PublicBodyOption[]>(), [
+      { ipaCode: "c_a662", name: "Comune di Bari", available: false },
+      { ipaCode: "c_e506", name: "Comune di Lecce", available: false },
+      { ipaCode: "r_puglia", name: "Regione Puglia", available: true },
+    ]);
   });
 });
 

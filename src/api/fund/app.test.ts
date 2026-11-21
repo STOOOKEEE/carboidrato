@@ -11,7 +11,6 @@ import { buildApp } from "./app.js";
 import { fakeApiConfig, fakeContext } from "./fakeContext.js";
 
 const HTTP_BAD_REQUEST = 400;
-const HTTP_FORBIDDEN = 403;
 const HTTP_NOT_FOUND = 404;
 const NULLIFIER = "AB".repeat(32);
 const REGISTRATION_TX = "CD".repeat(32);
@@ -114,22 +113,9 @@ describe("GET /api/registry/:nullifier", () => {
   });
 });
 
-describe("POST /api/sme/kyb", () => {
-  test("refuse un compte autre que la PME de démo", async () => {
-    const response = await app.inject({
-      method: "POST",
-      url: "/api/sme/kyb",
-      payload: { account: Wallet.generate().address, company: "Other S.r.l.", vatNumber: "IT00000000000" },
-    });
-    assert.equal(response.statusCode, HTTP_FORBIDDEN);
-  });
-
-  test("refuse un champ hors du formulaire", async () => {
-    const response = await app.inject({
-      method: "POST",
-      url: "/api/sme/kyb",
-      payload: { account: actors.sme.address, company: "Marco Costruzioni S.r.l.", vatNumber: "IT01234567890", seed: "x" },
-    });
-    assert.equal(response.statusCode, HTTP_BAD_REQUEST);
-  });
+test("le KYB passe par l'inscription : POST /api/sme/kyb n'existe plus", async () => {
+  const url = "/api/sme/kyb";
+  const response = await app.inject({ method: "POST", url, payload: {} });
+  assert.equal(response.statusCode, HTTP_NOT_FOUND);
+  assert.equal(response.json<{ message: string }>().message, `Route POST:${url} not found`);
 });
