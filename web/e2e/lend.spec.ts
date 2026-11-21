@@ -1,7 +1,9 @@
-// Espace prêteur de bout en bout : RLUSD de test, dépôt de 5 000 RLUSD puis sortie immédiate par Bari, sur le réseau.
+// Espace prêteur de bout en bout : RLUSD de test, dépôt de 5 000 RLUSD puis sortie immédiate par Bari, sur le réseau ;
+// le même parcours pour un wallet Otsu (faux Otsu qui signe dans Node), chaque ordre signé dans le wallet.
 
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { capture } from "./capture";
+import { installOtsuMock, type OtsuMock } from "./fixtures/otsuMock";
 
 /** Ouverture d'un compte géré : 5 transactions validées, un ledger toutes les 3 s sur l'AlphaNet. */
 const SIGNUP_TIMEOUT_MS = 120_000;
@@ -10,6 +12,34 @@ const TX_TIMEOUT_MS = 90_000;
 const TX_LINK = 'a[href^="#/tx/"]';
 
 const unique = () => `${Date.now()}${Math.floor(Math.random() * 1_000)}`;
+/** Activation du wallet, puis credential de Bari et Batch d'ouverture signé dans le wallet. */
+const ONBOARDING_TIMEOUT_MS = 120_000;
+
+let otsu: OtsuMock | undefined;
+
+test.afterEach(async () => {
+  await otsu?.close();
+  otsu = undefined;
+});
+
+/** Transactions d'un ordre (la principale, et celles d'un Batch), chacune validée en tesSUCCESS sur le ledger. */
+async function succeededHashes(mock: OtsuMock, done: Locator): Promise<string[]> {
+  const links = await done.locator(TX_LINK).evaluateAll((anchors) => anchors.map((anchor) => anchor.getAttribute("title") ?? ""));
+  const hashes = [...new Set(links)];
+  for (const hash of hashes) {
+    const { result } = await mock.client.request({ command: "tx", transaction: hash });
+    expect(result.validated).toBe(true);
+    expect(typeof result.meta === "object" ? result.meta.TransactionResult : result.meta).toBe("tesSUCCESS");
+  }
+  return hashes;
+}
+
+/** Parts du fonds détenues par le wallet (`MPTAmount` des objets MPToken, en chaîne décimale), lues sur le ledger validé. */
+async function ledgerShares({ client, wallet }: OtsuMock): Promise<bigint> {
+  const { result } = await client.request({ command: "account_objects", account: wallet.address, type: "mptoken", ledger_index: "validated" });
+  const tokens = result.account_objects as unknown as { MPTAmount?: string }[];
+  return tokens.reduce((total, token) => total + BigInt(token.MPTAmount ?? "0"), 0n);
+}
 
 test("a lender adds test RLUSD, deposits 5,000 and withdraws through Bari", async ({ page }) => {
   const balance = page.getByTestId("lend-balance");
@@ -80,5 +110,61 @@ test("a lender adds test RLUSD, deposits 5,000 and withdraws through Bari", asyn
     await done.locator(TX_LINK).first().click();
     await expect(page).toHaveURL(/#\/tx\/[0-9A-F]{64}$/);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(/ succeeded$/, { timeout: TX_TIMEOUT_MS });
+  });
+});
+
+test("a wallet lender signs a deposit and a withdrawal in Otsu", async ({ page }) => {
+  const mock = await installOtsuMock(page);
+  otsu = mock;
+  const balance = page.getByTestId("lend-balance");
+
+  await test.step("connect a new wallet, register as a lender and open the account", async () => {
+    await page.goto("/#/signin");
+    await page.getByRole("button", { name: "Connect Otsu wallet" }).click();
+    await expect(page.getByTestId("wallet-registration")).toBeVisible({ timeout: ONBOARDING_TIMEOUT_MS });
+    await page.getByLabel("Account type").selectOption("lender");
+    await page.getByLabel("Full name").fill(`Wanda Verdi ${unique()}`);
+    await page.getByLabel("Country of residence").selectOption({ label: "Italy" });
+    await page.getByLabel("I understand my capital is at risk.").check();
+    await page.getByRole("button", { name: "Create my account" }).click();
+    const onboarding = page.getByTestId("wallet-onboarding");
+    await expect(onboarding.getByRole("heading", { name: "Your account is ready." })).toBeVisible({ timeout: ONBOARDING_TIMEOUT_MS });
+    await onboarding.getByRole("button", { name: "Open my space" }).click();
+    await expect(page).toHaveURL(/#\/lend$/);
+    await expect(balance).toHaveText("0.00 RLUSD");
+  });
+
+  await test.step("add test RLUSD to the wallet", async () => {
+    await page.getByRole("button", { name: "Add test RLUSD" }).click();
+    await expect(page.getByTestId("lend-done-faucet")).toContainText("Received 10,000.00 RLUSD of test funds", { timeout: TX_TIMEOUT_MS });
+    await expect(balance).toHaveText("10,000.00 RLUSD");
+  });
+
+  await test.step("deposit 100 RLUSD, signed in Otsu: shares arrive in the wallet", async () => {
+    const form = page.getByTestId("lend-deposit");
+    await form.getByLabel("Amount in RLUSD").fill("100");
+    await expect(form).toContainText("Immediate, through Bari");
+    await expect(form).toContainText("You receive");
+    await form.getByRole("button", { name: "Deposit", exact: true }).click();
+    const done = page.getByTestId("lend-done-deposit");
+    await expect(done).toContainText("Deposited 100.00 RLUSD", { timeout: TX_TIMEOUT_MS });
+    // Batch signé dans Otsu (BatchSigners de Bari) et ses deux Payment.
+    expect(await succeededHashes(mock, done)).toHaveLength(3);
+    await expect(balance).toHaveText("9,900.00 RLUSD");
+    await expect(page.getByTestId("lend-shares")).not.toHaveText("0.00");
+    expect(await ledgerShares(mock)).toBeGreaterThan(0n);
+    await capture(page, "lend-wallet");
+  });
+
+  await test.step("withdraw every share right away, signed in Otsu: RLUSD come back", async () => {
+    const form = page.getByTestId("lend-withdraw");
+    await form.getByRole("button", { name: "All my shares" }).click();
+    await form.getByRole("button", { name: "Withdraw", exact: true }).click();
+    const done = page.getByTestId("lend-done-withdraw");
+    await expect(done).toContainText("Sold", { timeout: TX_TIMEOUT_MS });
+    expect(await succeededHashes(mock, done)).toHaveLength(3);
+    await expect(page.getByTestId("lend-shares")).toHaveText("0.00");
+    await expect(balance).toHaveText(/^9,9\d\d\.\d\d RLUSD$/);
+    expect(await ledgerShares(mock)).toBe(0n);
   });
 });

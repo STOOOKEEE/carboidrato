@@ -3,7 +3,9 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { BatchFlags, decode, encode, GlobalFlags, Wallet, type Batch, type Transaction, type TrustSet } from "xrpl";
-import { matchesPrepared, PreparedStore } from "./preparedTx.js";
+import { FakeLedger } from "./fakeLedger.js";
+import type { LedgerTransaction } from "./ledger.js";
+import { innerApplied, matchesPrepared, PreparedStore } from "./preparedTx.js";
 
 const wallet = Wallet.generate();
 const trustSet: TrustSet = {
@@ -64,4 +66,18 @@ test("PreparedStore : la dernière transaction de chaque utilisateur, oubliée s
   store.delete("a");
   assert.equal(store.get("a"), undefined);
   assert.equal(store.get("b"), "other");
+});
+
+test("innerApplied : vrai seulement si chaque transaction interne est validée en tesSUCCESS", async () => {
+  const ledger = new FakeLedger(1000);
+  const put = (hash: string, validated: boolean, result: string) =>
+    ledger.putTransaction({ hash, validated, meta: { TransactionResult: result } } as unknown as LedgerTransaction);
+  put("A1".repeat(32), true, "tesSUCCESS");
+  put("A2".repeat(32), true, "tesSUCCESS");
+  put("A3".repeat(32), false, "tesSUCCESS");
+  put("A4".repeat(32), true, "tecUNFUNDED_PAYMENT");
+  assert.equal(await innerApplied(ledger, ["A1".repeat(32), "A2".repeat(32)]), true);
+  assert.equal(await innerApplied(ledger, ["A1".repeat(32), "A5".repeat(32)]), false);
+  assert.equal(await innerApplied(ledger, ["A1".repeat(32), "A3".repeat(32)]), false);
+  assert.equal(await innerApplied(ledger, ["A4".repeat(32)]), false);
 });
