@@ -8,6 +8,7 @@ import { decodeFundManifest, type FundManifest } from "../fund/fundManifest.js";
 import { inspectInvoice } from "../fund/invoiceInspection.js";
 import type { LoanReference } from "../fund/loanData.js";
 import { listLoanRecords, type LoanRecord } from "../fund/loanRecords.js";
+import type { CertificateMetadata } from "../invoice/certificateMetadata.js";
 import { describeVerdict, type ProofVerdict } from "../invoice/proofVerification.js";
 import { formatEur, formatPercent, parseUnits, ratioPercent } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
@@ -23,12 +24,17 @@ export interface LoanAudit {
   loanId: string;
   loanSequence: number;
   loanSetHash: string;
+  borrower: string;
   principal: bigint;
   outstanding: bigint;
   status: LoanStatus;
+  /** Prochaine échéance (temps Ripple), absente une fois le prêt soldé. */
+  nextPaymentDueDate: number | undefined;
   /** Référence au certificat (absente si le Data du LoanSet est illisible). */
   reference: LoanReference | undefined;
   problems: string[];
+  /** Certificat relu des métadonnées du MPT facture : preuve brute et signaux publics, re-vérifiables par tous. */
+  certificate: CertificateMetadata | undefined;
   proof: ProofVerdict | undefined;
   heldByBari: boolean;
   anomalies: number;
@@ -102,9 +108,11 @@ async function auditLoan(
     loanId: record.loanId,
     loanSequence: record.loan.LoanSequence,
     loanSetHash: record.loanSetHash,
+    borrower: record.loan.Borrower,
     principal: record.principal,
     outstanding: record.outstanding,
     status,
+    nextPaymentDueDate: record.loan.NextPaymentDueDate,
   };
   log.info(
     `prêt #${record.loan.LoanSequence} ${record.loanId} · LoanSet ${record.loanSetHash} · principal ${formatEur(record.principal, 2)} · restant dû ${formatEur(record.outstanding, 2)} · ${status}`,
@@ -112,7 +120,15 @@ async function auditLoan(
   if (record.reference instanceof Error) {
     const problem = `Data illisible : ${record.reference.message}`;
     log.warn(`  ✗ ${problem}`);
-    return { ...base, reference: undefined, problems: [problem], proof: undefined, heldByBari: false, anomalies: 1 };
+    return {
+      ...base,
+      reference: undefined,
+      problems: [problem],
+      certificate: undefined,
+      proof: undefined,
+      heldByBari: false,
+      anomalies: 1,
+    };
   }
   const { nullifier, pseudonym, invoiceTokenId } = record.reference;
   log.info(`  N=${nullifier} · P=${pseudonym} · MPT facture ${invoiceTokenId}`);
@@ -134,6 +150,7 @@ async function auditLoan(
     ...base,
     reference: record.reference,
     problems: custodyAnomaly > 0 ? [...inspection.problems, CUSTODY_PROBLEM] : inspection.problems,
+    certificate: inspection.certificate,
     proof: inspection.proof,
     heldByBari: inspection.heldByBari,
     anomalies: inspection.problems.length + custodyAnomaly,
@@ -169,15 +186,24 @@ function auditConcentration(records: readonly LoanRecord[], fundAssets: bigint):
   return { limit, exposures, anomalies };
 }
 
+/** Audit depuis l'ID du Vault ou du LoanBroker seul (`npm run audit`). */
 export async function auditFund(client: Client, id: string): Promise<AuditResult> {
-  const fund = await resolveFund(client, id);
+  return auditResolvedFund(xrplLedger(client), await resolveFund(client, id));
+}
+
+/** Audit d'un fonds dont Bari connaît le Vault et le LoanBroker (API du fonds). */
+export async function auditKnownFund(ledger: Ledger, vaultId: string, brokerId: string): Promise<AuditResult> {
+  const [vault, broker] = await Promise.all([ledger.vault(vaultId), ledger.loanBroker(brokerId)]);
+  return auditResolvedFund(ledger, { vaultId, vault, brokerId, broker });
+}
+
+async function auditResolvedFund(ledger: Ledger, fund: AuditedFund): Promise<AuditResult> {
   const manifest = decodeFundManifest(fund.vault.Data);
   const fundAssets = parseUnits(fund.vault.AssetsTotal);
   log.info(`Vault ${fund.vaultId} · LoanBroker ${fund.brokerId} · propriétaire ${fund.broker.Owner}`);
   log.info(`fiche du fonds (Data du Vault) : racine ${manifest.debtorsRoot}, millésime ${manifest.vintage}, registre ${manifest.registry}`);
   log.info(`actif du fonds ${formatEur(fundAssets)} · first-loss ${formatEur(parseUnits(fund.broker.CoverAvailable))} · dette ${formatEur(parseUnits(fund.broker.DebtTotal))}`);
 
-  const ledger = xrplLedger(client);
   const records = await listLoanRecords(ledger, fund.brokerId);
   const loanAudits: LoanAudit[] = [];
   for (const record of records) loanAudits.push(await auditLoan(ledger, record, fund, manifest));
