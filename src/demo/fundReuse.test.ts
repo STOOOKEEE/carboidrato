@@ -76,4 +76,9 @@ describe("réserve de la mairie pour les remboursements", () => {
     assert.equal(mairieTopUp(FLOOR, REPAYMENT), 0n);
     assert.equal(mairieTopUp(FLOOR + 1n, REPAYMENT), 0n);
   });
+
+  test("le plancher couvre une suite e2e complète : trois factures de 10 340 $ remboursées l'une après l'autre", () => {
+    const E2E_INVOICE = 10_340_000_000n;
+    assert.ok(mairieTopUp(0n, REPAYMENT) >= 3n * E2E_INVOICE);
+  });
 });
