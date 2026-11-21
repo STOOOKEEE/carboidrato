@@ -451,3 +451,14 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 **Pourquoi :** l'organisme envoie à son fournisseur un PDF, comme d'habitude, et pas un fichier JSON ; la signature et la vérification restent les mêmes, toujours dans les navigateurs.
 
 **Vérifié :** tests rouges puis verts (PDF relu à l'identique, PDF sans signature ou illisible refusé, nom du fichier) ; `npm test` 541/541, typecheck et build verts.
+
+## 2026-11-21 · Remboursement réservé à l'emprunteur, plus de route de défaut
+
+**Quoi :**
+- `POST /api/loans/:id/repay` et `/repay/submit` passent par la garde de rôle `business` et n'acceptent que le prêt de l'entreprise de la session : 401 sans session, 403 pour tout autre compte, prêts de la PME de démo compris. `UserStore.findBusinessByAccount`, devenu inutile, est retiré.
+- `POST /api/loans/:id/default` est supprimée ; le défaut reste dans le scénario CLI (`npm run demo`).
+- Le README liste toutes les lectures du pré-contrôle de l'entreprise (`N`, KYB du compte, offre pour l'échéance) : `N`, le compte et l'échéance sont des signaux publics de la preuve.
+
+**Pourquoi :** audit de sécurité avant la soumission. Ces routes ne demandaient aucune session : n'importe qui pouvait déclencher le remboursement d'un prêt (paiement de la mairie, `LoanPay`) ou son défaut, et le défaut attend l'échéance dans la file sérielle des opérations, ce qui gelait toute l'API jusqu'au redémarrage.
+
+**Vérifié :** tests rouges puis verts (401, 403 par rôle et par emprunteur, soumission Otsu refusée sans la session de l'emprunteur, 404 sur l'ancienne route de défaut) ; `npm test` 542/542, typecheck et build verts. Les e2e remboursent depuis la page de l'entreprise connectée (`page.request`, même cookie) ; leur passage complet reste à faire après les tests manuels.
