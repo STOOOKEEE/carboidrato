@@ -2,6 +2,7 @@
 // et la recherche d'un fournisseur.
 
 import type { FastifyInstance } from "fastify";
+import { userAddress } from "../../../accounts/userStore.js";
 import { VERIFIED_DEBTORS } from "../../../invoice/debtors.js";
 import { deriveDebtor } from "../../../zk/index.js";
 import type { BusinessLookup, PublicBodyKeys, PublicBodyOption } from "../../contract.js";
@@ -36,10 +37,11 @@ export function registerPublicBodyRoutes(app: FastifyInstance, context: Pick<Api
     { ...publicBodyOnly, schema: vatParamsSchema },
     async (request): Promise<BusinessLookup> => {
       const business = context.users.findBusinessByVat(request.params.vat);
-      if (business?.account === undefined) {
+      const address = business === undefined ? undefined : userAddress(business);
+      if (business === undefined || address === undefined) {
         throw new HttpError(HTTP_NOT_FOUND, "No business with this VAT number is registered on Bari");
       }
-      return { company: business.profile.company, vatNumber: business.profile.vatNumber, address: business.account.address };
+      return { company: business.profile.company, vatNumber: business.profile.vatNumber, address };
     },
   );
 }
