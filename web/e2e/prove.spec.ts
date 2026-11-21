@@ -1,51 +1,41 @@
-// Preuve et pré-contrôle dans le navigateur : la facture attestée ne quitte jamais la page, seule la preuve part.
+// Preuve et pré-contrôle dans l'espace entreprise : la facture signée ne quitte jamais la page, seule la preuve part.
 
 import { expect, test, type APIRequestContext, type Request } from "@playwright/test";
 import type { AttestedInvoiceFile, CertificateRequest, ProofParams, SignupResponse } from "../../src/api/contract";
-import type * as Api from "../src/api";
-import type * as Sources from "../src/features/funding/sources";
 import { signedInvoice } from "./signedInvoice";
 
 const WITNESS_KEYS = ["amount", "amountCents", "uuid", "signature", "pathElements", "pathIndices", "blinding"];
-const INVOICE_AMOUNT_EUR = 10_340;
-const TERM_DAYS = 90;
-const MS_PER_DAY = 86_400_000;
 const HTTP_CREATED = 201;
-/** Modules du front servis par Vite en dev : chargés dans la page, là où la preuve doit être calculée. */
-const PAGE_MODULES = { sources: "/src/features/funding/sources.ts", api: "/src/api.ts" };
+const MS_PER_DAY = 86_400_000;
+const FUNDING_TIMEOUT_MS = 180_000;
+const SIGNUP_TIMEOUT_MS = 120_000;
 
-async function demoSmeAccount(request: APIRequestContext): Promise<string> {
-  const actors = (await (await request.get("/api/actors")).json()) as { name: string; address: string }[];
-  const sme = actors.find((actor) => actor.name === "sme");
-  expect(sme).toBeDefined();
-  return sme?.address ?? "";
-}
-
-/** Entreprise inscrite par l'API, dans le contexte de la page : la session suit dans ses requêtes. */
-async function signUpBusiness(request: APIRequestContext): Promise<string> {
-  const unique = `${Date.now()}`;
+/** Entreprise inscrite par l'API dans le contexte de la page : le cookie de session suit dans la page. */
+async function signUpBusiness(request: APIRequestContext, id: string): Promise<string> {
   const response = await request.post("/api/auth/signup", {
     data: {
-      email: `ops-${unique}@e2e.example`,
+      email: `prover-${id}@e2e.example`,
       password: "correct horse battery",
       role: "business",
-      profile: { company: `E2E Forniture ${unique} S.r.l.`, vatNumber: `IT8${unique.slice(-10)}` },
+      profile: { company: `E2E Prove ${id} S.r.l.`, vatNumber: `IT8${id.slice(-10)}` },
     },
+    timeout: SIGNUP_TIMEOUT_MS,
   });
   expect(response.status(), await response.text()).toBe(HTTP_CREATED);
   const { user } = (await response.json()) as SignupResponse;
   return user.address ?? "";
 }
 
-async function attestInvoice(request: APIRequestContext, supplierAccount: string): Promise<AttestedInvoiceFile> {
+/** Facture unique sur la Regione Puglia (jamais la Comune di Bari, réservée au pitch). */
+async function invoiceFor(request: APIRequestContext, account: string, id: string): Promise<AttestedInvoiceFile> {
   const params = (await (await request.get("/api/proof/params")).json()) as ProofParams;
   return signedInvoice(
     {
-      number: `FT-E2E/${Date.now().toString(36)}`,
-      debtorName: "Comune di Bari",
-      supplierAccount,
-      amountEur: INVOICE_AMOUNT_EUR,
-      dueDate: new Date(Date.now() + TERM_DAYS * MS_PER_DAY),
+      number: `E2E-${id}`,
+      debtorName: "Regione Puglia",
+      supplierAccount: account,
+      amountEur: 10_340,
+      dueDate: new Date(Date.now() + 90 * MS_PER_DAY),
     },
     params,
   );
@@ -57,67 +47,57 @@ function keysOf(value: unknown): string[] {
   return Object.entries(value).flatMap(([key, child]) => [key, ...keysOf(child)]);
 }
 
-/** Aucune requête de la page ne transporte une valeur privée de l'attestation. */
-function watchPrivateValues(requests: Request[], file: AttestedInvoiceFile) {
-  const secrets = [file.attestation.uuid, file.attestation.signature.s, file.attestation.amountCents];
-  return () => {
-    for (const sent of requests) {
-      const payload = `${sent.url()} ${sent.postData() ?? ""}`;
-      for (const secret of secrets) expect(payload, sent.url()).not.toContain(secret);
-    }
-  };
+function jsonBody(sent: Request): unknown {
+  try {
+    return sent.postDataJSON();
+  } catch {
+    return undefined;
+  }
 }
 
-test("le pré-contrôle tourne dans le navigateur, sans route qui reçoive la facture", async ({ page, request }) => {
-  const file = await attestInvoice(request, await demoSmeAccount(request));
+test("the business page computes the proof and sends only { proof, publicSignals }", async ({ page }) => {
+  const id = `${Date.now()}`;
+  const file = await invoiceFor(page.request, await signUpBusiness(page.request, id), id);
+  const { attestation } = file;
+  const secrets = [attestation.uuid, attestation.signature.s, attestation.signature.r8x, attestation.amountCents];
   const requests: Request[] = [];
   page.on("request", (sent) => requests.push(sent));
-  await page.goto("/");
-  const result = await page.evaluate(
-    async ({ attested, modules }) => {
-      const sources = (await import(modules.sources)) as typeof Sources;
-      return sources.precheckInBrowser(attested);
-    },
-    { attested: file, modules: PAGE_MODULES },
-  );
-  expect(result.checks.filter((check) => !check.ok)).toEqual([]);
-  expect(result.verdict).toBe("eligible");
-  expect(result.offer?.provenThresholdEur).toBe(10_000);
-  expect(requests.some((sent) => sent.url().includes("/api/check"))).toBe(false);
-  watchPrivateValues(requests, file)();
-});
+  // Ce test s'arrête au certificat : la demande de prêt est coupée, aucun prêt ne s'ajoute à l'exposition du débiteur.
+  await page.route("**/api/sme/loan", (route) => route.abort());
 
-test("la preuve est calculée dans la page et seul { proof, publicSignals } part au serveur", async ({ page }) => {
-  const file = await attestInvoice(page.request, await signUpBusiness(page.request));
-  const requests: Request[] = [];
-  page.on("request", (sent) => requests.push(sent));
-  await page.goto("/");
+  await page.goto("/#/business");
+  await page.getByTestId("drop-input").setInputFiles({
+    name: `${file.invoice.number}.bari.json`,
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(file)),
+  });
+  await expect(page.locator(".offer-row", { hasText: /^Proven tier/ })).toContainText("€10,000.00");
 
   const certificateRequest = page.waitForRequest(
     (sent) => sent.method() === "POST" && sent.url().endsWith("/api/sme/certificate"),
+    { timeout: FUNDING_TIMEOUT_MS },
   );
-  const outcome = await page.evaluate(
-    async ({ attested, modules }) => {
-      const sources = (await import(modules.sources)) as typeof Sources;
-      const api = (await import(modules.api)) as typeof Api;
-      const proof = await sources.proveInBrowser(attested);
-      // Le statut de la réponse est vérifié plus bas, sur la requête interceptée.
-      await api.submitCertificate(proof).catch(() => undefined);
-      return { durationMs: proof.durationMs, publicSignals: proof.publicSignals };
-    },
-    { attested: file, modules: PAGE_MODULES },
-  );
-
-  expect(outcome.durationMs).toBeGreaterThan(0);
-  expect(outcome.publicSignals).not.toContain(file.attestation.amountCents);
+  await page.getByRole("button", { name: "Get paid now" }).click();
 
   const sent = await certificateRequest;
   const body = sent.postDataJSON() as CertificateRequest;
   expect(Object.keys(body).sort()).toEqual(["proof", "publicSignals"]);
-  const sentKeys = keysOf(body);
-  for (const key of WITNESS_KEYS) expect(sentKeys).not.toContain(key);
-  // Le fonds de démo est ouvert : la preuve du navigateur est acceptée et certifiée pour l'entreprise de la session.
-  const response = await sent.response();
-  expect(response?.status()).toBe(HTTP_CREATED);
-  watchPrivateValues(requests, file)();
+  expect(body.publicSignals).not.toContain(attestation.amountCents);
+  const steps = page.getByTestId("funding-steps");
+  await expect(steps.locator('li[data-step="proof"]')).toContainText(/in \d+\.\d s/);
+  expect((await sent.response())?.status()).toBe(HTTP_CREATED);
+
+  // Le certificat est émis ; la demande de prêt coupée échoue avec une consigne, et l'action reste disponible.
+  await expect(steps.locator('li[data-step="certificate"].done a[href^="#/tx/"]')).toHaveCount(1, { timeout: FUNDING_TIMEOUT_MS });
+  await expect(steps.locator('li[data-step="checks"].failed')).toContainText("Bari did not answer.");
+  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+
+  // Pré-contrôle et preuve : aucune requête de la page ne porte le témoin ni la facture.
+  expect(requests.some((request) => request.url().includes("/api/check"))).toBe(false);
+  for (const request of requests) {
+    const payload = `${request.url()} ${request.postData() ?? ""}`;
+    for (const secret of secrets) expect(payload, request.url()).not.toContain(secret);
+    const sentKeys = keysOf(jsonBody(request));
+    for (const key of WITNESS_KEYS) expect(sentKeys, request.url()).not.toContain(key);
+  }
 });

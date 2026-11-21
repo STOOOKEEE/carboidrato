@@ -919,3 +919,118 @@ h2 {
     grid-column: 1 / -1;
   }
 }
+
+/* Espace entreprise */
+
+.business .panel-title {
+  font-size: 1.5rem;
+}
+
+.funding-steps li.pending .step-index {
+  animation: none;
+}
+
+.funding-steps li.current .step-index {
+  animation: blink 900ms steps(2) infinite;
+}
+
+.funding-steps li.failed .step-index,
+.funding-steps li.failed .funding-step-label,
+.business .duplicate .step-index {
+  color: var(--danger);
+}
+
+.funding-step {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.funding-step .checks {
+  margin-top: 6px;
+}
+
+.funded {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.funded .amount {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.invoices {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.invoices th {
+  padding: 0 12px 10px 0;
+  color: var(--muted);
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.invoices td {
+  padding: 10px 12px 10px 0;
+  border-top: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.invoices .num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 860px) {
+  .business .step {
+    padding: 20px;
+  }
+
+  .business .checker-panel {
+    padding: 24px 20px;
+  }
+
+  .invoices thead {
+    display: none;
+  }
+
+  .invoices,
+  .invoices tbody,
+  .invoices tr,
+  .invoices td {
+    display: block;
+  }
+
+  .invoices tr {
+    padding: 8px 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .invoices td {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 5px 0;
+    border-top: 0;
+  }
+
+  .invoices td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-family: var(--font);
+  }
+
+  .funding-steps li {
+    grid-template-columns: 32px 1fr;
+  }
+
+  .funding-steps li > :last-child {
+    grid-column: 2;
+  }
+}
