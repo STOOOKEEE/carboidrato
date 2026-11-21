@@ -120,6 +120,20 @@ export interface CertificateRequest {
   publicSignals: string[];
 }
 
+/** Ordre de `publicSignals` (sorties puis entrées publiques du circuit), le même que `src/zk/statement.ts`. */
+export const PROOF_PUBLIC_SIGNALS = [
+  "commitment",
+  "nullifier",
+  "pseudonym",
+  "debtorsRoot",
+  "account",
+  "threshold",
+  "dueDate",
+  "networkId",
+  "registry",
+  "vintage",
+] as const;
+
 /** Transaction soumise par l'API pendant une opération. */
 export interface SubmittedTx {
   label: string;
@@ -393,4 +407,49 @@ export interface LenderFaucetResponse {
   hash: string;
   amount: EurcUnits;
   transactions: SubmittedTx[];
+}
+
+// Page Transparency : audit public du fonds, relu du ledger seul.
+
+export type AuditLoanStatus = "active" | "repaid" | "impaired" | "defaulted";
+
+/** Prêt du fonds relu sur le ledger : la preuve de sa facture se re-vérifie dans le navigateur. */
+export interface AuditLoan {
+  loanId: string;
+  loanSequence: number;
+  /** Hash du `LoanSet`. */
+  loanSetHash: string;
+  borrower: string;
+  principal: EurcUnits;
+  /** Principal restant dû. */
+  outstanding: EurcUnits;
+  status: AuditLoanStatus;
+  /** Prochaine échéance (ISO), absente une fois le prêt soldé. */
+  dueDate?: string;
+  /** Référence du `LoanSet` au certificat (hex 32 octets, ID du MPT facture), absente si son Data est illisible. */
+  reference?: { nullifier: string; pseudonym: string; invoiceTokenId: string };
+  /** Preuve Groth16 et signaux publics lus dans les métadonnées du MPT facture, absents s'ils sont illisibles. */
+  certificate?: CertificateRequest;
+  /** Anomalies relevées par l'audit du serveur. */
+  anomalies: number;
+}
+
+/** `GET /api/audit` : public, montants en unités EURc. */
+export interface FundAudit {
+  vaultId: string;
+  brokerId: string;
+  /** Propriétaire du LoanBroker : Bari. */
+  owner: string;
+  /** Fiche du fonds (Data du Vault) : les entrées publiques que chaque preuve doit lier. */
+  manifest: { debtorsRoot: string; vintage: number; registry: string };
+  loans: number;
+  /** Preuves valides selon le serveur ; le navigateur refait le calcul. */
+  verifiedProofs: number;
+  anomalies: number;
+  fundAssets: EurcUnits;
+  /** Prix de la part, en unités EURc par part affichée. */
+  sharePrice: EurcUnits;
+  /** Plafond d'encours par débiteur, en % de l'actif du fonds. */
+  concentrationLimitPercent: number;
+  loanAudits: AuditLoan[];
 }

@@ -1063,3 +1063,124 @@ h2 {
 .public-address {
   overflow-wrap: anywhere;
 }
+
+/* Page Transparency */
+
+.transparency-figures {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+/* Valeurs alignées en bas, même quand un libellé passe sur deux lignes. */
+.transparency-figures > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.transparency-verify {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.transparency-status {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.9rem;
+}
+
+.transparency-status.pending {
+  color: var(--muted);
+}
+
+.transparency-status.pending .step-index {
+  animation: blink 900ms steps(2) infinite;
+}
+
+.transparency .check {
+  grid-template-columns: 20px minmax(12rem, 16rem) 1fr;
+}
+
+.transparency .details {
+  overflow-wrap: anywhere;
+}
+
+.transparency-bad {
+  color: var(--danger);
+}
+
+.exposures {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.exposure {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr) 16rem;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.9rem;
+}
+
+.exposure-track {
+  display: block;
+  height: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.exposure-fill {
+  display: block;
+  height: 100%;
+  background: var(--fg);
+}
+
+.exposure.breach .exposure-fill {
+  background: var(--danger);
+}
+
+.exposure-value {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.exposure.breach .exposure-value {
+  color: var(--danger);
+}
+
+@media (max-width: 860px) {
+  .transparency .step {
+    padding: 20px;
+  }
+
+  .transparency-figures {
+    grid-template-columns: 1fr;
+  }
+
+  .transparency-figures > div {
+    flex-direction: row;
+    align-items: baseline;
+  }
+
+  .transparency .check {
+    grid-template-columns: 20px 1fr;
+  }
+
+  .exposure {
+    grid-template-columns: 1fr auto;
+    gap: 6px 12px;
+  }
+
+  .exposure-track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}

@@ -1,4 +1,4 @@
-// Chiffres clés du fonds ouvert, lus en direct de l'API (landing et Transparency).
+// Chiffres clés du fonds ouvert, lus en direct de l'API pour la landing.
 import { useEffect, useState } from "react";
 import { fetchFund } from "../api";
 import { fundFigures, type FundFigure } from "./fundFigures";
