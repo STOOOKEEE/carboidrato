@@ -42,11 +42,11 @@ export function networkId(context: ApiContext): number {
   return id;
 }
 
-/** Valeurs publiques attendues d'une preuve pour le fonds courant (fiche du fonds + PME de la démo). */
-export function proofExpectations(context: ApiContext): ProofExpectations {
+/** Valeurs publiques attendues d'une preuve pour le fonds courant : la fiche du fonds et le compte de l'entreprise. */
+export function proofExpectations(context: ApiContext, smeAccount: string): ProofExpectations {
   const { manifest } = requireFund(context).fund;
   return {
-    smeAccount: context.actors.sme.address,
+    smeAccount,
     registry: manifest.registry,
     networkId: networkId(context),
     debtorsRoot: fromHex(manifest.debtorsRoot),

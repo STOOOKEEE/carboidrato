@@ -249,3 +249,78 @@ export interface TxDetail {
   /** Transaction et métadonnées telles que renvoyées par le nœud. */
   raw: { tx: unknown; meta: unknown };
 }
+
+// Espace entreprise : barème de l'offre, contrôles de Bari avant co-signature, factures du compte de la session.
+
+/**
+ * Barème public de l'offre (`GET /api/offer?dueDate=`) : le montant de la facture reste dans le navigateur, qui y lit
+ * l'offre de son palier (le dernier dont le seuil ne dépasse pas ce montant ; aucun sous le premier).
+ */
+export interface OfferSchedule {
+  advanceRatePercent: number;
+  /** Frais de dossier, en % de l'avance. */
+  feeRatePercent: number;
+  interestRatePercent: number;
+  /** Durée du prêt jusqu'à `loanDueDate`. */
+  termDays: number;
+  /** Échéance du prêt (ISO) : celle de la facture, bornée par le rachat du fonds. */
+  loanDueDate: string;
+  /** Une offre par seuil public, seuils croissants. */
+  tiers: LoanOffer[];
+}
+
+export type LoanCheckId = "kyb" | "proof" | "advance" | "unique" | "concentration" | "maturity";
+
+/** Contrôle de Bari avant de co-signer le prêt ; `reason` explique un échec. */
+export interface LoanCheck {
+  id: LoanCheckId;
+  label: string;
+  ok: boolean;
+  reason?: string;
+}
+
+/** Montant en unités EURc (6 décimales), en chaîne décimale. */
+export type EurcUnits = string;
+
+/** Réponse de `POST /api/sme/loan` (201). */
+export interface LoanResponse {
+  loanId: string;
+  tokenId: string;
+  checks: LoanCheck[];
+  principal: EurcUnits;
+  originationFee: EurcUnits;
+  /** Ce que l'entreprise reçoit : principal − frais. */
+  netAdvance: EurcUnits;
+  /** Échéance du prêt (ISO). */
+  dueDate: string;
+  /** Hash du `LoanSet` co-signé. */
+  txHash: string;
+  transactions: SubmittedTx[];
+}
+
+/** Refus de `POST /api/sme/loan` (422) : `error` reprend la raison du premier contrôle en échec. */
+export interface LoanRefusal {
+  error: string;
+  checks: LoanCheck[];
+  transactions: SubmittedTx[];
+}
+
+export type BusinessInvoiceStatus = "certified" | "active" | "repaid" | "defaulted";
+
+/** Facture du compte de la session (`GET /api/business/invoices`) ; champs du prêt présents une fois financée. */
+export interface BusinessInvoice {
+  tokenId: string;
+  nullifier: string;
+  status: BusinessInvoiceStatus;
+  /** Date d'émission du certificat (ISO). */
+  issuedAt: string;
+  /** Hash du `Batch` du certificat. */
+  certificateTxHash?: string;
+  loanId?: string;
+  /** Hash du `LoanSet`. */
+  loanTxHash?: string;
+  principal?: EurcUnits;
+  originationFee?: EurcUnits;
+  /** Échéance du prêt (ISO). */
+  dueDate?: string;
+}

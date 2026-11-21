@@ -7,6 +7,7 @@ import {
   type AttestedInvoiceFile,
   type CheckId,
   type LoanOffer,
+  type OfferSchedule,
   type PrecheckResponse,
   type ProofParams,
   type PublicDebtor,
@@ -23,8 +24,8 @@ export interface PrecheckSources {
   params(): Promise<Pick<ProofParams, "networkId" | "registry" | "thresholdCents">>;
   registration(nullifier: string, account: string): Promise<RegistryLookup>;
   kybDone(account: string): Promise<boolean>;
-  /** Offre du fonds pour une échéance ISO. */
-  offer(dueDate: string): Promise<LoanOffer>;
+  /** Barème du fonds (une offre par palier) pour une échéance ISO. */
+  offer(dueDate: string): Promise<OfferSchedule>;
   signatureIsValid(file: AttestedInvoiceFile): Promise<boolean>;
   now(): Date;
 }
@@ -45,6 +46,11 @@ export function parseAttestedFile(value: unknown): AttestedInvoiceFile | undefin
     hasStrings(attestation.debtorPublicKey, ["ax", "ay"]) &&
     hasStrings(attestation.signature, ["r8x", "r8y", "s"]);
   return complete ? (value as AttestedInvoiceFile) : undefined;
+}
+
+/** Offre du palier que lie la preuve : le seuil publié par `GET /api/proof/params`. */
+function provenTierOffer(schedule: OfferSchedule, thresholdCents: string): LoanOffer | undefined {
+  return schedule.tiers.find((tier) => BigInt(Math.round(tier.provenThresholdEur * CENTS_PER_EUR)) === BigInt(thresholdCents));
 }
 
 export async function runPrecheck(file: AttestedInvoiceFile, sources: PrecheckSources): Promise<PrecheckResponse> {
@@ -80,6 +86,6 @@ export async function runPrecheck(file: AttestedInvoiceFile, sources: PrecheckSo
     kyb: { account: attestation.account, done: kybDone },
     nullifier,
     ...(registration.txHash === undefined ? {} : { registeredBy: registration.txHash }),
-    ...(eligible ? { offer: await sources.offer(dueDate.toISOString()) } : {}),
+    ...(eligible ? { offer: provenTierOffer(await sources.offer(dueDate.toISOString()), params.thresholdCents) } : {}),
   };
 }

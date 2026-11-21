@@ -15,6 +15,7 @@ import { loanTerms } from "../lending/loanTerms.js";
 import { subscribe, type BariLiquidity } from "../lending/subscription.js";
 import { log } from "../lib/logger.js";
 import { setupFund } from "../setup/fundSetup.js";
+import { xrplLedger } from "../xrpl/ledger.js";
 import { logTheoreticalEconomics } from "./economicsReport.js";
 
 export interface OpenFund {
@@ -91,5 +92,6 @@ export async function financeInvoice(
   const issued = await certifyAndIssue(client, actors, invoice);
   if (issued === undefined) throw new Error(`La première présentation de la facture ${index} devait réussir`);
   log.step(`Facture ${index} · prêt : contrôles de Bari, puis LoanSet co-signé`);
-  return { issued, loan: await originateLoan(client, actors, fund, issued) };
+  const signers = { borrower: actors.sme, bari: actors.bari, kybIssuer: actors.kyb_issuer.address };
+  return { issued, loan: await originateLoan(client, xrplLedger(client), signers, fund, issued) };
 }

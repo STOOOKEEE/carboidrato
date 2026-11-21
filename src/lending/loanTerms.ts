@@ -1,4 +1,4 @@
-// Conditions d'un prêt Bari, en unités EURc, dérivées des paramètres de src/config/finance.ts, et son échéance.
+// Conditions d'un prêt Bari par palier public, en unités EURc, dérivées des paramètres de src/config/finance.ts, et son échéance.
 
 import {
   LEDGER_LOAN_REDEMPTION_BUFFER_S,
@@ -6,37 +6,49 @@ import {
   LEDGER_TIME_SAFETY_MARGIN_S,
 } from "../config/cohort.js";
 import { ADVANCE_RATE_PERCENT, INVOICE_AMOUNT_EUR, ORIGINATION_FEE_PERCENT } from "../config/finance.js";
-import { eurToUnits, percentOf, unitsToCents } from "../lib/amounts.js";
+import { eurToCents, eurToUnits, formatEur, percentOf, unitsToCents } from "../lib/amounts.js";
+
+/** Seuils publics de l'offre, croissants : seul le palier d'une facture devient public, jamais son montant. */
+export const OFFER_TIERS_EUR = [5_000, 10_000, 20_000, 50_000, 100_000] as const;
+
+const OFFER_TIERS = OFFER_TIERS_EUR.map(eurToUnits);
+const OFFER_TIER_CENTS = OFFER_TIERS_EUR.map(eurToCents);
 
 export interface LoanTerms {
+  /** Palier prouvé : la facture vaut au moins ce montant (la facture type de la démo vaut exactement son palier). */
   invoice: bigint;
-  /** Principal demandé (PrincipalRequested). */
+  /** Principal demandé (PrincipalRequested) : le taux d'avance appliqué au palier. */
   principal: bigint;
   /** Frais de dossier (LoanOriginationFee), déduits de l'avance versée. */
   originationFee: bigint;
   /** Ce que la PME reçoit réellement. */
   netAdvance: bigint;
-  /** Seuil public de la preuve, en centimes : la facture vaut au moins ce montant, jamais révélé exactement. */
+  /** Seuil public de la preuve, en centimes : le palier. */
   provenThresholdCents: bigint;
 }
 
-/** Plus petit seuil en centimes tel que `principal ≤ taux d'avance × seuil`. */
-export function provenThresholdCents(principalCents: bigint): bigint {
-  const rate = BigInt(ADVANCE_RATE_PERCENT);
-  const scaled = principalCents * 100n;
-  return scaled / rate + (scaled % rate === 0n ? 0n : 1n);
+/** Palier d'un montant en unités EURc : le plus grand seuil public qui ne le dépasse pas, undefined sous le premier. */
+export function offerTier(amount: bigint): bigint | undefined {
+  return OFFER_TIERS.filter((tier) => tier <= amount).at(-1);
 }
 
-/** Conditions pour une facture de `invoice` unités EURc (par défaut : la facture type de la démo). */
-export function loanTerms(invoice: bigint = eurToUnits(INVOICE_AMOUNT_EUR)): LoanTerms {
-  const principal = percentOf(invoice, ADVANCE_RATE_PERCENT);
+/** Un seuil prouvé (centimes) n'est accepté que s'il est un palier public : un autre seuil en dirait plus sur la facture. */
+export function isOfferTier(thresholdCents: bigint): boolean {
+  return OFFER_TIER_CENTS.includes(thresholdCents);
+}
+
+/** Conditions adossées au palier de `amount` unités EURc garanties par la preuve (par défaut : la facture type). */
+export function loanTerms(amount: bigint = eurToUnits(INVOICE_AMOUNT_EUR)): LoanTerms {
+  const tier = offerTier(amount);
+  if (tier === undefined) throw new Error(`Aucune offre sous le premier palier (${formatEur(OFFER_TIERS[0], 0)}) : ${formatEur(amount, 2)}`);
+  const principal = percentOf(tier, ADVANCE_RATE_PERCENT);
   const originationFee = percentOf(principal, ORIGINATION_FEE_PERCENT);
   return {
-    invoice,
+    invoice: tier,
     principal,
     originationFee,
     netAdvance: principal - originationFee,
-    provenThresholdCents: provenThresholdCents(unitsToCents(principal)),
+    provenThresholdCents: unitsToCents(tier),
   };
 }
 
@@ -48,17 +60,30 @@ export interface MaturityInputs {
 }
 
 /**
- * PaymentInterval de l'unique échéance : le prêt tombe à l'échéance de la facture, sans dépasser le dernier instant
- * accepté par le ledger avant le rachat (60 s, plus l'écart possible avec l'heure du ledger qui inclura le LoanSet).
+ * Dernière échéance acceptée par le ledger avant le rachat : 60 s avant, moins l'écart possible avec l'heure du
+ * ledger qui inclura le LoanSet.
  */
-export function loanPaymentInterval({ now, invoiceDueDate, redemptionDate }: MaturityInputs): number {
-  if (invoiceDueDate <= now) throw new Error("Prêt refusé : échéance de la facture dépassée");
-  const latestDueDate = redemptionDate - LEDGER_LOAN_REDEMPTION_BUFFER_S - LEDGER_TIME_SAFETY_MARGIN_S;
-  const interval = Math.min(invoiceDueDate, latestDueDate) - now;
+export function latestLoanMaturity(redemptionDate: number): number {
+  return redemptionDate - LEDGER_LOAN_REDEMPTION_BUFFER_S - LEDGER_TIME_SAFETY_MARGIN_S;
+}
+
+function boundedInterval({ now, invoiceDueDate, redemptionDate }: MaturityInputs): number {
+  return Math.min(invoiceDueDate, latestLoanMaturity(redemptionDate)) - now;
+}
+
+/** Raison du refus de l'échéance (message public), undefined si le prêt peut tomber à l'échéance bornée. */
+export function maturityProblem(inputs: MaturityInputs): string | undefined {
+  if (inputs.invoiceDueDate <= inputs.now) return "The invoice due date has passed";
+  const interval = boundedInterval(inputs);
   if (interval < LEDGER_MIN_PAYMENT_INTERVAL_S) {
-    throw new Error(
-      `Prêt trop court (${interval} s < ${LEDGER_MIN_PAYMENT_INTERVAL_S} s) : échéance de la facture ou rachat du fonds trop proche`,
-    );
+    return `Loan too short (${interval} s < ${LEDGER_MIN_PAYMENT_INTERVAL_S} s): the invoice due date or the fund redemption is too close`;
   }
-  return interval;
+  return undefined;
+}
+
+/** PaymentInterval de l'unique échéance : le prêt tombe à l'échéance de la facture, sans dépasser le rachat. */
+export function loanPaymentInterval(inputs: MaturityInputs): number {
+  const problem = maturityProblem(inputs);
+  if (problem !== undefined) throw new Error(problem);
+  return boundedInterval(inputs);
 }

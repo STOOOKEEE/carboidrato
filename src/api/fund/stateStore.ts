@@ -2,16 +2,23 @@
 // Le ledger reste la source de vérité : ce fichier ne garde que les identifiants nécessaires pour le retrouver.
 
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { rippleTimeToISOTime } from "xrpl";
 import type { Fund } from "../../fund/fund.js";
 import type { LoanReference } from "../../fund/loanData.js";
 import type { InvoiceCertificate } from "../../invoice/certificate.js";
+import type { OriginatedLoan } from "../../lending/loan.js";
 
 export type LoanStatus = "active" | "repaid" | "defaulted";
 
+/** Les champs optionnels manquent dans les états écrits avant les comptes utilisateurs. */
 export interface InvoiceRecord {
   tokenId: string;
   certificate: InvoiceCertificate;
   issuedAt: string;
+  /** Compte XRPL de l'entreprise qui a émis le MPT facture. */
+  owner?: string;
+  /** Hash du Batch du certificat. */
+  txHash?: string;
 }
 
 export interface LoanState {
@@ -19,6 +26,30 @@ export interface LoanState {
   reference: LoanReference;
   status: LoanStatus;
   createdAt: string;
+  /** Compte XRPL de l'entreprise emprunteuse. */
+  borrower?: string;
+  /** Hash du LoanSet. */
+  txHash?: string;
+  /** Principal et frais de dossier, en unités EURc (chaîne décimale : l'état est du JSON). */
+  principal?: string;
+  originationFee?: string;
+  /** Échéance du prêt (ISO). */
+  dueDate?: string;
+}
+
+/** Prêt co-signé tel que persisté : les montants bigint deviennent des chaînes. */
+export function loanState(loan: OriginatedLoan, borrower: string, status: LoanStatus, createdAt: string): LoanState {
+  return {
+    loanId: loan.loanId,
+    reference: loan.reference,
+    status,
+    createdAt,
+    borrower,
+    txHash: loan.hash,
+    principal: loan.terms.principal.toString(),
+    originationFee: loan.terms.originationFee.toString(),
+    dueDate: rippleTimeToISOTime(loan.maturity),
+  };
 }
 
 export interface FundState {

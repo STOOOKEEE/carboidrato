@@ -16,6 +16,7 @@ export class FakeLedger implements Ledger {
   private readonly brokers = new Map<string, LedgerEntry.LoanBroker>();
   private readonly objects = new Map<string, LedgerEntry.LedgerEntry[]>();
   private readonly transactions = new Map<string, LedgerTransaction>();
+  private time = 0;
 
   constructor(private readonly id: number | undefined) {}
 
@@ -48,6 +49,11 @@ export class FakeLedger implements Ledger {
 
   putTransaction(transaction: LedgerTransaction): void {
     this.transactions.set(key(transaction.hash), transaction);
+  }
+
+  /** Heure de clôture du ledger validé (secondes depuis l'époque Ripple), 0 par défaut. */
+  setCloseTime(time: number): void {
+    this.time = time;
   }
 
   networkId(): number | undefined {
@@ -84,5 +90,9 @@ export class FakeLedger implements Ledger {
 
   async transaction(hash: string): Promise<LedgerTransaction | undefined> {
     return this.transactions.get(key(hash));
+  }
+
+  async closeTime(): Promise<number> {
+    return this.time;
   }
 }

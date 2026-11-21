@@ -12,7 +12,12 @@ import { submitTx } from "../xrpl/submit.js";
 import type { OriginatedLoan } from "./loan.js";
 import { loanTerms } from "./loanTerms.js";
 
-export async function repayLoan(client: Client, actors: Actors, fund: Fund, originated: OriginatedLoan): Promise<void> {
+export async function repayLoan(
+  client: Client,
+  actors: Actors,
+  fund: Fund,
+  originated: Pick<OriginatedLoan, "loanId" | "reference">,
+): Promise<void> {
   const { invoice } = loanTerms();
   await sendMpt(client, fund.assetId, actors.mairie, actors.sme.address, invoice, `Payment EURc mairie → sme (${formatEur(invoice, 2)})`);
 

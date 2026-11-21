@@ -5,7 +5,7 @@ import type {
   CertificateRequest,
   CertificateResponse,
   KybStatus,
-  LoanOffer,
+  OfferSchedule,
   ProofParams,
   PublicDebtor,
   RegistryLookup,
@@ -38,7 +38,7 @@ export const lookupRegistration = (nullifier: string, account: string) =>
 
 export const fetchKybStatus = (account: string) => request<KybStatus>(`/api/sme/kyb/${encodeURIComponent(account)}`);
 
-export const fetchOffer = (dueDate: string) => request<LoanOffer>(`/api/offer?dueDate=${encodeURIComponent(dueDate)}`);
+export const fetchOffer = (dueDate: string) => request<OfferSchedule>(`/api/offer?dueDate=${encodeURIComponent(dueDate)}`);
 
 /** Seules la preuve et ses signaux publics sont recopiés : aucun autre champ ne peut partir par mégarde. */
 export const submitCertificate = ({ proof, publicSignals }: CertificateRequest) =>

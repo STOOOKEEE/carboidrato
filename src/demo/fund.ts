@@ -2,7 +2,7 @@
 
 import { Client, isoTimeToRippleTime, rippleTimeToISOTime } from "xrpl";
 import { loadApiConfig } from "../api/fund/config.js";
-import { FundStateStore, type LoanStatus } from "../api/fund/stateStore.js";
+import { FundStateStore, loanState, type LoanStatus } from "../api/fund/stateStore.js";
 import { loadCohortTiming } from "../config/cohort.js";
 import { BARI_EURC_RESERVE_EUR, BARI_SHARE_STOCK_EUR } from "../config/finance.js";
 import { loadNetworkConfig } from "../config/network.js";
@@ -48,8 +48,9 @@ async function createFund(client: Client, store: FundStateStore): Promise<void> 
     state.deposited = true;
     for (const entry of financed) {
       const status: LoanStatus = entry === repaid ? "repaid" : "active";
-      state.invoices.push({ tokenId: entry.issued.tokenId, certificate: entry.issued.certificate, issuedAt: now });
-      state.loans.push({ ...entry.loan, status, createdAt: now });
+      const { tokenId, certificate } = entry.issued;
+      state.invoices.push({ tokenId, certificate, issuedAt: now, owner: actors.sme.address });
+      state.loans.push(loanState(entry.loan, actors.sme.address, status, now));
     }
   });
   log.step(`Fonds de démo prêt en ${log.elapsedSeconds()} s`);
