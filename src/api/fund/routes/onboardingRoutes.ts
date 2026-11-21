@@ -2,11 +2,11 @@
 // l'utilisateur signe dans son wallet (seule ou en Batch), puis soumet le blob signé s'il est exactement celui préparé.
 
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { decode, encode, hashes, type Client, type SubmittableTransaction } from "xrpl";
+import { decode, encode, hashes, type SubmittableTransaction } from "xrpl";
 import { credentialOffer, missingHoldings, ROLE_CREDENTIALS, userSteps, userTransaction } from "../../../kyb/onboarding.js";
 import { textToHex } from "../../../lib/encoding.js";
-import { matchesPrepared, PreparedStore } from "../../../xrpl/preparedTx.js";
-import { submitSignedBlob, UnexpectedTxResult, type SubmitTx, type TxOutcome } from "../../../xrpl/submit.js";
+import { matchesPrepared, PreparedStore, SIGNING_WINDOW_LEDGERS, type WalletTxPorts } from "../../../xrpl/preparedTx.js";
+import { UnexpectedTxResult, type SubmitTx } from "../../../xrpl/submit.js";
 import type {
   OnboardingPrepareResponse,
   OnboardingSubmitRequest,
@@ -22,36 +22,10 @@ const HTTP_BAD_REQUEST = 400;
 const HTTP_UNAUTHORIZED = 401;
 const HTTP_FORBIDDEN = 403;
 const HTTP_CONFLICT = 409;
-/** ≈ 5 minutes de ledgers de 3 s : le temps de lire et signer dans la fenêtre d'Otsu. */
-const SIGNING_WINDOW_LEDGERS = 100;
 const SUCCESS = "tesSUCCESS";
 /** Résultat préliminaire d'une transaction soumise après son LastLedgerSequence. */
 const EXPIRED = "tefMAX_LEDGER";
 const BATCH_LABEL = "All steps signed at once (Batch)";
-
-/** Lectures et soumissions de la transaction de l'utilisateur : le nœud en production, des faux dans les tests. */
-export interface OnboardingPorts {
-  /** Prochaine séquence du compte et dernier ledger validé. */
-  accountState(account: string): Promise<{ sequence: number; ledgerIndex: number }>;
-  /** Complète les frais (et le NetworkID) d'une transaction déjà séquencée. */
-  autofill(tx: SubmittableTransaction): Promise<SubmittableTransaction>;
-  /** Soumet un blob signé et attend sa validation ; lève `UnexpectedTxResult` hors tesSUCCESS. */
-  submitSigned(txBlob: string, hash: string, label: string): Promise<TxOutcome>;
-}
-
-export function clientOnboardingPorts(client: Client): OnboardingPorts {
-  return {
-    accountState: async (account) => {
-      const [info, ledgerIndex] = await Promise.all([
-        client.request({ command: "account_info", account, ledger_index: "current" }),
-        client.getLedgerIndex(),
-      ]);
-      return { sequence: info.result.account_data.Sequence, ledgerIndex };
-    },
-    autofill: (tx) => client.autofill(tx),
-    submitSigned: (txBlob, hash, label) => submitSignedBlob(client, txBlob, hash, label),
-  };
-}
 
 /** Transaction préparée en attente de signature ; les hashes internes d'un Batch sont connus avant sa soumission. */
 interface Prepared {
@@ -78,7 +52,7 @@ export function registerOnboardingRoutes(
   app: FastifyInstance,
   context: ApiContext,
   submit: SubmitTx,
-  ports: OnboardingPorts,
+  ports: WalletTxPorts,
 ): void {
   // En mémoire : un redémarrage oblige seulement à recommencer.
   const prepared = new PreparedStore<Prepared>();

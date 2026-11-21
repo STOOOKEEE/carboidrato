@@ -2,6 +2,7 @@
 
 import cors from "@fastify/cors";
 import Fastify, { type FastifyInstance } from "fastify";
+import { clientWalletTxPorts, type WalletTxPorts } from "../../xrpl/preparedTx.js";
 import type { ApiConfig } from "./config.js";
 import type { ApiContext } from "./context.js";
 import { makeErrorHandler } from "./errors.js";
@@ -12,7 +13,7 @@ import { registerEventRoutes } from "./routes/eventRoutes.js";
 import { registerFundRoutes } from "./routes/fundRoutes.js";
 import { clientLenderPorts, registerLenderRoutes, type LenderPorts } from "./routes/lenderRoutes.js";
 import { registerLoanRoutes } from "./routes/loanRoutes.js";
-import { clientOnboardingPorts, registerOnboardingRoutes, type OnboardingPorts } from "./routes/onboardingRoutes.js";
+import { registerOnboardingRoutes } from "./routes/onboardingRoutes.js";
 import { registerPublicBodyRoutes } from "./routes/publicBodyRoutes.js";
 import { registerSmeRoutes } from "./routes/smeRoutes.js";
 import { registerTxRoutes } from "./routes/txRoutes.js";
@@ -28,14 +29,14 @@ function serializeJson(payload: unknown): string {
 }
 
 /**
- * `ports` : soumissions signées (ordres des prêteurs, remboursements) ; `onboardingPorts` : transaction que signe le
+ * `ports` : soumissions signées (ordres des prêteurs, remboursements) ; `walletPorts` : transactions que signe le
  * wallet d'un utilisateur. Les deux sont remplacés par des faux dans les tests de routes.
  */
 export async function buildApp(
   config: ApiConfig,
   context: ApiContext,
   ports: LenderPorts = clientLenderPorts(context.client),
-  onboardingPorts: OnboardingPorts = clientOnboardingPorts(context.client),
+  walletPorts: WalletTxPorts = clientWalletTxPorts(context.client),
 ): Promise<FastifyInstance> {
   // Un champ inattendu (ex. une donnée du témoin) est refusé en 400, pas retiré en silence.
   const app = Fastify({ bodyLimit: BODY_LIMIT_BYTES, ajv: { customOptions: { removeAdditional: false } } });
@@ -45,7 +46,7 @@ export async function buildApp(
 
   registerAuthRoutes(app, context);
   registerWalletAuthRoutes(app, context);
-  registerOnboardingRoutes(app, context, ports.submit, onboardingPorts);
+  registerOnboardingRoutes(app, context, ports.submit, walletPorts);
   registerFundRoutes(app, context);
   registerPublicBodyRoutes(app, context);
   registerLenderRoutes(app, context, ports);

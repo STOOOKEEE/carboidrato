@@ -24,13 +24,13 @@ import type { Fund } from "../../../fund/fund.js";
 import { textToHex } from "../../../lib/encoding.js";
 import { FakeLedger } from "../../../xrpl/fakeLedger.js";
 import type { LedgerTransaction } from "../../../xrpl/ledger.js";
+import { SIGNING_WINDOW_LEDGERS, type WalletTxPorts } from "../../../xrpl/preparedTx.js";
 import { RLUSD_CURRENCY } from "../../../xrpl/stablecoin.js";
 import { UnexpectedTxResult, type TxOutcome } from "../../../xrpl/submit.js";
 import type { OnboardingPrepareResponse, OnboardingSubmitResponse } from "../../contract.js";
 import { buildApp } from "../app.js";
 import { issueSession, SESSION_COOKIE } from "../auth.js";
 import { fakeApiConfig, fakeContext } from "../fakeContext.js";
-import type { OnboardingPorts } from "./onboardingRoutes.js";
 
 const HTTP_OK = 200;
 const HTTP_BAD_REQUEST = 400;
@@ -42,8 +42,6 @@ const NOW_RIPPLE = 817_000_000;
 const ONE_YEAR_S = 365 * 86_400;
 const NEXT_SEQUENCE = 40;
 const LEDGER_INDEX = 900;
-/** ≈ 5 minutes de ledgers de 3 s pour signer dans la fenêtre d'Otsu. */
-const SIGNING_WINDOW_LEDGERS = 100;
 const AUTOFILLED_FEE = "36";
 const SHARE_ID = "0B".repeat(24);
 const LSF_ACCEPTED = 0x00010000;
@@ -80,7 +78,7 @@ async function fakeSubmit(tx: SubmittableTransaction, wallet: Wallet): Promise<T
   return outcome(`${issued.length}`.padStart(64, "C"));
 }
 
-const ports: OnboardingPorts = {
+const ports: WalletTxPorts = {
   accountState: async () => ({ sequence: NEXT_SEQUENCE, ledgerIndex: LEDGER_INDEX }),
   autofill: async (tx) => ({ ...tx, Fee: AUTOFILLED_FEE }),
   submitSigned: async (txBlob, hash) => {
