@@ -462,3 +462,13 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 **Pourquoi :** audit de sécurité avant la soumission. Ces routes ne demandaient aucune session : n'importe qui pouvait déclencher le remboursement d'un prêt (paiement de la mairie, `LoanPay`) ou son défaut, et le défaut attend l'échéance dans la file sérielle des opérations, ce qui gelait toute l'API jusqu'au redémarrage.
 
 **Vérifié :** tests rouges puis verts (401, 403 par rôle et par emprunteur, soumission Otsu refusée sans la session de l'emprunteur, 404 sur l'ancienne route de défaut) ; `npm test` 542/542, typecheck et build verts. Les e2e remboursent depuis la page de l'entreprise connectée (`page.request`, même cookie) ; leur passage complet reste à faire après les tests manuels.
+
+## 2026-11-21 · DA Atlas, et le produit s'appelle Atlas
+
+**Quoi :**
+- Fusion de la branche `Front-da2` (Sanka-D) : gravure d'Atlas sur la landing, logo en spirale d'or (`SpiralMark`, `goldenSpiral` testé) et favicon, fond tramé rose en WebGL qui ne bouge que sous la souris (`ShaderBackground`), boutons arrondis. La branche de cerisier, la fleur et le lien « Scroll to discover » disparaissent (le test « tous les boutons » suit).
+- Le produit s'appelle Atlas partout où on le lit : logo et pied de page, titre de la page, PDF signé, messages de l'API en anglais, README, script du pitch. Inchangés : la Comune di Bari et les données de démo, les noms internes et les formats (`bari_session`, `.bari-state.*`, `BariAttestation`, `bari.nullifier.v1`, circuit `bari_invoice`), les métadonnées déjà inscrites sur le ledger et les journaux en français.
+
+**Pourquoi :** nouvelle direction artistique de l'équipe pour le pitch, et le nom la suit. Les noms internes restent : les changer casserait l'état du fonds sur l'AlphaNet, les factures déjà signées et le calcul de `N`.
+
+**Vérifié :** `checks.sh` complet sur la DA (22 e2e verts) ; après le renommage, `npm test` 544/544, typecheck, build, les 22 e2e (15 dans le passage complet, `buttons.spec.ts` relancé seul après la correction du nom du lien du logo) et les contrôles de fin de `checks.sh`, gitleaks compris. Les e2e prennent environ trois fois plus longtemps (21 min contre 7,4) : sans écran, Chromium dessine le fond WebGL sans carte graphique.
