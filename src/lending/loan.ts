@@ -7,13 +7,13 @@ import { INTEREST_RATE_PERCENT, LATE_INTEREST_RATE_PERCENT } from "../config/fin
 import type { Fund } from "../fund/fund.js";
 import { encodeLoanData, type LoanReference } from "../fund/loanData.js";
 import type { IssuedCertificate } from "../invoice/issueCertificate.js";
-import { formatEur } from "../lib/amounts.js";
+import { formatRlusd } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
 import { percentToTenthBips } from "../lib/rates.js";
 import type { Ledger } from "../xrpl/ledger.js";
-import { getMptBalance } from "../xrpl/ledgerEntries.js";
 import { waitForLedgerTimeAfter } from "../xrpl/ledgerTime.js";
 import { createdLedgerIndex } from "../xrpl/meta.js";
+import { unitsToValue } from "../xrpl/stablecoin.js";
 import { submitSignedBlob } from "../xrpl/submit.js";
 import { refusalReason, reviewLoan, type LoanCheck } from "./loanChecks.js";
 import { loanPaymentInterval, type LoanTerms } from "./loanTerms.js";
@@ -53,6 +53,29 @@ async function loanSetFee(client: Client): Promise<string> {
   return (BigInt(result.drops.open_ledger_fee) * LOAN_SET_SIGNATURE_COUNT).toString();
 }
 
+/** LoanSet à échéance unique, sans frais réseau ; principal et frais de dossier en valeur RLUSD du ledger. */
+export function loanSetTransaction(
+  borrower: string,
+  brokerId: string,
+  terms: LoanTerms,
+  reference: LoanReference,
+  interval: number,
+): LoanSet {
+  return {
+    TransactionType: "LoanSet",
+    Account: borrower,
+    LoanBrokerID: brokerId,
+    PrincipalRequested: unitsToValue(terms.principal),
+    LoanOriginationFee: unitsToValue(terms.originationFee),
+    InterestRate: percentToTenthBips(INTEREST_RATE_PERCENT),
+    LateInterestRate: percentToTenthBips(LATE_INTEREST_RATE_PERCENT),
+    PaymentTotal: 1,
+    PaymentInterval: interval,
+    GracePeriod: LEDGER_MIN_GRACE_PERIOD_S,
+    Data: encodeLoanData(reference),
+  };
+}
+
 /** Lectures par `ledger` (contrôles, heure), signature et soumission par `client`. */
 export async function originateLoan(
   client: Client,
@@ -81,20 +104,10 @@ export async function originateLoan(
     redemptionDate: fund.cohort.redemptionDate,
   });
   const loanSet: LoanSet = {
-    TransactionType: "LoanSet",
-    Account: borrower.address,
-    LoanBrokerID: fund.brokerId,
-    PrincipalRequested: terms.principal.toString(),
-    LoanOriginationFee: terms.originationFee.toString(),
-    InterestRate: percentToTenthBips(INTEREST_RATE_PERCENT),
-    LateInterestRate: percentToTenthBips(LATE_INTEREST_RATE_PERCENT),
-    PaymentTotal: 1,
-    PaymentInterval: interval,
-    GracePeriod: LEDGER_MIN_GRACE_PERIOD_S,
-    Data: encodeLoanData(reference),
+    ...loanSetTransaction(borrower.address, fund.brokerId, terms, reference, interval),
     Fee: await loanSetFee(client),
   };
-  const balanceBefore = await getMptBalance(client, fund.assetId, borrower.address);
+  const balanceBefore = await ledger.stablecoinBalance(fund.stablecoin, borrower.address);
   // L'entreprise (emprunteuse) signe en premier, Bari (propriétaire du broker) co-signe.
   const prepared = await client.autofill(loanSet);
   const borrowerSigned = borrower.sign(prepared);
@@ -103,15 +116,15 @@ export async function originateLoan(
     client,
     tx_blob,
     hash,
-    `LoanSet ${formatEur(terms.principal, 2)}, frais ${formatEur(terms.originationFee, 2)} (${interval} s)`,
+    `LoanSet ${formatRlusd(terms.principal, 2)}, frais ${formatRlusd(terms.originationFee, 2)} (${interval} s)`,
   );
   const loanId = createdLedgerIndex(outcome.meta, "Loan");
-  const received = (await getMptBalance(client, fund.assetId, borrower.address)) - balanceBefore;
+  const received = (await ledger.stablecoinBalance(fund.stablecoin, borrower.address)) - balanceBefore;
   log.info(`Loan ${loanId}`);
   log.info(`Data = N ‖ ID du MPT facture ‖ P : ${loanSet.Data}`);
   if (received !== terms.netAdvance) {
-    throw new Error(`L'emprunteur a reçu ${formatEur(received)} au lieu de ${formatEur(terms.netAdvance)}`);
+    throw new Error(`L'emprunteur a reçu ${formatRlusd(received)} au lieu de ${formatRlusd(terms.netAdvance)}`);
   }
-  log.info(`l'emprunteur reçoit ${formatEur(received, 2)} (principal − frais de dossier)`);
+  log.info(`l'emprunteur reçoit ${formatRlusd(received, 2)} (principal − frais de dossier)`);
   return { loanId, reference, hash: outcome.hash, checks: review.checks, terms, maturity: now + interval };
 }

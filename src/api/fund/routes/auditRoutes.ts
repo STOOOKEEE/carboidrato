@@ -7,6 +7,7 @@ import { auditKnownFund, type AuditResult, type LoanAudit, type LoanStatus } fro
 import { MAX_DEBTOR_CONCENTRATION_PERCENT } from "../../../config/finance.js";
 import { perDisplayShare, sharePrice } from "../../../fund/sharePrice.js";
 import { parseUnits } from "../../../lib/amounts.js";
+import { valueToUnits } from "../../../xrpl/stablecoin.js";
 import type { AuditLoan, AuditLoanStatus, FundAudit } from "../../contract.js";
 import { requireFund, type ApiContext } from "../context.js";
 
@@ -74,8 +75,8 @@ export function registerAuditRoutes(app: FastifyInstance, context: ApiContext): 
     ]);
     if (shares === undefined) throw new Error(`Émission des parts introuvable : ${fund.cohort.shareMptId}`);
     const price = sharePrice({
-      assetsTotal: parseUnits(vault.AssetsTotal),
-      lossUnrealized: parseUnits(vault.LossUnrealized),
+      assetsTotal: valueToUnits(vault.AssetsTotal),
+      lossUnrealized: valueToUnits(vault.LossUnrealized),
       sharesOutstanding: parseUnits(shares.OutstandingAmount),
     });
     return auditView(result, perDisplayShare(price.assets, price.shares));

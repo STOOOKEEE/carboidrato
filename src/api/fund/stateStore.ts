@@ -30,7 +30,7 @@ export interface LoanState {
   borrower?: string;
   /** Hash du LoanSet. */
   txHash?: string;
-  /** Principal et frais de dossier, en unités EURc (chaîne décimale : l'état est du JSON). */
+  /** Principal et frais de dossier, en unités RLUSD (chaîne décimale : l'état est du JSON). */
   principal?: string;
   originationFee?: string;
   /** Échéance du prêt (ISO). */
@@ -65,13 +65,14 @@ function isFundState(value: unknown): value is FundState {
   if (typeof value !== "object" || value === null) return false;
   const { fund, invoices, loans } = value as Record<string, unknown>;
   if (typeof fund !== "object" || fund === null) return false;
-  const { cohort, brokerId, assetId } = fund as Record<string, unknown>;
+  const { cohort, brokerId, stablecoin } = fund as Record<string, unknown>;
+  if (typeof cohort !== "object" || cohort === null || typeof stablecoin !== "object" || stablecoin === null) return false;
+  const { currency, issuer } = stablecoin as Record<string, unknown>;
   return (
-    typeof cohort === "object" &&
-    cohort !== null &&
     typeof (cohort as Record<string, unknown>).vaultId === "string" &&
     typeof brokerId === "string" &&
-    typeof assetId === "string" &&
+    typeof currency === "string" &&
+    typeof issuer === "string" &&
     Array.isArray(invoices) &&
     Array.isArray(loans)
   );
@@ -105,6 +106,8 @@ export class FundStateStore {
   private load(): FundState | undefined {
     if (!existsSync(this.file)) return undefined;
     const parsed: unknown = JSON.parse(readFileSync(this.file, "utf8"));
+    // Fonds d'avant le RLUSD, dont l'actif était un MPT (`assetId`) : non repris, `npm run demo:fund` en recrée un.
+    if (typeof (parsed as { fund?: { assetId?: unknown } } | null)?.fund?.assetId === "string") return undefined;
     if (!isFundState(parsed)) throw new Error(`Format inattendu dans ${this.file} : supprimer le fichier pour repartir de zéro`);
     return parsed;
   }

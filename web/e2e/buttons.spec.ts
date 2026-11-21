@@ -503,7 +503,7 @@ test("a loan's transaction page, signed out", async ({ page }) => {
   await coverTxScreen(page, undefined);
 });
 
-test("a lender signs up, adds test euros, deposits, withdraws and follows every link", async ({ page }) => {
+test("a lender signs up, adds test RLUSD, deposits, withdraws and follows every link", async ({ page }) => {
   test.setTimeout(10 * MINUTE_MS);
   const viewer: Viewer = { role: "lender", email: `buttons-lender-${Date.now()}@e2e.example`, password: PASSWORD };
   await coverSignup(page, viewer, "Tick this box to lend through Bari", async () => {
@@ -526,17 +526,17 @@ test("a lender signs up, adds test euros, deposits, withdraws and follows every 
       expect(answer.ok(), await answer.text()).toBe(true);
       await expect(page.getByTestId(done)).toContainText(doneText, { timeout: TX_TIMEOUT_MS });
     };
-  const placeDeposit = order("/api/lender/deposit", "Depositing…", "lend-done-deposit", "Deposited €100.00");
+  const placeDeposit = order("/api/lender/deposit", "Depositing…", "lend-done-deposit", "Deposited 100.00 RLUSD");
 
   await page.goto(`/${SPACE_ROUTES.lender}`);
-  await expect(page.getByTestId("lend-balance")).toHaveText("€0.00", { timeout: PAGE_TIMEOUT_MS });
+  await expect(page.getByTestId("lend-balance")).toHaveText("0.00 RLUSD", { timeout: PAGE_TIMEOUT_MS });
   await new Screen(page, "lend", [
     ...accountCardControls(await currentUser(page)),
-    ['button "Add test euros"', order("/api/lender/faucet", "Adding test euros…", "lend-done-faucet", "Received €10,000.00 of test euros")],
+    ['button "Add test RLUSD"', order("/api/lender/faucet", "Adding test RLUSD…", "lend-done-faucet", "Received 10,000.00 RLUSD of test funds")],
     [
       'button "Deposit"',
       async (control, screen) => {
-        await deposit.getByLabel("Amount in euros").fill("100");
+        await deposit.getByLabel("Amount in RLUSD").fill("100");
         await expect(deposit).toContainText("You receive");
         await placeDeposit(control, screen);
       },

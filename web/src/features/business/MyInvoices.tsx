@@ -1,6 +1,6 @@
 // Tableau « My invoices » : factures certifiées du compte, statut, montants, échéance, liens ; relu après un financement.
 import { useEffect, useState } from "react";
-import { formatDate, formatEur, shortHash } from "../../format";
+import { formatDate, formatRlusd, shortHash } from "../../format";
 import { Notice } from "../../ui/Notice";
 import { TxLink } from "../../ui/TxLink";
 import { fetchBusinessInvoices } from "./api";
@@ -23,7 +23,7 @@ function useInvoices(version: string): InvoicesView {
   return view;
 }
 
-const amount = (eur: number | undefined) => (eur === undefined ? "—" : formatEur(eur));
+const amount = (rlusd: number | undefined) => (rlusd === undefined ? "—" : formatRlusd(rlusd));
 
 export function MyInvoices({ version }: { version: string }) {
   const view = useInvoices(version);
@@ -57,13 +57,13 @@ export function MyInvoices({ version }: { version: string }) {
                 </td>
                 <td data-label="Status">{row.status}</td>
                 <td data-label="Advance" className="num">
-                  {amount(row.advanceEur)}
+                  {amount(row.advanceRlusd)}
                 </td>
                 <td data-label="Fee" className="num">
-                  {amount(row.feeEur)}
+                  {amount(row.feeRlusd)}
                 </td>
                 <td data-label="Received" className="num">
-                  {amount(row.netEur)}
+                  {amount(row.netRlusd)}
                 </td>
                 <td data-label="Due date">{row.dueDate === undefined ? "—" : formatDate(row.dueDate)}</td>
                 <td data-label="Certificate">{row.certificateTxHash === undefined ? "—" : <TxLink hash={row.certificateTxHash} />}</td>

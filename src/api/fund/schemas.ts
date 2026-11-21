@@ -206,7 +206,7 @@ export const vatParamsSchema = {
   params: { type: "object", required: ["vat"], properties: { vat: { type: "string", pattern: VAT_PATTERN } } },
 } as const;
 
-// Espace prêteur : montant d'un dépôt (unités EURc) ou d'un retrait (unités de part), entier strictement positif.
+// Espace prêteur : montant d'un dépôt (unités RLUSD) ou d'un retrait (unités de part), entier strictement positif.
 
 const MAX_UNITS_DIGITS = 30;
 

@@ -15,6 +15,7 @@ import { loanTerms } from "../lending/loanTerms.js";
 import { subscribe, type BariLiquidity } from "../lending/subscription.js";
 import { log } from "../lib/logger.js";
 import { setupFund } from "../setup/fundSetup.js";
+import { fundStablecoin } from "../setup/stablecoin.js";
 import { xrplLedger } from "../xrpl/ledger.js";
 import { logTheoreticalEconomics } from "./economicsReport.js";
 
@@ -41,7 +42,7 @@ export async function openFund(
   log.step("Paramètres du prêt (IDEE §4)");
   logTheoreticalEconomics();
 
-  const fund = await setupFund(client, actors, timing, liquidity);
+  const fund = await setupFund(client, actors, fundStablecoin(network, actors), timing, liquidity);
 
   log.step(`Souscription · dépôts des investisseurs + first-loss de Bari${liquidity === undefined ? "" : " + stock de parts de Bari"}`);
   await subscribe(client, actors, fund, liquidity);

@@ -62,7 +62,7 @@ test("the pitch walkthrough, end to end in the real product", async ({ browser }
       await capture(visitor, "walkthrough-01-landing");
     });
 
-    await test.step("2. lender: sign up with light KYC, add test euros, deposit 5,000 EURc", async () => {
+    await test.step("2. lender: sign up with light KYC, add test RLUSD, deposit 5,000 RLUSD", async () => {
       await lender.goto("/#/signup/lender");
       await lender.getByLabel("Email").fill(`walk-lender-${id}@e2e.example`);
       await lender.getByLabel("Password").fill(PASSWORD);
@@ -74,14 +74,14 @@ test("the pitch walkthrough, end to end in the real product", async ({ browser }
       await expect(lender).toHaveURL(/#\/lend$/);
       await expect(lender.getByTestId("account-card")).toContainText("KYC_INVESTOR");
 
-      await lender.getByRole("button", { name: "Add test euros" }).click();
-      await expect(lender.getByTestId("lend-done-faucet")).toContainText("Received €10,000.00", { timeout: TX_TIMEOUT_MS });
+      await lender.getByRole("button", { name: "Add test RLUSD" }).click();
+      await expect(lender.getByTestId("lend-done-faucet")).toContainText("Received 10,000.00 RLUSD", { timeout: TX_TIMEOUT_MS });
       const form = lender.getByTestId("lend-deposit");
-      await form.getByLabel("Amount in euros").fill("5000");
+      await form.getByLabel("Amount in RLUSD").fill("5000");
       await form.getByRole("button", { name: "Deposit", exact: true }).click();
-      await expect(lender.getByTestId("lend-done-deposit")).toContainText("Deposited €5,000.00", { timeout: TX_TIMEOUT_MS });
+      await expect(lender.getByTestId("lend-done-deposit")).toContainText("Deposited 5,000.00 RLUSD", { timeout: TX_TIMEOUT_MS });
       await expect(lender.getByTestId("lend-shares")).not.toHaveText("0.00");
-      await expect(lender.getByTestId("lend-value")).toHaveText(/^€(4,999\.\d\d|5,000\.00)$/);
+      await expect(lender.getByTestId("lend-value")).toHaveText(/^(4,999\.\d\d|5,000\.00) RLUSD$/);
       await expect(lender.getByTestId("lend-yield")).toContainText("% a year");
       await capture(lender, "walkthrough-02-lender-deposit");
     });
@@ -146,7 +146,7 @@ test("the pitch walkthrough, end to end in the real product", async ({ browser }
       await capture(business, "walkthrough-05-business-offer");
     });
 
-    await test.step("6. Get paid now: 8,955 received, the certificate shows the decoded proof", async () => {
+    await test.step("6. Get paid now: 8,955 RLUSD received, the certificate shows the decoded proof", async () => {
       const loanResponse = business.waitForResponse((response) => response.url().endsWith("/api/sme/loan"), {
         timeout: FUNDING_TIMEOUT_MS,
       });
@@ -154,7 +154,7 @@ test("the pitch walkthrough, end to end in the real product", async ({ browser }
       const response = await loanResponse;
       expect(response.status(), await response.text()).toBe(HTTP_CREATED);
       loanId = ((await response.json()) as LoanResponse).loanId;
-      await expect(business.getByTestId("business-funded")).toContainText("8,955");
+      await expect(business.getByTestId("business-funded")).toContainText("8,955.00 RLUSD");
       const steps = business.getByTestId("funding-steps");
       await expect(steps.locator("li.done")).toHaveCount(4);
       await capture(business, "walkthrough-06-business-funded");
@@ -186,13 +186,13 @@ test("the pitch walkthrough, end to end in the real product", async ({ browser }
       await capture(visitor, "walkthrough-08-transparency");
     });
 
-    await test.step("9. lender withdraws now through Bari: EURc come back", async () => {
+    await test.step("9. lender withdraws now through Bari: RLUSD come back", async () => {
       const form = lender.getByTestId("lend-withdraw");
       await form.getByRole("button", { name: "All my shares" }).click();
       await form.getByRole("button", { name: "Withdraw", exact: true }).click();
       await expect(lender.getByTestId("lend-done-withdraw")).toContainText("Sold", { timeout: TX_TIMEOUT_MS });
       await expect(lender.getByTestId("lend-shares")).toHaveText("0.00");
-      await expect(lender.getByTestId("lend-balance")).toHaveText(/^€9,9\d\d\.\d\d$/);
+      await expect(lender.getByTestId("lend-balance")).toHaveText(/^9,9\d\d\.\d\d RLUSD$/);
       await capture(lender, "walkthrough-09-lender-withdraw");
     });
   } finally {

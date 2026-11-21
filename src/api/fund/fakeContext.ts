@@ -23,6 +23,7 @@ const fakeNetwork: NetworkConfig = {
   walletsFile: ".wallets.alphanet.json",
   explorerUrl: "https://devnet.xrpl.org",
   hasExplorer: false,
+  rlusdIssuer: undefined,
 };
 
 export const fakeApiConfig: ApiConfig = { host: "127.0.0.1", port: 0, corsOrigins: [], stateFile: "", usersFile: "" };

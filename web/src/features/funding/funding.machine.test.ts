@@ -33,9 +33,9 @@ const certificate: FundingCertificate = { txHash: "C3RT", tokenId: "0000ABCD", n
 const loan: FundingLoan = {
   txHash: "L0AN",
   loanId: "LOANID",
-  principalEur: 9_000,
-  feeEur: 45,
-  netAdvanceEur: 8_955,
+  principalRlusd: 9_000,
+  feeRlusd: 45,
+  netAdvanceRlusd: 8_955,
   dueDate: "2027-02-19T00:00:00.000Z",
   checks: passed,
 };

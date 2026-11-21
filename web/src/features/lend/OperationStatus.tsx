@@ -5,7 +5,7 @@ import { TxLink } from "../../ui/TxLink";
 import { movementSummary, type LendAction, type Operation } from "./lend.machine";
 
 const PENDING: Record<LendAction, string> = {
-  faucet: "Sending test euros to your account…",
+  faucet: "Sending test RLUSD to your account…",
   deposit: "Buying fund shares on the XRP Ledger…",
   withdraw: "Selling your shares on the XRP Ledger…",
 };

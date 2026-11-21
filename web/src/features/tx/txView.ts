@@ -24,10 +24,12 @@ export interface Fact {
 
 const EXPLANATIONS: Record<string, string> = {
   Batch: "Several transactions applied together, all or nothing.",
+  AccountSet: "Changes an account's settings, for example letting an issued token move between its holders.",
   CredentialCreate: "Issues an on-ledger credential: a KYB check, or an invoice fingerprint in Bari's registry.",
   CredentialAccept: "The account accepts a credential issued to it.",
   MPTokenIssuanceCreate: "Creates a token. Bari's invoice token carries the zero-knowledge proof in its metadata.",
   MPTokenAuthorize: "Lets an account hold a token.",
+  TrustSet: "Opens a trust line so the account can hold an issued token such as RLUSD.",
   Payment: "Moves funds or tokens between two accounts.",
   LoanSet: "Opens a loan from the fund. Its Data field points to the invoice certificate.",
   LoanPay: "Repays a loan.",

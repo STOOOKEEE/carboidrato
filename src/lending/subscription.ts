@@ -2,18 +2,18 @@
 
 import type { Client, Wallet } from "xrpl";
 import { INVESTORS, type Actors } from "../accounts/actors.js";
-import { INVESTOR_DEPOSITS_EUR } from "../config/finance.js";
+import { INVESTOR_DEPOSITS_RLUSD } from "../config/finance.js";
 import type { Fund } from "../fund/fund.js";
-import { eurToUnits, formatEur } from "../lib/amounts.js";
+import { formatRlusd, rlusdToUnits } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
-import { getMptBalance } from "../xrpl/ledgerEntries.js";
+import { xrplLedger } from "../xrpl/ledger.js";
 import { ledgerTime } from "../xrpl/ledgerTime.js";
-import { mptAmount } from "../xrpl/mpt.js";
+import { stablecoinAmount } from "../xrpl/stablecoin.js";
 import { clientSubmitter, submitTx } from "../xrpl/submit.js";
 import { bariFirstLossUnits } from "./economics.js";
 import { depositToVault } from "./lenderTrades.js";
 
-/** Liquidités de Bari au-delà de sa first-loss (fonds durable), en unités EURc. */
+/** Liquidités de Bari au-delà de sa first-loss (fonds durable), en unités RLUSD. */
 export interface BariLiquidity {
   /** Déposé dans le Vault pendant la souscription : parts gardées en stock pour les prêteurs. */
   shareStock: bigint;
@@ -30,7 +30,7 @@ export async function subscribe(client: Client, actors: Actors, fund: Fund, liqu
     throw new Error("Souscription déjà close : augmenter COHORT_SUBSCRIPTION_S");
   }
   for (const investor of INVESTORS) {
-    await deposit(client, actors[investor], investor, fund, eurToUnits(INVESTOR_DEPOSITS_EUR[investor]));
+    await deposit(client, actors[investor], investor, fund, rlusdToUnits(INVESTOR_DEPOSITS_RLUSD[investor]));
   }
 
   // Bari, propriétaire du broker, apporte elle-même la first-loss : sa mise est perdue avant celle des investisseurs.
@@ -41,17 +41,18 @@ export async function subscribe(client: Client, actors: Actors, fund: Fund, liqu
       TransactionType: "LoanBrokerCoverDeposit",
       Account: actors.bari.address,
       LoanBrokerID: fund.brokerId,
-      Amount: mptAmount(fund.assetId, cover),
+      Amount: stablecoinAmount(fund.stablecoin, cover),
     },
     actors.bari,
-    `LoanBrokerCoverDeposit first-loss Bari (${formatEur(cover, 2)})`,
+    `LoanBrokerCoverDeposit first-loss Bari (${formatRlusd(cover, 2)})`,
   );
 
   if (liquidity !== undefined) {
     await deposit(client, actors.bari, "bari (stock de parts)", fund, liquidity.shareStock);
-    const shares = await getMptBalance(client, fund.cohort.shareMptId, actors.bari.address);
-    const reserve = await getMptBalance(client, fund.assetId, actors.bari.address);
-    log.info(`Bari : ${shares} parts en stock, réserve ${formatEur(reserve, 2)} hors Vault`);
+    const ledger = xrplLedger(client);
+    const shares = await ledger.mptBalance(fund.cohort.shareMptId, actors.bari.address);
+    const reserve = await ledger.stablecoinBalance(fund.stablecoin, actors.bari.address);
+    log.info(`Bari : ${shares} parts en stock, réserve ${formatRlusd(reserve, 2)} hors Vault`);
   }
   log.info("dépôts enregistrés pendant la phase de souscription");
 }

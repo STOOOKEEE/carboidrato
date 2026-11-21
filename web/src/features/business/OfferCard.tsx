@@ -1,6 +1,6 @@
 // Offre de la facture contrôlée et « Get paid now » ; « Already financed » si le registre détient déjà son empreinte.
 import type { PrecheckResponse } from "../../../../src/api/contract";
-import { formatDate, formatEur, formatPercent } from "../../format";
+import { formatDate, formatEur, formatPercent, formatRlusd } from "../../format";
 import { Button } from "../../ui/Button";
 import { Facts } from "../../ui/Facts";
 import { Notice } from "../../ui/Notice";
@@ -39,7 +39,7 @@ function Outcome({ funding, onGetPaid, onRetry }: Omit<OfferCardProps, "precheck
     case "funded":
       return (
         <div className="funded" data-testid="business-funded">
-          <p className="amount">{formatEur(funding.loan.netAdvanceEur)}</p>
+          <p className="amount">{formatRlusd(funding.loan.netAdvanceRlusd)}</p>
           <p className="muted">
             received on your account. The loan is due on {formatDate(funding.loan.dueDate)}: repay it once your client has paid
             you.

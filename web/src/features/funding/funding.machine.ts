@@ -28,10 +28,10 @@ export interface FundingLoan {
   /** Hash du LoanSet co-signé. */
   txHash: string;
   loanId: string;
-  principalEur: number;
-  feeEur: number;
+  principalRlusd: number;
+  feeRlusd: number;
   /** Ce que l'entreprise reçoit : principal − frais. */
-  netAdvanceEur: number;
+  netAdvanceRlusd: number;
   /** Échéance du prêt (ISO). */
   dueDate: string;
   checks: LoanCheck[];

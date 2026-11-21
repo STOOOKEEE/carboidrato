@@ -127,7 +127,7 @@ describe("verificationSteps", () => {
     const steps = verificationSteps("business", undefined);
     assert.deepEqual(
       steps.map((step) => step.label),
-      ["XRPL account opened", "KYB_PME credential issued by Bari", "Credential accepted by your account", "Euro token (EURc) enabled"],
+      ["XRPL account opened", "KYB_PME credential issued by Bari", "Credential accepted by your account", "Dollar stablecoin (RLUSD) enabled"],
     );
     assert.ok(steps.every((step) => !step.done && step.hash === undefined));
   });
@@ -138,7 +138,7 @@ describe("verificationSteps", () => {
       tx("Payment genesis → lender", "P"),
       tx("CredentialCreate KYC_INVESTOR → lender", "C"),
       tx("CredentialAccept KYC_INVESTOR (lender)", "A"),
-      tx("MPTokenAuthorize EURc (lender)", "E"),
+      tx("TrustSet RLUSD (lender)", "E"),
       tx("MPTokenAuthorize Vault shares (lender)", "S"),
     ]);
     assert.deepEqual(
@@ -147,7 +147,7 @@ describe("verificationSteps", () => {
         ["XRPL account opened", true, "P"],
         ["KYC_INVESTOR credential issued by Bari", true, "C"],
         ["Credential accepted by your account", true, "A"],
-        ["Euro token (EURc) enabled", true, "E"],
+        ["Dollar stablecoin (RLUSD) enabled", true, "E"],
         ["Fund shares enabled", true, "S"],
       ],
     );

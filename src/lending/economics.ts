@@ -40,7 +40,7 @@ function annualize(gain: bigint, capital: bigint, termDays: number): number {
   return (ratioPercent(gain, capital) * Number(DAYS_PER_YEAR)) / termDays;
 }
 
-/** Chiffres d'un prêt sur une facture de `invoice` unités EURc à `termDays` jours (défaut : facture type, 90 jours). */
+/** Chiffres d'un prêt sur une facture de `invoice` unités d'euro à `termDays` jours (défaut : facture type, 90 jours) ; montants en unités RLUSD. */
 export function theoreticalLoanEconomics(invoice?: bigint, termDays: number = INVOICE_TERM_DAYS): LoanEconomics {
   if (!Number.isInteger(termDays) || termDays <= 0) throw new Error(`Durée invalide : ${termDays} jours`);
   const { principal, originationFee, netAdvance } = loanTerms(invoice);

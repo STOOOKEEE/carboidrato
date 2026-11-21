@@ -8,6 +8,7 @@ import type { NetworkConfig } from "../../../config/network.js";
 import { produceInvoiceCertificate, type InvoiceCertificate } from "../../../invoice/certificate.js";
 import { DEMO_DEBTOR } from "../../../invoice/debtors.js";
 import { FakeLedger } from "../../../xrpl/fakeLedger.js";
+import { RLUSD_CURRENCY } from "../../../xrpl/stablecoin.js";
 import { releaseZkResources } from "../../../zk/index.js";
 import type { TxDetail } from "../../contract.js";
 import { makeErrorHandler } from "../errors.js";
@@ -18,6 +19,7 @@ const BATCH_HASH = "A".repeat(64);
 const ISSUANCE_HASH = "B".repeat(64);
 const ISSUANCE_ID = "C".repeat(48);
 const UNKNOWN_HASH = "D".repeat(64);
+const PAYMENT_HASH = "E".repeat(64);
 
 const sme = Wallet.generate();
 const bari = Wallet.generate();
@@ -31,6 +33,7 @@ const alphanet: NetworkConfig = {
   walletsFile: ".wallets.alphanet.json",
   explorerUrl: "https://devnet.xrpl.org",
   hasExplorer: false,
+  rlusdIssuer: undefined,
 };
 const devnet: NetworkConfig = { ...alphanet, hasExplorer: true };
 
@@ -84,6 +87,17 @@ function ledgerWithCertificate(): FakeLedger {
       TransactionResult: "tesSUCCESS",
       AffectedNodes: [{ CreatedNode: { LedgerEntryType: "MPTokenIssuance", LedgerIndex: ISSUANCE_ID, NewFields: {} } }],
     },
+  });
+  ledger.putTransaction({
+    hash: PAYMENT_HASH,
+    validated: true,
+    tx_json: {
+      TransactionType: "Payment",
+      Account: bari.address,
+      Destination: sme.address,
+      Amount: { currency: RLUSD_CURRENCY, issuer: registry.address, value: "8955.5" },
+    },
+    meta: { TransactionIndex: 2, TransactionResult: "tesSUCCESS", AffectedNodes: [] },
   });
   return ledger;
 }
@@ -154,6 +168,13 @@ describe("GET /api/tx/:hash", () => {
     assert.deepEqual(detail.fields, [{ name: "MaximumAmount", value: "1" }]);
     assert.equal(detail.certificate?.nullifier, certificate.nullifier);
     assert.equal(detail.explorerUrl, `https://devnet.xrpl.org/transactions/${ISSUANCE_HASH}`);
+    await app.close();
+  });
+
+  test("Payment RLUSD : montant affiché avec le code de devise en clair", async () => {
+    const app = await appFor(alphanet);
+    const detail = (await app.inject({ method: "GET", url: `/api/tx/${PAYMENT_HASH}` })).json<TxDetail>();
+    assert.deepEqual(detail.fields, [{ name: "Amount", value: "8955.5 RLUSD" }]);
     await app.close();
   });
 

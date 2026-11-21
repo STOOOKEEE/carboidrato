@@ -49,7 +49,7 @@ export interface ManagedAccount {
 /** Ouvre le compte XRPL d'un nouvel utilisateur (aucun pour un organisme public). */
 export type ProvisionAccount = (account: AccountProfile) => Promise<ManagedAccount | undefined>;
 
-/** Prix de revient d'un prêteur, en unités : parts suivies et EURc payés pour elles. */
+/** Prix de revient d'un prêteur, en unités : parts suivies et RLUSD payés pour elles. */
 export interface CostBasis {
   shares: bigint;
   cost: bigint;

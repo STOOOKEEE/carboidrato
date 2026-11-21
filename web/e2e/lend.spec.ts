@@ -1,4 +1,4 @@
-// Espace prêteur de bout en bout : euros de test, dépôt de 5 000 € puis sortie immédiate par Bari, sur le réseau.
+// Espace prêteur de bout en bout : RLUSD de test, dépôt de 5 000 RLUSD puis sortie immédiate par Bari, sur le réseau.
 
 import { expect, test } from "@playwright/test";
 import { capture } from "./capture";
@@ -11,7 +11,7 @@ const TX_LINK = 'a[href^="#/tx/"]';
 
 const unique = () => `${Date.now()}${Math.floor(Math.random() * 1_000)}`;
 
-test("a lender adds test euros, deposits 5,000 and withdraws through Bari", async ({ page }) => {
+test("a lender adds test RLUSD, deposits 5,000 and withdraws through Bari", async ({ page }) => {
   const balance = page.getByTestId("lend-balance");
   const history = page.getByTestId("lend-history");
 
@@ -29,43 +29,43 @@ test("a lender adds test euros, deposits 5,000 and withdraws through Bari", asyn
     expect(response.ok()).toBe(true);
     await page.goto("/#/lend");
     await expect(page.getByTestId("account-card")).toContainText("KYC_INVESTOR");
-    await expect(balance).toHaveText("€0.00");
+    await expect(balance).toHaveText("0.00 RLUSD");
     await expect(page.getByTestId("lend-shares")).toHaveText("0.00");
-    await expect(page.getByTestId("lend-position")).toContainText("Add test euros, then deposit them in the fund.");
+    await expect(page.getByTestId("lend-position")).toContainText("Add test RLUSD, then deposit them in the fund.");
     await expect(history).toContainText("Nothing yet in this session.");
     await capture(page, "lend-empty");
   });
 
-  await test.step("add test euros", async () => {
-    await page.getByRole("button", { name: "Add test euros" }).click();
+  await test.step("add test RLUSD", async () => {
+    await page.getByRole("button", { name: "Add test RLUSD" }).click();
     const done = page.getByTestId("lend-done-faucet");
-    await expect(done).toContainText("Received €10,000.00 of test euros", { timeout: TX_TIMEOUT_MS });
+    await expect(done).toContainText("Received 10,000.00 RLUSD of test funds", { timeout: TX_TIMEOUT_MS });
     await expect(done.locator(TX_LINK)).toBeVisible();
-    await expect(balance).toHaveText("€10,000.00");
+    await expect(balance).toHaveText("10,000.00 RLUSD");
   });
 
-  await test.step("deposit 5,000 EURc: fund shares arrive", async () => {
+  await test.step("deposit 5,000 RLUSD: fund shares arrive", async () => {
     const form = page.getByTestId("lend-deposit");
-    const amount = form.getByLabel("Amount in euros");
+    const amount = form.getByLabel("Amount in RLUSD");
     await amount.fill("20000");
-    await expect(form).toContainText("Above your balance of €10,000.00. Enter at most €10,000.00.");
+    await expect(form).toContainText("Above your balance of 10,000.00 RLUSD. Enter at most 10,000.00 RLUSD.");
     await amount.fill("5000");
     await expect(form).toContainText("Immediate, through Bari");
     await expect(form).toContainText("You receive");
     await form.getByRole("button", { name: "Deposit", exact: true }).click();
     const done = page.getByTestId("lend-done-deposit");
-    await expect(done).toContainText("Deposited €5,000.00", { timeout: TX_TIMEOUT_MS });
+    await expect(done).toContainText("Deposited 5,000.00 RLUSD", { timeout: TX_TIMEOUT_MS });
     await expect(done.locator(TX_LINK).first()).toBeVisible();
-    await expect(balance).toHaveText("€5,000.00");
+    await expect(balance).toHaveText("5,000.00 RLUSD");
     await expect(page.getByTestId("lend-shares")).not.toHaveText("0.00");
-    await expect(page.getByTestId("lend-value")).toHaveText(/^€(4,999\.\d\d|5,000\.00)$/);
+    await expect(page.getByTestId("lend-value")).toHaveText(/^(4,999\.\d\d|5,000\.00) RLUSD$/);
     await expect(page.getByTestId("lend-yield")).toContainText("% a year");
     await expect(history.locator("li")).toHaveCount(2);
-    await expect(history).toContainText("Deposited €5,000.00");
+    await expect(history).toContainText("Deposited 5,000.00 RLUSD");
     await capture(page, "lend");
   });
 
-  await test.step("withdraw every share now through Bari: EURc come back", async () => {
+  await test.step("withdraw every share now through Bari: RLUSD come back", async () => {
     const form = page.getByTestId("lend-withdraw");
     await form.getByRole("button", { name: "All my shares" }).click();
     await expect(form).toContainText("(0.5%)");
@@ -73,7 +73,7 @@ test("a lender adds test euros, deposits 5,000 and withdraws through Bari", asyn
     const done = page.getByTestId("lend-done-withdraw");
     await expect(done).toContainText("Sold", { timeout: TX_TIMEOUT_MS });
     await expect(page.getByTestId("lend-shares")).toHaveText("0.00");
-    await expect(balance).toHaveText(/^€9,9\d\d\.\d\d$/);
+    await expect(balance).toHaveText(/^9,9\d\d\.\d\d RLUSD$/);
     await expect(history.locator("li")).toHaveCount(3);
     await expect(history.locator(TX_LINK)).toHaveCount(3);
 

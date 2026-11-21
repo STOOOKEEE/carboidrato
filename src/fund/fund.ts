@@ -1,5 +1,6 @@
 // Fonds en place : le Vault fermé d'une cohorte (un millésime) et le LoanBroker de Bari qui prête son actif.
 
+import type { Stablecoin } from "../xrpl/stablecoin.js";
 import type { FundManifest } from "./fundManifest.js";
 
 export interface Cohort {
@@ -12,8 +13,8 @@ export interface Cohort {
 }
 
 export interface Fund {
-  /** Actif du Vault (EURc). */
-  assetId: string;
+  /** Actif du Vault : RLUSD en ligne de confiance. */
+  stablecoin: Stablecoin;
   domainId: string;
   cohort: Cohort;
   brokerId: string;

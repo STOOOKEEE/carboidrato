@@ -3,7 +3,7 @@ import type { FundPhase, LenderPosition } from "../../../../src/api/contract";
 import { formatDate, formatPercent } from "../../format";
 import { TRANSPARENCY_ROUTE } from "../../routes";
 import { Facts, type Fact } from "../../ui/Facts";
-import { formatEurUnits, formatSharePrice, utilisationPercent, type LendFund } from "./lend.machine";
+import { formatRlusdUnits, formatSharePrice, utilisationPercent, type LendFund } from "./lend.machine";
 
 function phaseLabel(phase: FundPhase, fund: LendFund | undefined): string {
   switch (phase) {
@@ -23,9 +23,9 @@ export function FundCard({ position, fund }: { position: LenderPosition; fund: L
   ];
   if (fund !== undefined) {
     facts.push(
-      { label: "In the fund", value: formatEurUnits(BigInt(fund.vault.assetsTotal)) },
+      { label: "In the fund", value: formatRlusdUnits(BigInt(fund.vault.assetsTotal)) },
       { label: "Lent to businesses", value: formatPercent(utilisationPercent(fund.vault)) },
-      { label: "First-loss cover from Bari", value: formatEurUnits(BigInt(fund.broker.coverAvailable)) },
+      { label: "First-loss cover from Bari", value: formatRlusdUnits(BigInt(fund.broker.coverAvailable)) },
       { label: "Invoices financed", value: String(fund.loans.length) },
     );
   }

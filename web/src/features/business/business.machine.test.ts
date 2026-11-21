@@ -72,9 +72,9 @@ const checks: LoanCheck[] = [
 const loan: FundingLoan = {
   txHash: "L0AN",
   loanId: "LOANID",
-  principalEur: 9_000,
-  feeEur: 45,
-  netAdvanceEur: 8_955,
+  principalRlusd: 9_000,
+  feeRlusd: 45,
+  netAdvanceRlusd: 8_955,
   dueDate: "2027-02-18T00:00:00.000Z",
   checks: [checks[0]],
 };
@@ -264,10 +264,10 @@ describe("invoiceRows", () => {
     },
   ];
 
-  test("plus récentes d'abord, montants en euros et net reçu", () => {
+  test("plus récentes d'abord, montants du prêt en RLUSD et net reçu", () => {
     const rows = invoiceRows(invoices);
     assert.deepEqual(
-      rows.map((row) => [row.id, row.status, row.advanceEur, row.feeEur, row.netEur]),
+      rows.map((row) => [row.id, row.status, row.advanceRlusd, row.feeRlusd, row.netRlusd]),
       [
         ["T2", "Financed", 9_000, 45, 8_955],
         ["T1", "Certified, not financed", undefined, undefined, undefined],

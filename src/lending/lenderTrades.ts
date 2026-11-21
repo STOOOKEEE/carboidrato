@@ -3,9 +3,10 @@
 
 import type { Payment, Wallet } from "xrpl";
 import type { Fund } from "../fund/fund.js";
-import { formatEur } from "../lib/amounts.js";
+import { formatRlusd } from "../lib/amounts.js";
 import type { PendingInner, SubmitBatch } from "../xrpl/batch.js";
 import { mptAmount } from "../xrpl/mpt.js";
+import { stablecoinAmount, stablecoinPayment } from "../xrpl/stablecoin.js";
 import type { SubmitTx, TxOutcome } from "../xrpl/submit.js";
 
 export interface TradeParties {
@@ -15,7 +16,7 @@ export interface TradeParties {
   lender: Wallet;
 }
 
-/** Un échange immédiat : `amount` EURc contre `shares` unités de part. */
+/** Un échange immédiat : `amount` unités RLUSD contre `shares` unités de part. */
 export interface ShareTrade {
   amount: bigint;
   shares: bigint;
@@ -33,10 +34,10 @@ export function depositToVault(
       TransactionType: "VaultDeposit",
       Account: depositor.address,
       VaultID: fund.cohort.vaultId,
-      Amount: mptAmount(fund.assetId, amount),
+      Amount: stablecoinAmount(fund.stablecoin, amount),
     },
     depositor,
-    `${label} (${formatEur(amount, 2)})`,
+    `${label} (${formatRlusd(amount, 2)})`,
   );
 }
 
@@ -59,12 +60,16 @@ export function withdrawFromVault(
   );
 }
 
-function payment(from: Wallet, to: Wallet, issuanceId: string, units: bigint, label: string): PendingInner {
-  const tx: Payment = { TransactionType: "Payment", Account: from.address, Destination: to.address, Amount: mptAmount(issuanceId, units) };
-  return { tx, label };
+function rlusdPayment(fund: Fund, from: Wallet, to: Wallet, units: bigint, label: string): PendingInner {
+  return { tx: stablecoinPayment(fund.stablecoin, from.address, to.address, units), label: `${label} (${formatRlusd(units, 2)})` };
 }
 
-/** Entrée immédiate : les EURc du prêteur et les parts du stock de Bari changent de main, ou rien ne bouge. */
+function sharePayment(fund: Fund, from: Wallet, to: Wallet, shares: bigint, label: string): PendingInner {
+  const tx: Payment = { TransactionType: "Payment", Account: from.address, Destination: to.address, Amount: mptAmount(fund.cohort.shareMptId, shares) };
+  return { tx, label: `${label} (${shares})` };
+}
+
+/** Entrée immédiate : les RLUSD du prêteur et les parts du stock de Bari changent de main, ou rien ne bouge. */
 export function buySharesFromBari(
   submitBatch: SubmitBatch,
   { fund, bari, lender }: TradeParties,
@@ -74,14 +79,14 @@ export function buySharesFromBari(
     bari,
     lender,
     [
-      payment(lender, bari, fund.assetId, trade.amount, `Payment EURc prêteur → bari (${formatEur(trade.amount, 2)})`),
-      payment(bari, lender, fund.cohort.shareMptId, trade.shares, `Payment parts bari → prêteur (${trade.shares})`),
+      rlusdPayment(fund, lender, bari, trade.amount, "Payment RLUSD prêteur → bari"),
+      sharePayment(fund, bari, lender, trade.shares, "Payment parts bari → prêteur"),
     ],
     "Batch entrée immédiate (tfAllOrNothing)",
   );
 }
 
-/** Sortie immédiate : Bari rachète les parts du prêteur sur sa réserve EURc. */
+/** Sortie immédiate : Bari rachète les parts du prêteur sur sa réserve RLUSD. */
 export function sellSharesToBari(
   submitBatch: SubmitBatch,
   { fund, bari, lender }: TradeParties,
@@ -91,8 +96,8 @@ export function sellSharesToBari(
     bari,
     lender,
     [
-      payment(lender, bari, fund.cohort.shareMptId, trade.shares, `Payment parts prêteur → bari (${trade.shares})`),
-      payment(bari, lender, fund.assetId, trade.amount, `Payment EURc bari → prêteur (${formatEur(trade.amount, 2)})`),
+      sharePayment(fund, lender, bari, trade.shares, "Payment parts prêteur → bari"),
+      rlusdPayment(fund, bari, lender, trade.amount, "Payment RLUSD bari → prêteur"),
     ],
     "Batch sortie immédiate (tfAllOrNothing)",
   );

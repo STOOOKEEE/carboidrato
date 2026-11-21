@@ -13,8 +13,8 @@ import type { FundingCertificate, FundingEvent, FundingLoan, FundingProof, Fundi
 const HTTP_CREATED = 201;
 const HTTP_CONFLICT = 409;
 const HTTP_UNPROCESSABLE = 422;
-/** EURc à 6 décimales. */
-const EURC_UNITS_PER_EUR = 1_000_000;
+/** RLUSD à 6 décimales. */
+const RLUSD_UNITS = 1_000_000;
 
 export type CertificateOutcome =
   | { kind: "issued"; certificate: FundingCertificate }
@@ -71,9 +71,9 @@ export function loanOutcome(status: number, payload: unknown): LoanOutcome {
     loan: {
       txHash: loan.txHash,
       loanId: loan.loanId,
-      principalEur: Number(loan.principal) / EURC_UNITS_PER_EUR,
-      feeEur: Number(loan.originationFee) / EURC_UNITS_PER_EUR,
-      netAdvanceEur: Number(loan.netAdvance) / EURC_UNITS_PER_EUR,
+      principalRlusd: Number(loan.principal) / RLUSD_UNITS,
+      feeRlusd: Number(loan.originationFee) / RLUSD_UNITS,
+      netAdvanceRlusd: Number(loan.netAdvance) / RLUSD_UNITS,
       dueDate: loan.dueDate,
       checks: loan.checks,
     },

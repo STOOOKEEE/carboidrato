@@ -22,7 +22,7 @@ describe("sharePrice", () => {
     assert.equal(perDisplayShare(price.assets, price.shares), 1_020_000n);
   });
 
-  test("Vault vide : une part au pair (une unité de part pour une unité d'EURc)", () => {
+  test("Vault vide : une part au pair (une unité de part pour une unité de RLUSD)", () => {
     const price = sharePrice({ assetsTotal: 0n, lossUnrealized: 0n, sharesOutstanding: 0n });
     assert.equal(perDisplayShare(price.assets, price.shares), SHARE_DISPLAY_UNITS);
     assert.equal(positionValue(price, 5n * EUR), 5n * EUR);
@@ -38,17 +38,17 @@ describe("sharePrice", () => {
 describe("cotations immédiates", () => {
   const price = { assets: 102n, shares: 100n };
 
-  test("entrée : EURc → parts au prix de la part, arrondi en faveur du fonds", () => {
+  test("entrée : RLUSD → parts au prix de la part, arrondi en faveur du fonds", () => {
     assert.equal(entryShares(price, 1_020n), 1_000n);
     assert.equal(entryShares(price, 1_021n), 1_000n);
   });
 
-  test("sortie : parts → EURc au prix de la part −0,5 %", () => {
+  test("sortie : parts → RLUSD au prix de la part −0,5 %", () => {
     assert.equal(exitPayout(price, 1_000n), 1_014n);
     assert.equal(exitPayout(price, 100n * EUR), 101_490_000n);
   });
 
-  test("plafonds : stock de parts de Bari à l'entrée, réserve EURc de Bari à la sortie", () => {
+  test("plafonds : stock de parts de Bari à l'entrée, réserve RLUSD de Bari à la sortie", () => {
     const limits = immediateLimits(price, { shareStock: 1_000n, reserve: 1_014n });
     assert.equal(limits.maxEntryAmount, 1_020n);
     assert.ok(entryShares(price, limits.maxEntryAmount) <= 1_000n);

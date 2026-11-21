@@ -1,4 +1,4 @@
-// Espace prêteur : position et rendement, euros de test, dépôt et retrait par le compte géré, natifs pendant la
+// Espace prêteur : position et rendement, RLUSD de test, dépôt et retrait par le compte géré, natifs pendant la
 // souscription et le rachat, immédiats par Bari (Batch atomique) pendant la période de prêt où le Vault fermé refuse.
 
 import type { FastifyInstance } from "fastify";
@@ -17,10 +17,10 @@ import {
   type SharePrice,
 } from "../../../fund/sharePrice.js";
 import { buySharesFromBari, depositToVault, sellSharesToBari, withdrawFromVault } from "../../../lending/lenderTrades.js";
-import { eurToUnits, formatEur, parseUnits } from "../../../lib/amounts.js";
+import { formatRlusd, parseUnits, rlusdToUnits } from "../../../lib/amounts.js";
 import { TENTH_BIPS_PER_PERCENT } from "../../../lib/rates.js";
 import { clientBatchSubmitter, type SubmitBatch } from "../../../xrpl/batch.js";
-import { mptAmount } from "../../../xrpl/mpt.js";
+import { stablecoinPayment, valueToUnits } from "../../../xrpl/stablecoin.js";
 import { clientSubmitter, type SubmitTx } from "../../../xrpl/submit.js";
 import type {
   LenderFaucetResponse,
@@ -40,8 +40,8 @@ import type { FundState } from "../stateStore.js";
 const HTTP_FORBIDDEN = 403;
 const HTTP_CONFLICT = 409;
 const HTTP_UNPROCESSABLE = 422;
-const FAUCET_EUR = 10_000;
-/** NetworkID du mainnet : le faucet d'euros de test y est refusé. */
+const FAUCET_RLUSD = 10_000;
+/** NetworkID du mainnet : le faucet de RLUSD de test y est refusé. */
 const MAINNET_NETWORK_ID = 0;
 
 const ENTRY_ROUTES: Record<FundPhase, LenderTradeRoute | null> = {
@@ -73,7 +73,7 @@ interface Market {
   price: SharePrice;
   yieldTenthBips: number;
   shares: bigint;
-  eurc: bigint;
+  rlusd: bigint;
   limits: ImmediateLimits;
 }
 
@@ -86,7 +86,7 @@ async function activeLoans(context: ApiContext, broker: LedgerEntry.LoanBroker) 
   const entries = await context.ledger.accountObjects(broker.Account, "loan");
   return entries
     .filter((entry): entry is LedgerEntry.Loan => entry.LedgerEntryType === "Loan" && entry.LoanBrokerID === broker.index)
-    .map((loan) => ({ principalOutstanding: parseUnits(loan.PrincipalOutstanding), interestRate: loan.InterestRate ?? 0 }));
+    .map((loan) => ({ principalOutstanding: valueToUnits(loan.PrincipalOutstanding), interestRate: loan.InterestRate ?? 0 }));
 }
 
 async function readMarket(context: ApiContext, state: FundState, address: string): Promise<Market> {
@@ -94,21 +94,21 @@ async function readMarket(context: ApiContext, state: FundState, address: string
   const { fund } = state;
   const bari = context.actors.bari.address;
   const { shareMptId } = fund.cohort;
-  const [time, vault, issuance, broker, shares, eurc, shareStock, reserve] = await Promise.all([
+  const [time, vault, issuance, broker, shares, rlusd, shareStock, reserve] = await Promise.all([
     ledger.closeTime(),
     ledger.vault(fund.cohort.vaultId),
     ledger.mptIssuance(shareMptId),
     ledger.loanBroker(fund.brokerId),
     ledger.mptBalance(shareMptId, address),
-    ledger.mptBalance(fund.assetId, address),
+    ledger.stablecoinBalance(fund.stablecoin, address),
     ledger.mptBalance(shareMptId, bari),
-    ledger.mptBalance(fund.assetId, bari),
+    ledger.stablecoinBalance(fund.stablecoin, bari),
   ]);
   if (issuance === undefined) throw new Error(`Émission des parts introuvable : ${shareMptId}`);
-  const assetsTotal = parseUnits(vault.AssetsTotal);
+  const assetsTotal = valueToUnits(vault.AssetsTotal);
   const price = sharePrice({
     assetsTotal,
-    lossUnrealized: parseUnits(vault.LossUnrealized),
+    lossUnrealized: valueToUnits(vault.LossUnrealized),
     sharesOutstanding: parseUnits(issuance.OutstandingAmount),
   });
   const phase = phaseAt(time, state);
@@ -117,16 +117,16 @@ async function readMarket(context: ApiContext, state: FundState, address: string
     price,
     yieldTenthBips: variableYieldTenthBips(await activeLoans(context, broker), broker.ManagementFeeRate ?? 0, assetsTotal),
     shares,
-    eurc,
+    rlusd,
     limits: immediateLimits(price, { shareStock, reserve }),
   };
 }
 
-function entryLimit({ phase, eurc, limits }: Market): LenderTradeLimit {
+function entryLimit({ phase, rlusd, limits }: Market): LenderTradeLimit {
   const route = ENTRY_ROUTES[phase];
   if (route === null) return { route, max: "0" };
-  if (route === "native") return { route, max: eurc.toString() };
-  const max = eurc < limits.maxEntryAmount ? eurc : limits.maxEntryAmount;
+  if (route === "native") return { route, max: rlusd.toString() };
+  const max = rlusd < limits.maxEntryAmount ? rlusd : limits.maxEntryAmount;
   return { route, max: max.toString(), bariCap: limits.maxEntryAmount.toString() };
 }
 
@@ -158,7 +158,7 @@ export function registerLenderRoutes(app: FastifyInstance, context: ApiContext, 
       gain: (value - basis.cost).toString(),
       sharePrice: perDisplayShare(market.price.assets, market.price.shares).toString(),
       variableYieldPercent: market.yieldTenthBips / TENTH_BIPS_PER_PERCENT,
-      eurcBalance: market.eurc.toString(),
+      rlusdBalance: market.rlusd.toString(),
       entry: entryLimit(market),
       exit: exitLimit(market),
       immediateExitDiscountPercent: IMMEDIATE_EXIT_DISCOUNT_PERCENT,
@@ -168,17 +168,20 @@ export function registerLenderRoutes(app: FastifyInstance, context: ApiContext, 
   app.post("/api/lender/faucet", { preHandler }, async (request): Promise<LenderFaucetResponse> => {
     const networkId = context.ledger.networkId();
     if (networkId === undefined || networkId === MAINNET_NETWORK_ID) {
-      throw new HttpError(HTTP_FORBIDDEN, "Test euros are only available on a test network");
+      throw new HttpError(HTTP_FORBIDDEN, "Test RLUSD are only available on a test network");
     }
     const lender = lenderWallet(sessionUser(request, "lender"));
     const { fund } = requireFund(context);
     const issuer = context.actors.stable_issuer;
-    const amount = eurToUnits(FAUCET_EUR);
+    if (fund.stablecoin.issuer !== issuer.address) {
+      throw new HttpError(HTTP_FORBIDDEN, "Test RLUSD are only available from Bari's test issuer");
+    }
+    const amount = rlusdToUnits(FAUCET_RLUSD);
     const { result, transactions } = await context.operations.run("lender.faucet", () =>
       ports.submit(
-        { TransactionType: "Payment", Account: issuer.address, Destination: lender.address, Amount: mptAmount(fund.assetId, amount) },
+        stablecoinPayment(fund.stablecoin, issuer.address, lender.address, amount),
         issuer,
-        `Payment EURc de test → prêteur (${formatEur(amount, 2)})`,
+        `Payment RLUSD de test → prêteur (${formatRlusd(amount, 2)})`,
       ),
     );
     return { hash: result.hash, amount: amount.toString(), transactions };
@@ -197,14 +200,14 @@ export function registerLenderRoutes(app: FastifyInstance, context: ApiContext, 
         const market = await readMarket(context, state, lender.address);
         const route = ENTRY_ROUTES[market.phase];
         if (route === null) refuse("Deposits are closed: the fund is in its redemption phase");
-        if (amount > market.eurc) refuse(`Amount above your EURc balance (${market.eurc} units)`);
+        if (amount > market.rlusd) refuse(`Amount above your RLUSD balance (${market.rlusd} units)`);
         if (route === "native") {
           const { hash } = await depositToVault(ports.submit, fund, lender, amount);
           const shares = (await context.ledger.mptBalance(fund.cohort.shareMptId, lender.address)) - market.shares;
           return { hash, route, phase: market.phase, shares };
         }
         if (amount > market.limits.maxEntryAmount) {
-          refuse(`Amount above the immediate entry cap (${market.limits.maxEntryAmount} EURc units of Bari's share stock)`);
+          refuse(`Amount above the immediate entry cap (${market.limits.maxEntryAmount} RLUSD units of Bari's share stock)`);
         }
         const shares = entryShares(market.price, amount);
         if (shares === 0n) refuse("Amount too small to buy a share unit");
@@ -231,14 +234,14 @@ export function registerLenderRoutes(app: FastifyInstance, context: ApiContext, 
         if (shares > market.shares) refuse(`Amount above your share balance (${market.shares} units)`);
         if (route === "native") {
           const { hash } = await withdrawFromVault(ports.submit, fund, lender, shares);
-          const amount = (await context.ledger.mptBalance(fund.assetId, lender.address)) - market.eurc;
+          const amount = (await context.ledger.stablecoinBalance(fund.stablecoin, lender.address)) - market.rlusd;
           return { hash, route, phase: market.phase, amount };
         }
         if (shares > market.limits.maxExitShares) {
-          refuse(`Amount above the immediate exit cap (${market.limits.maxExitShares} share units covered by Bari's EURc reserve)`);
+          refuse(`Amount above the immediate exit cap (${market.limits.maxExitShares} share units covered by Bari's RLUSD reserve)`);
         }
         const amount = exitPayout(market.price, shares);
-        if (amount === 0n) refuse("Amount too small to receive an EURc unit");
+        if (amount === 0n) refuse("Amount too small to receive a RLUSD unit");
         const { hash } = await sellSharesToBari(ports.submitBatch, { fund, bari: context.actors.bari, lender }, { amount, shares });
         return { hash, route, phase: market.phase, amount };
       });

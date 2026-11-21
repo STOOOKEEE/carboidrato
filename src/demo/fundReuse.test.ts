@@ -14,7 +14,7 @@ const DURING_INVESTMENT = SUBSCRIPTION_DATE + 60;
 function fundState(change: Partial<FundState> = {}): FundState {
   return {
     fund: {
-      assetId: "ASSET",
+      stablecoin: { currency: "RLUSD", issuer: "rIssuer" },
       domainId: "DOMAIN",
       cohort: { vaultId: "VAULT", shareMptId: "SHARES", subscriptionDate: SUBSCRIPTION_DATE, redemptionDate: REDEMPTION_DATE },
       brokerId: "BROKER",

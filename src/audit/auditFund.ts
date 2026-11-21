@@ -10,16 +10,17 @@ import type { LoanReference } from "../fund/loanData.js";
 import { listLoanRecords, type LoanRecord } from "../fund/loanRecords.js";
 import type { CertificateMetadata } from "../invoice/certificateMetadata.js";
 import { describeVerdict, type ProofVerdict } from "../invoice/proofVerification.js";
-import { formatEur, formatPercent, parseUnits, ratioPercent } from "../lib/amounts.js";
+import { formatPercent, formatRlusd, ratioPercent } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
 import { xrplLedger, type Ledger } from "../xrpl/ledger.js";
 import { findEntry, getLoanBroker, getVault, listAccountObjects } from "../xrpl/ledgerEntries.js";
+import { valueToUnits } from "../xrpl/stablecoin.js";
 
 const CUSTODY_PROBLEM = "prêt en cours sans MPT facture chez Bari";
 
 export type LoanStatus = "en défaut" | "déprécié" | "en cours" | "remboursé";
 
-/** Résultat de l'audit d'un prêt. Montants en unités EURc. */
+/** Résultat de l'audit d'un prêt. Montants en unités RLUSD. */
 export interface LoanAudit {
   loanId: string;
   loanSequence: number;
@@ -115,7 +116,7 @@ async function auditLoan(
     nextPaymentDueDate: record.loan.NextPaymentDueDate,
   };
   log.info(
-    `prêt #${record.loan.LoanSequence} ${record.loanId} · LoanSet ${record.loanSetHash} · principal ${formatEur(record.principal, 2)} · restant dû ${formatEur(record.outstanding, 2)} · ${status}`,
+    `prêt #${record.loan.LoanSequence} ${record.loanId} · LoanSet ${record.loanSetHash} · principal ${formatRlusd(record.principal, 2)} · restant dû ${formatRlusd(record.outstanding, 2)} · ${status}`,
   );
   if (record.reference instanceof Error) {
     const problem = `Data illisible : ${record.reference.message}`;
@@ -170,7 +171,7 @@ function auditConcentration(records: readonly LoanRecord[], fundAssets: bigint):
   log.info(
     limit === undefined
       ? "concentration : fonds clos (actif nul), plafond sur l'encours sans objet"
-      : `concentration : plafond ${formatPercent(MAX_DEBTOR_CONCENTRATION_PERCENT)} de l'actif (${formatEur(fundAssets, 2)}) = ${formatEur(limit, 2)} par débiteur`,
+      : `concentration : plafond ${formatPercent(MAX_DEBTOR_CONCENTRATION_PERCENT)} de l'actif (${formatRlusd(fundAssets, 2)}) = ${formatRlusd(limit, 2)} par débiteur`,
   );
   let anomalies = 0;
   const exposures: ConcentrationAudit["exposures"] = [];
@@ -180,7 +181,7 @@ function auditConcentration(records: readonly LoanRecord[], fundAssets: bigint):
     if (breach) anomalies += 1;
     exposures.push({ ...exposure, breach });
     log.info(
-      `  P=${exposure.pseudonym.slice(0, 16)}… : ${exposure.loans} prêt(s), prêté ${formatEur(exposure.financed, 2)}, encours ${formatEur(exposure.outstanding, 2)}${share} ${breach ? "✗" : "✓"}`,
+      `  P=${exposure.pseudonym.slice(0, 16)}… : ${exposure.loans} prêt(s), prêté ${formatRlusd(exposure.financed, 2)}, encours ${formatRlusd(exposure.outstanding, 2)}${share} ${breach ? "✗" : "✓"}`,
     );
   }
   return { limit, exposures, anomalies };
@@ -199,10 +200,12 @@ export async function auditKnownFund(ledger: Ledger, vaultId: string, brokerId: 
 
 async function auditResolvedFund(ledger: Ledger, fund: AuditedFund): Promise<AuditResult> {
   const manifest = decodeFundManifest(fund.vault.Data);
-  const fundAssets = parseUnits(fund.vault.AssetsTotal);
+  const fundAssets = valueToUnits(fund.vault.AssetsTotal);
+  const coverAvailable = valueToUnits(fund.broker.CoverAvailable);
+  const debtTotal = valueToUnits(fund.broker.DebtTotal);
   log.info(`Vault ${fund.vaultId} · LoanBroker ${fund.brokerId} · propriétaire ${fund.broker.Owner}`);
   log.info(`fiche du fonds (Data du Vault) : racine ${manifest.debtorsRoot}, millésime ${manifest.vintage}, registre ${manifest.registry}`);
-  log.info(`actif du fonds ${formatEur(fundAssets)} · first-loss ${formatEur(parseUnits(fund.broker.CoverAvailable))} · dette ${formatEur(parseUnits(fund.broker.DebtTotal))}`);
+  log.info(`actif du fonds ${formatRlusd(fundAssets)} · first-loss ${formatRlusd(coverAvailable)} · dette ${formatRlusd(debtTotal)}`);
 
   const records = await listLoanRecords(ledger, fund.brokerId);
   const loanAudits: LoanAudit[] = [];
@@ -224,8 +227,8 @@ async function auditResolvedFund(ledger: Ledger, fund: AuditedFund): Promise<Aud
     owner: fund.broker.Owner,
     manifest,
     fundAssets,
-    coverAvailable: parseUnits(fund.broker.CoverAvailable),
-    debtTotal: parseUnits(fund.broker.DebtTotal),
+    coverAvailable,
+    debtTotal,
     loanAudits,
     uniqueness,
     concentration,

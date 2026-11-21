@@ -82,7 +82,7 @@ test("a business drops a signed invoice, gets paid now, and cannot finance it tw
       loanId = loan.loanId;
       expect(loan.transactions.map((tx) => tx.result)).toEqual(loan.transactions.map(() => "tesSUCCESS"));
 
-      await expect(page.getByTestId("business-funded")).toContainText("8,955");
+      await expect(page.getByTestId("business-funded")).toContainText("8,955.00 RLUSD");
       const steps = page.getByTestId("funding-steps");
       await expect(steps.locator("li.done")).toHaveCount(4);
       await expect(steps.locator('li[data-step="proof"]')).toContainText(/in \d+\.\d s/);
@@ -90,7 +90,7 @@ test("a business drops a signed invoice, gets paid now, and cannot finance it tw
       await expect(page.getByTestId("bari-checks").locator(".check")).toHaveCount(6);
       await expect(page.getByTestId("bari-checks").locator(".check.fail")).toHaveCount(0);
       await expect(page.getByTestId("my-invoices").locator("tbody tr").first()).toContainText("Financed");
-      await expect(page.getByTestId("my-invoices")).toContainText("€8,955.00");
+      await expect(page.getByTestId("my-invoices")).toContainText("8,955.00 RLUSD");
       await capture(page, "business-funded");
     });
 

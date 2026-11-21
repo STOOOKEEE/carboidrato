@@ -8,6 +8,7 @@ import type { Fund } from "../../../fund/fund.js";
 import { exitPayout, immediateLimits } from "../../../fund/sharePrice.js";
 import { FakeLedger } from "../../../xrpl/fakeLedger.js";
 import type { PendingInner } from "../../../xrpl/batch.js";
+import { RLUSD_CURRENCY, unitsToValue, valueToUnits, type Stablecoin } from "../../../xrpl/stablecoin.js";
 import type { TxOutcome } from "../../../xrpl/submit.js";
 import type { LenderFaucetResponse, LenderPosition, LenderTradeResponse } from "../../contract.js";
 import { buildApp } from "../app.js";
@@ -19,9 +20,9 @@ const HTTP_FORBIDDEN = 403;
 const HTTP_NOT_FOUND = 404;
 const HTTP_UNPROCESSABLE = 422;
 const PASSWORD = "correct horse battery";
-const EUR = 1_000_000n;
+/** 1 RLUSD en unités (6 décimales) ; une part affichée vaut aussi 10^6 unités de part. */
+const RLUSD = 1_000_000n;
 
-const ASSET_ID = "0A".repeat(24);
 const SHARE_ID = "0B".repeat(24);
 const VAULT_ID = "0C".repeat(32);
 const BROKER_ID = "0D".repeat(32);
@@ -46,8 +47,9 @@ const context = fakeContext({
   },
 });
 const { bari, stable_issuer: stableIssuer } = context.actors;
+const asset: Stablecoin = { currency: RLUSD_CURRENCY, issuer: stableIssuer.address };
 const fund = {
-  assetId: ASSET_ID,
+  stablecoin: asset,
   domainId: "0E".repeat(32),
   brokerId: BROKER_ID,
   cohort: { vaultId: VAULT_ID, shareMptId: SHARE_ID, subscriptionDate: SUBSCRIPTION_END, redemptionDate: REDEMPTION_START },
@@ -62,15 +64,15 @@ const lender = () => {
   return wallet;
 };
 
-/** Faux nœud : un VaultDeposit / VaultWithdraw au pair déplace les soldes, comme le ferait le ledger. */
+/** Faux nœud : un VaultDeposit (RLUSD) ou un VaultWithdraw (parts) au pair déplace les soldes, comme le ferait le ledger. */
 async function fakeSubmit(tx: SubmittableTransaction, wallet: Wallet): Promise<TxOutcome> {
   sent.push({ tx, signer: wallet.address });
   if ((tx.TransactionType === "VaultDeposit" || tx.TransactionType === "VaultWithdraw") && typeof tx.Amount === "object") {
-    const amount = BigInt(tx.Amount.value);
+    const units = "mpt_issuance_id" in tx.Amount ? BigInt(tx.Amount.value) : valueToUnits(tx.Amount.value);
     const sign = tx.TransactionType === "VaultDeposit" ? 1n : -1n;
-    const [shares, eurc] = await Promise.all([ledger.mptBalance(SHARE_ID, tx.Account), ledger.mptBalance(ASSET_ID, tx.Account)]);
-    ledger.putMptBalance(SHARE_ID, tx.Account, shares + sign * amount);
-    ledger.putMptBalance(ASSET_ID, tx.Account, eurc - sign * amount);
+    const [shares, balance] = await Promise.all([ledger.mptBalance(SHARE_ID, tx.Account), ledger.stablecoinBalance(asset, tx.Account)]);
+    ledger.putMptBalance(SHARE_ID, tx.Account, shares + sign * units);
+    ledger.putStablecoinBalance(asset, tx.Account, balance - sign * units);
   }
   return outcome;
 }
@@ -85,10 +87,10 @@ function putVault(assetsTotal: bigint, lossUnrealized: bigint, sharesOutstanding
     OwnerNode: "0",
     Owner: bari.address,
     Account: Wallet.generate().address,
-    Asset: { mpt_issuance_id: ASSET_ID },
-    AssetsTotal: assetsTotal.toString(),
-    AssetsAvailable: assetsTotal.toString(),
-    LossUnrealized: lossUnrealized.toString(),
+    Asset: { currency: asset.currency, issuer: asset.issuer },
+    AssetsTotal: unitsToValue(assetsTotal),
+    AssetsAvailable: unitsToValue(assetsTotal),
+    LossUnrealized: unitsToValue(lossUnrealized),
     ShareMPTID: SHARE_ID,
     WithdrawalPolicy: 1,
     PreviousTxnID: TX_HASH,
@@ -122,23 +124,23 @@ const activeLoan: LedgerEntry.Loan = {
   GracePeriod: 60,
   NextPaymentDueDate: 3_000,
   PaymentRemaining: 1,
-  TotalValueOutstanding: "9100000000",
-  PrincipalOutstanding: (9_000n * EUR).toString(),
-  PeriodicPayment: "9100000000",
+  TotalValueOutstanding: "9100",
+  PrincipalOutstanding: "9000",
+  PeriodicPayment: "9100",
   PreviousTxnID: TX_HASH,
   PreviousTxnLgrSeq: 1,
 };
 
-/** Fonds à 1,02 € la part : 103 000 € d'actifs, 1 000 € de perte latente, 100 000 parts affichées. */
-function resetMarket(phase: keyof typeof PHASE_TIME, bariReserve = 5_000n * EUR): void {
+/** Fonds à 1,02 RLUSD la part : 103 000 RLUSD d'actifs, 1 000 de perte latente, 100 000 parts affichées. */
+function resetMarket(phase: keyof typeof PHASE_TIME, bariReserve = 5_000n * RLUSD): void {
   sent.length = 0;
   batches.length = 0;
   ledger.setCloseTime(PHASE_TIME[phase]);
-  putVault(103_000n * EUR, 1_000n * EUR, 100_000n * EUR);
-  ledger.putMptBalance(ASSET_ID, lender().address, 20_000n * EUR);
-  ledger.putMptBalance(SHARE_ID, lender().address, 1_000n * EUR);
-  ledger.putMptBalance(SHARE_ID, bari.address, 10_000n * EUR);
-  ledger.putMptBalance(ASSET_ID, bari.address, bariReserve);
+  putVault(103_000n * RLUSD, 1_000n * RLUSD, 100_000n * RLUSD);
+  ledger.putStablecoinBalance(asset, lender().address, 20_000n * RLUSD);
+  ledger.putMptBalance(SHARE_ID, lender().address, 1_000n * RLUSD);
+  ledger.putMptBalance(SHARE_ID, bari.address, 10_000n * RLUSD);
+  ledger.putStablecoinBalance(asset, bari.address, bariReserve);
 }
 
 async function signup(body: object): Promise<string> {
@@ -226,29 +228,36 @@ describe("GET /api/lender/position", () => {
   test("parts, valeur au prix de la part, rendement variable, plafonds de Bari", async () => {
     const response = await get("/api/lender/position", sessions.lender);
     assert.equal(response.statusCode, HTTP_OK, response.body);
-    const { maxExitShares } = immediateLimits({ assets: 102_000n * EUR, shares: 100_000n * EUR }, { shareStock: 0n, reserve: 5_000n * EUR });
+    const { maxExitShares } = immediateLimits({ assets: 102_000n * RLUSD, shares: 100_000n * RLUSD }, { shareStock: 0n, reserve: 5_000n * RLUSD });
     assert.deepEqual(response.json<LenderPosition>(), {
       phase: "investment",
-      shares: (1_000n * EUR).toString(),
-      value: (1_020n * EUR).toString(),
+      shares: (1_000n * RLUSD).toString(),
+      value: (1_020n * RLUSD).toString(),
       costBasis: "0",
-      gain: (1_020n * EUR).toString(),
+      gain: (1_020n * RLUSD).toString(),
       sharePrice: "1020000",
-      // 9 000 € à 6 % × (1 − 1 %) / 103 000 € d'actifs ; le prêt soldé ne compte pas.
+      // 9 000 RLUSD à 6 % × (1 − 1 %) / 103 000 RLUSD d'actifs ; le prêt soldé ne compte pas.
       variableYieldPercent: 0.519,
-      eurcBalance: (20_000n * EUR).toString(),
-      entry: { route: "immediate", max: (10_200n * EUR).toString(), bariCap: (10_200n * EUR).toString() },
-      exit: { route: "immediate", max: (1_000n * EUR).toString(), bariCap: maxExitShares.toString() },
+      rlusdBalance: (20_000n * RLUSD).toString(),
+      entry: { route: "immediate", max: (10_200n * RLUSD).toString(), bariCap: (10_200n * RLUSD).toString() },
+      exit: { route: "immediate", max: (1_000n * RLUSD).toString(), bariCap: maxExitShares.toString() },
       immediateExitDiscountPercent: 0.5,
     });
+  });
+
+  test("actifs du Vault au-delà de 6 décimales : arrondis à l'unité", async () => {
+    putVault(103_000n * RLUSD, 1_000n * RLUSD, 100_000n * RLUSD);
+    ledger.putVault({ ...(await ledger.vault(VAULT_ID)), AssetsTotal: "103000.0000004" });
+    const position = (await get("/api/lender/position", sessions.lender)).json<LenderPosition>();
+    assert.equal(position.sharePrice, "1020000");
   });
 
   test("pendant la souscription : chemin natif, plafond = solde du prêteur", async () => {
     resetMarket("subscription");
     const position = (await get("/api/lender/position", sessions.lender)).json<LenderPosition>();
     assert.equal(position.phase, "subscription");
-    assert.deepEqual(position.entry, { route: "native", max: (20_000n * EUR).toString() });
-    assert.deepEqual(position.exit, { route: "native", max: (1_000n * EUR).toString() });
+    assert.deepEqual(position.entry, { route: "native", max: (20_000n * RLUSD).toString() });
+    assert.deepEqual(position.exit, { route: "native", max: (1_000n * RLUSD).toString() });
   });
 
   test("pendant le rachat : dépôt fermé, retrait natif", async () => {
@@ -260,33 +269,33 @@ describe("GET /api/lender/position", () => {
 });
 
 describe("POST /api/lender/deposit", () => {
-  test("souscription : VaultDeposit natif signé par le compte géré, prix de revient suivi", async () => {
+  test("souscription : VaultDeposit natif de RLUSD signé par le compte géré, prix de revient suivi", async () => {
     resetMarket("subscription");
     // Vault au pair pendant la souscription.
-    putVault(100_000n * EUR, 0n, 100_000n * EUR);
-    const response = await post("/api/lender/deposit", { amount: (2_000n * EUR).toString() }, sessions.lender);
+    putVault(100_000n * RLUSD, 0n, 100_000n * RLUSD);
+    const response = await post("/api/lender/deposit", { amount: (2_000n * RLUSD).toString() }, sessions.lender);
     assert.equal(response.statusCode, HTTP_OK, response.body);
     const body = response.json<LenderTradeResponse>();
     assert.equal(body.route, "native");
     assert.equal(body.hash, TX_HASH);
-    assert.equal(body.shares, (2_000n * EUR).toString());
+    assert.equal(body.shares, (2_000n * RLUSD).toString());
     assert.deepEqual(body.transactions, []);
     assert.deepEqual(
-      sent.map(({ tx, signer }) => [tx.TransactionType, signer]),
-      [["VaultDeposit", lender().address]],
+      sent.map(({ tx, signer }) => [tx.TransactionType, signer, "Amount" in tx ? tx.Amount : undefined]),
+      [["VaultDeposit", lender().address, { currency: RLUSD_CURRENCY, issuer: asset.issuer, value: "2000" }]],
     );
     assert.equal(batches.length, 0);
     const position = (await get("/api/lender/position", sessions.lender)).json<LenderPosition>();
-    assert.equal(position.costBasis, (2_000n * EUR).toString());
+    assert.equal(position.costBasis, (2_000n * RLUSD).toString());
     assert.equal(position.averageCost, "1000000");
   });
 
-  test("période de prêt : Batch de deux Payment (EURc → Bari, parts de Bari → prêteur) au prix de la part", async () => {
+  test("période de prêt : Batch de deux Payment (RLUSD → Bari, parts de Bari → prêteur) au prix de la part", async () => {
     resetMarket("investment");
-    const response = await post("/api/lender/deposit", { amount: (1_020n * EUR).toString() }, sessions.lender);
+    const response = await post("/api/lender/deposit", { amount: (1_020n * RLUSD).toString() }, sessions.lender);
     assert.equal(response.statusCode, HTTP_OK, response.body);
     const body = response.json<LenderTradeResponse>();
-    assert.deepEqual([body.route, body.amount, body.shares], ["immediate", (1_020n * EUR).toString(), (1_000n * EUR).toString()]);
+    assert.deepEqual([body.route, body.amount, body.shares], ["immediate", (1_020n * RLUSD).toString(), (1_000n * RLUSD).toString()]);
     assert.equal(sent.length, 0);
     assert.equal(batches.length, 1);
     const [batch] = batches;
@@ -294,31 +303,31 @@ describe("POST /api/lender/deposit", () => {
     assert.deepEqual(
       batch.inner.map(({ tx }) => (tx.TransactionType === "Payment" ? [tx.Account, tx.Destination, tx.Amount] : tx.TransactionType)),
       [
-        [lender().address, bari.address, { mpt_issuance_id: ASSET_ID, value: (1_020n * EUR).toString() }],
-        [bari.address, lender().address, { mpt_issuance_id: SHARE_ID, value: (1_000n * EUR).toString() }],
+        [lender().address, bari.address, { currency: RLUSD_CURRENCY, issuer: asset.issuer, value: "1020" }],
+        [bari.address, lender().address, { mpt_issuance_id: SHARE_ID, value: (1_000n * RLUSD).toString() }],
       ],
     );
   });
 
   test("au-delà du stock de parts de Bari → 422, rien n'est soumis", async () => {
     resetMarket("investment");
-    const response = await post("/api/lender/deposit", { amount: (10_201n * EUR).toString() }, sessions.lender);
+    const response = await post("/api/lender/deposit", { amount: (10_201n * RLUSD).toString() }, sessions.lender);
     assert.equal(response.statusCode, HTTP_UNPROCESSABLE);
     assert.match(response.json<{ error: string }>().error, /immediate entry cap/);
     assert.equal(batches.length + sent.length, 0);
   });
 
-  test("au-delà du solde EURc → 422", async () => {
+  test("au-delà du solde RLUSD → 422", async () => {
     resetMarket("subscription");
-    const response = await post("/api/lender/deposit", { amount: (20_001n * EUR).toString() }, sessions.lender);
+    const response = await post("/api/lender/deposit", { amount: (20_001n * RLUSD).toString() }, sessions.lender);
     assert.equal(response.statusCode, HTTP_UNPROCESSABLE);
-    assert.match(response.json<{ error: string }>().error, /EURc balance/);
+    assert.match(response.json<{ error: string }>().error, /RLUSD balance/);
     assert.equal(sent.length, 0);
   });
 
   test("pendant le rachat → 422, montant invalide → 400", async () => {
     resetMarket("redemption");
-    const closed = await post("/api/lender/deposit", { amount: EUR.toString() }, sessions.lender);
+    const closed = await post("/api/lender/deposit", { amount: RLUSD.toString() }, sessions.lender);
     assert.equal(closed.statusCode, HTTP_UNPROCESSABLE);
     assert.equal((await post("/api/lender/deposit", { amount: "-5" }, sessions.lender)).statusCode, 400);
     assert.equal(sent.length, 0);
@@ -326,27 +335,27 @@ describe("POST /api/lender/deposit", () => {
 });
 
 describe("POST /api/lender/withdraw", () => {
-  test("période de prêt : Batch de deux Payment (parts → Bari, EURc de Bari → prêteur) à −0,5 %", async () => {
+  test("période de prêt : Batch de deux Payment (parts → Bari, RLUSD de Bari → prêteur) à −0,5 %", async () => {
     resetMarket("investment");
-    const shares = 500n * EUR;
+    const shares = 500n * RLUSD;
     const response = await post("/api/lender/withdraw", { amount: shares.toString() }, sessions.lender);
     assert.equal(response.statusCode, HTTP_OK, response.body);
     const body = response.json<LenderTradeResponse>();
-    const payout = exitPayout({ assets: 102_000n * EUR, shares: 100_000n * EUR }, shares);
+    const payout = exitPayout({ assets: 102_000n * RLUSD, shares: 100_000n * RLUSD }, shares);
     assert.equal(payout, 507_450_000n);
     assert.deepEqual([body.route, body.amount, body.shares], ["immediate", payout.toString(), shares.toString()]);
     assert.deepEqual(
       batches[0]?.inner.map(({ tx }) => (tx.TransactionType === "Payment" ? [tx.Account, tx.Destination, tx.Amount] : tx.TransactionType)),
       [
         [lender().address, bari.address, { mpt_issuance_id: SHARE_ID, value: shares.toString() }],
-        [bari.address, lender().address, { mpt_issuance_id: ASSET_ID, value: payout.toString() }],
+        [bari.address, lender().address, { currency: RLUSD_CURRENCY, issuer: asset.issuer, value: "507.45" }],
       ],
     );
   });
 
   test("au-delà de ce que la réserve de Bari rachète → 422", async () => {
-    resetMarket("investment", 100n * EUR);
-    const response = await post("/api/lender/withdraw", { amount: (500n * EUR).toString() }, sessions.lender);
+    resetMarket("investment", 100n * RLUSD);
+    const response = await post("/api/lender/withdraw", { amount: (500n * RLUSD).toString() }, sessions.lender);
     assert.equal(response.statusCode, HTTP_UNPROCESSABLE);
     assert.match(response.json<{ error: string }>().error, /immediate exit cap/);
     assert.equal(batches.length, 0);
@@ -354,30 +363,30 @@ describe("POST /api/lender/withdraw", () => {
 
   test("plus de parts que le prêteur n'en a → 422", async () => {
     resetMarket("redemption");
-    const response = await post("/api/lender/withdraw", { amount: (1_001n * EUR).toString() }, sessions.lender);
+    const response = await post("/api/lender/withdraw", { amount: (1_001n * RLUSD).toString() }, sessions.lender);
     assert.equal(response.statusCode, HTTP_UNPROCESSABLE);
     assert.match(response.json<{ error: string }>().error, /share balance/);
   });
 
-  test("rachat : VaultWithdraw natif des parts, EURc reçus lus sur le ledger", async () => {
+  test("rachat : VaultWithdraw natif des parts, RLUSD reçus lus sur le ledger", async () => {
     resetMarket("redemption");
-    const response = await post("/api/lender/withdraw", { amount: (400n * EUR).toString() }, sessions.lender);
+    const response = await post("/api/lender/withdraw", { amount: (400n * RLUSD).toString() }, sessions.lender);
     assert.equal(response.statusCode, HTTP_OK, response.body);
     const body = response.json<LenderTradeResponse>();
-    assert.deepEqual([body.route, body.amount, body.shares], ["native", (400n * EUR).toString(), (400n * EUR).toString()]);
+    assert.deepEqual([body.route, body.amount, body.shares], ["native", (400n * RLUSD).toString(), (400n * RLUSD).toString()]);
     assert.deepEqual(
       sent.map(({ tx, signer }) => [tx.TransactionType, signer, "Amount" in tx ? tx.Amount : undefined]),
-      [["VaultWithdraw", lender().address, { mpt_issuance_id: SHARE_ID, value: (400n * EUR).toString() }]],
+      [["VaultWithdraw", lender().address, { mpt_issuance_id: SHARE_ID, value: (400n * RLUSD).toString() }]],
     );
   });
 });
 
 describe("POST /api/lender/faucet", () => {
-  test("10 000 EURc de test de l'émetteur vers le compte géré du prêteur", async () => {
+  test("10 000 RLUSD de test : Payment de l'émetteur vers le compte géré du prêteur", async () => {
     resetMarket("investment");
     const response = await post("/api/lender/faucet", {}, sessions.lender);
     assert.equal(response.statusCode, HTTP_OK, response.body);
-    assert.deepEqual(response.json<LenderFaucetResponse>(), { hash: TX_HASH, amount: (10_000n * EUR).toString(), transactions: [] });
+    assert.deepEqual(response.json<LenderFaucetResponse>(), { hash: TX_HASH, amount: (10_000n * RLUSD).toString(), transactions: [] });
     assert.deepEqual(sent, [
       {
         signer: stableIssuer.address,
@@ -385,7 +394,7 @@ describe("POST /api/lender/faucet", () => {
           TransactionType: "Payment",
           Account: stableIssuer.address,
           Destination: lender().address,
-          Amount: { mpt_issuance_id: ASSET_ID, value: (10_000n * EUR).toString() },
+          Amount: { currency: RLUSD_CURRENCY, issuer: stableIssuer.address, value: "10000" },
         },
       },
     ]);

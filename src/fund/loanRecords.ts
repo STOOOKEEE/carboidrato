@@ -3,8 +3,8 @@
 // chaîne PreviousTxnID du Loan jusqu'à la transaction qui l'a créé.
 
 import type { LedgerEntry, TransactionMetadata } from "xrpl";
-import { parseUnits } from "../lib/amounts.js";
 import type { Ledger } from "../xrpl/ledger.js";
+import { valueToUnits } from "../xrpl/stablecoin.js";
 import { decodeLoanData, type LoanReference } from "./loanData.js";
 
 /** Garde-fou : un prêt Bari ne subit que quelques transactions (LoanSet, LoanPay, LoanManage). */
@@ -14,7 +14,7 @@ export interface LoanRecord {
   loanId: string;
   loan: LedgerEntry.Loan;
   loanSetHash: string;
-  /** Principal initial (PrincipalRequested du LoanSet). */
+  /** Principal initial (PrincipalRequested du LoanSet), en unités RLUSD. */
   principal: bigint;
   /** Principal restant dû (0 si remboursé). */
   outstanding: bigint;
@@ -53,7 +53,7 @@ async function findLoanCreation(ledger: Ledger, loanId: string, lastTxHash: stri
     if (step.created) {
       const tx = result.tx_json;
       if (tx.TransactionType !== "LoanSet") throw new Error(`Prêt ${loanId} créé par ${tx.TransactionType}`);
-      return { hash, principal: parseUnits(tx.PrincipalRequested), data: tx.Data };
+      return { hash, principal: valueToUnits(tx.PrincipalRequested), data: tx.Data };
     }
     hash = step.previous;
   }
@@ -80,7 +80,7 @@ async function brokerLoanRecords(ledger: Ledger, broker: LedgerEntry.LoanBroker)
       loan,
       loanSetHash: creation.hash,
       principal: creation.principal,
-      outstanding: parseUnits(loan.PrincipalOutstanding),
+      outstanding: valueToUnits(loan.PrincipalOutstanding),
       reference: decodeReference(creation.data),
     });
   }

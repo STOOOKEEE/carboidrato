@@ -4,10 +4,10 @@
 import type { Wallet } from "xrpl";
 import type { Fund } from "../fund/fund.js";
 import { returnInvoiceToken } from "../invoice/invoiceToken.js";
-import { formatEur, parseUnits } from "../lib/amounts.js";
+import { formatRlusd } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
 import type { Ledger } from "../xrpl/ledger.js";
-import { mptAmount } from "../xrpl/mpt.js";
+import { stablecoinAmount, stablecoinPayment, valueToUnits } from "../xrpl/stablecoin.js";
 import type { SubmitTx } from "../xrpl/submit.js";
 import type { OriginatedLoan } from "./loan.js";
 import { loanTerms } from "./loanTerms.js";
@@ -26,22 +26,23 @@ export async function repayLoan(
   fund: Fund,
   originated: Pick<OriginatedLoan, "loanId" | "reference">,
 ): Promise<void> {
+  // La mairie règle la facture en RLUSD, au pair de son montant en euros.
   const { invoice } = loanTerms();
   await submit(
-    { TransactionType: "Payment", Account: mairie.address, Destination: borrower.address, Amount: mptAmount(fund.assetId, invoice) },
+    stablecoinPayment(fund.stablecoin, mairie.address, borrower.address, invoice),
     mairie,
-    `Payment EURc mairie → sme (${formatEur(invoice, 2)})`,
+    `Payment RLUSD mairie → sme (${formatRlusd(invoice, 2)})`,
   );
 
   const loan = await ledger.loan(originated.loanId);
-  const due = parseUnits(loan.TotalValueOutstanding);
-  log.info(`dû : ${formatEur(due)} (principal ${formatEur(parseUnits(loan.PrincipalOutstanding))})`);
+  const due = valueToUnits(loan.TotalValueOutstanding);
+  log.info(`dû : ${formatRlusd(due)} (principal ${formatRlusd(valueToUnits(loan.PrincipalOutstanding))})`);
   await submit(
     {
       TransactionType: "LoanPay",
       Account: borrower.address,
       LoanID: originated.loanId,
-      Amount: mptAmount(fund.assetId, due),
+      Amount: stablecoinAmount(fund.stablecoin, due),
     },
     borrower,
     "LoanPay (remboursement total)",

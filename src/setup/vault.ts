@@ -6,6 +6,7 @@ import {
   COVER_RATE_LIQUIDATION_PERCENT,
   COVER_RATE_MINIMUM_PERCENT,
   MANAGEMENT_FEE_RATE_PERCENT,
+  STABLECOIN_ASSET_SCALE,
 } from "../config/finance.js";
 import type { Cohort } from "../fund/fund.js";
 import { encodeFundManifest, type FundManifest } from "../fund/fundManifest.js";
@@ -13,12 +14,13 @@ import { percentToTenthBips } from "../lib/rates.js";
 import { getVault } from "../xrpl/ledgerEntries.js";
 import { ledgerTime } from "../xrpl/ledgerTime.js";
 import { createdLedgerIndex } from "../xrpl/meta.js";
+import type { Stablecoin } from "../xrpl/stablecoin.js";
 import { submitTx } from "../xrpl/submit.js";
 
 export async function createClosedVault(
   client: Client,
   bari: Wallet,
-  assetId: string,
+  asset: Stablecoin,
   domainId: string,
   timing: CohortTiming | FixedRedemptionTiming,
   manifest: FundManifest,
@@ -31,7 +33,9 @@ export async function createClosedVault(
     {
       TransactionType: "VaultCreate",
       Account: bari.address,
-      Asset: { mpt_issuance_id: assetId },
+      Asset: { currency: asset.currency, issuer: asset.issuer },
+      // Une part par unité de 10^-6 RLUSD au pair, comme les montants internes de Bari.
+      Scale: STABLECOIN_ASSET_SCALE,
       Flags: VaultCreateFlags.tfVaultPrivate,
       DomainID: domainId,
       VaultKind: VaultKind.vaultKindClosed,

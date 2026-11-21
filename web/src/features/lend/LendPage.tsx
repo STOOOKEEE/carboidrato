@@ -1,17 +1,17 @@
-// Espace prêteur `#/lend` : position et fonds lus sur le ledger, euros de test, dépôt et retrait natifs ou immédiats.
+// Espace prêteur `#/lend` : position et fonds lus sur le ledger, RLUSD de test, dépôt et retrait natifs ou immédiats.
 import { useCallback, useEffect, useReducer, useState } from "react";
 import type { AccountView, LenderPosition } from "../../../../src/api/contract";
 import { formatDate } from "../../format";
 import { Button } from "../../ui/Button";
 import { Notice } from "../../ui/Notice";
 import { AccountCard } from "../account/AccountCard";
-import { addTestEuros, deposit, fetchLendFund, fetchPosition, withdraw } from "./api";
+import { addTestRlusd, deposit, fetchLendFund, fetchPosition, withdraw } from "./api";
 import { FundCard } from "./FundCard";
 import {
   checkDeposit,
   checkWithdraw,
   faucetMovement,
-  formatEurUnits,
+  formatRlusdUnits,
   formatSharePrice,
   formatShares,
   initialLendState,
@@ -50,7 +50,7 @@ function useLenderData() {
 function depositExplanation(position: LenderPosition, fund: LendFund | undefined): string {
   switch (position.entry.route) {
     case "native":
-      return "Subscription is open: your euros go straight into the fund's vault, which issues your shares.";
+      return "Subscription is open: your RLUSD go straight into the fund's vault, which issues your shares.";
     case "immediate":
       return `The fund is lending${fund === undefined ? "" : ` until ${formatDate(fund.redemptionStartsAt)}`}: Bari sells you shares from its own stock at the share price, in one atomic transaction.`;
     case null:
@@ -108,19 +108,19 @@ export function LendPage({ user }: { user: AccountView }) {
           <PositionCard
             position={position}
             operation={state.operation}
-            onAddTestEuros={() => void run("faucet", () => addTestEuros().then(faucetMovement))}
+            onAddTestRlusd={() => void run("faucet", () => addTestRlusd().then(faucetMovement))}
           />
           <div className="lend-trade">
             <TradeForm
               action="deposit"
               title="Deposit"
               explanation={depositExplanation(position, fund)}
-              label="Amount in euros"
-              hint={`Available: ${formatEurUnits(BigInt(position.eurcBalance))}${entryCap === undefined ? "" : ` · Bari's share stock: ${formatEurUnits(BigInt(entryCap))}`}`}
+              label="Amount in RLUSD"
+              hint={`Available: ${formatRlusdUnits(BigInt(position.rlusdBalance))}${entryCap === undefined ? "" : ` · Bari's share stock: ${formatRlusdUnits(BigInt(entryCap))}`}`}
               check={(input) => checkDeposit(position, input)}
               previewFacts={(preview) => [
                 { label: "Route", value: ROUTE_LABELS[preview.route] },
-                { label: "You pay", value: formatEurUnits(preview.eurc) },
+                { label: "You pay", value: formatRlusdUnits(preview.rlusd) },
                 { label: "Share price", value: formatSharePrice(position.sharePrice) },
                 { label: "You receive", value: `About ${formatShares(preview.shares)} shares` },
               ]}
@@ -140,12 +140,12 @@ export function LendPage({ user }: { user: AccountView }) {
               previewFacts={(preview) => [
                 { label: "Route", value: ROUTE_LABELS[preview.route] },
                 { label: "You sell", value: `${formatShares(preview.shares)} shares` },
-                { label: "Value at the share price", value: formatEurUnits(preview.eurc + preview.fee) },
+                { label: "Value at the share price", value: formatRlusdUnits(preview.rlusd + preview.fee) },
                 {
                   label: "Fee",
-                  value: preview.fee === 0n ? "None" : `−${formatEurUnits(preview.fee)} (${position.immediateExitDiscountPercent}%)`,
+                  value: preview.fee === 0n ? "None" : `−${formatRlusdUnits(preview.fee)} (${position.immediateExitDiscountPercent}%)`,
                 },
-                { label: "You receive", value: `About ${formatEurUnits(preview.eurc)}` },
+                { label: "You receive", value: `About ${formatRlusdUnits(preview.rlusd)}` },
               ]}
               submitLabel="Withdraw"
               pendingLabel="Withdrawing…"

@@ -13,6 +13,7 @@ import {
 } from "./ledgerEntries.js";
 import { ledgerTime } from "./ledgerTime.js";
 import { rippledErrorCode } from "./rippledError.js";
+import { getStablecoinBalance, type Stablecoin } from "./stablecoin.js";
 
 export type LedgerTransaction = TxResponse["result"];
 
@@ -23,6 +24,8 @@ export interface Ledger {
   mptIssuance(id: string): Promise<LedgerEntry.MPTokenIssuance | undefined>;
   /** Solde MPT d'un compte (0 s'il n'a pas d'objet MPToken). */
   mptBalance(id: string, holder: string): Promise<bigint>;
+  /** Solde de l'actif du fonds (ligne de confiance vers son émetteur), en unités ; 0 sans ligne. */
+  stablecoinBalance(asset: Stablecoin, holder: string): Promise<bigint>;
   /** Lève une erreur si le Vault n'existe pas. */
   vault(id: string): Promise<LedgerEntry.Vault>;
   /** Lève une erreur si le LoanBroker n'existe pas. */
@@ -51,6 +54,7 @@ export function xrplLedger(client: Client): Ledger {
     credential: (subject, issuer, typeHex) => getCredential(client, subject, issuer, typeHex),
     mptIssuance: (id) => getMptIssuance(client, id),
     mptBalance: (id, holder) => getMptBalance(client, id, holder),
+    stablecoinBalance: (asset, holder) => getStablecoinBalance(client, asset, holder),
     vault: (id) => getVault(client, id),
     loanBroker: (id) => getLoanBroker(client, id),
     loan: (id) => getLoan(client, id),

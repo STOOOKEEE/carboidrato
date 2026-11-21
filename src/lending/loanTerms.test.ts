@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { eurToCents, eurToUnits } from "../lib/amounts.js";
+import { eurToCents, eurToUnits, rlusdToUnits } from "../lib/amounts.js";
 import {
   isOfferTier,
   loanPaymentInterval,
@@ -45,17 +45,17 @@ describe("paliers de l'offre", () => {
 });
 
 describe("conditions du palier", () => {
-  test("palier de 10 000 € : avance 9 000 €, frais 45 €, la PME reçoit 8 955 €", () => {
+  test("palier de 10 000 € : avance 9 000 RLUSD, frais 45 RLUSD, la PME reçoit 8 955 RLUSD (1 € = 1 RLUSD)", () => {
     const terms = loanTerms(eurToUnits(10_000));
-    assert.equal(terms.principal, eurToUnits(9_000));
-    assert.equal(terms.originationFee, eurToUnits(45));
-    assert.equal(terms.netAdvance, eurToUnits(8_955));
+    assert.equal(terms.principal, rlusdToUnits(9_000));
+    assert.equal(terms.originationFee, rlusdToUnits(45));
+    assert.equal(terms.netAdvance, rlusdToUnits(8_955));
     assert.equal(terms.provenThresholdCents, eurToCents(10_000));
   });
 
   test("l'avance dérive du palier, pas du montant exact de la facture", () => {
     assert.deepEqual(loanTerms(eurToUnits(10_340)), loanTerms(eurToUnits(10_000)));
-    assert.equal(loanTerms(eurToUnits(60_000)).principal, eurToUnits(45_000));
+    assert.equal(loanTerms(eurToUnits(60_000)).principal, rlusdToUnits(45_000));
   });
 
   test("les conditions de la facture type portent le palier de 10 000 €", () => {

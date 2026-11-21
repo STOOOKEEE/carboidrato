@@ -20,7 +20,7 @@ import { registerZkRoutes } from "./routes/zkRoutes.js";
 /** Une facture attestée ou une preuve font quelques Ko. */
 const BODY_LIMIT_BYTES = 64 * 1024;
 
-/** Montants en unités EURc (bigint) → chaînes décimales, sans perte de précision. */
+/** Montants en unités RLUSD (bigint) → chaînes décimales, sans perte de précision. */
 function serializeJson(payload: unknown): string {
   return JSON.stringify(payload, (_key, value: unknown) => (typeof value === "bigint" ? value.toString() : value));
 }

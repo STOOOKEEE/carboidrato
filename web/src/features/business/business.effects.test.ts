@@ -48,9 +48,9 @@ const certificate = { txHash: "BATCH", tokenId: "0000ABCD", nullifier: "2A" };
 const fundedLoan: FundingLoan = {
   txHash: "LOANSET",
   loanId: "LOANID",
-  principalEur: 9_000,
-  feeEur: 45,
-  netAdvanceEur: 8_955,
+  principalRlusd: 9_000,
+  feeRlusd: 45,
+  netAdvanceRlusd: 8_955,
   dueDate: "2027-02-18T00:00:00.000Z",
   checks: loanResponse.checks,
 };
@@ -83,7 +83,7 @@ describe("certificateOutcome", () => {
 });
 
 describe("loanOutcome", () => {
-  test("201 : prêt co-signé, montants en euros", () => {
+  test("201 : prêt co-signé, montants en RLUSD", () => {
     assert.deepEqual(loanOutcome(201, loanResponse), { kind: "funded", loan: fundedLoan });
   });
 

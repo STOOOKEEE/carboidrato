@@ -2,14 +2,14 @@
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { Client, isoTimeToRippleTime, rippleTimeToISOTime, unixTimeToRippleTime } from "xrpl";
+import { Client, isoTimeToRippleTime, rippleTimeToISOTime, unixTimeToRippleTime, Wallet } from "xrpl";
 import { loadActors, type Actors } from "../accounts/actors.js";
 import { makeFunder } from "../accounts/funding.js";
 import { UserStore, type UserRecord } from "../accounts/userStore.js";
 import { loadApiConfig } from "../api/fund/config.js";
 import { FundStateStore, loanState, type LoanStatus } from "../api/fund/stateStore.js";
 import { loadCohortTiming } from "../config/cohort.js";
-import { BARI_EURC_RESERVE_EUR, BARI_SHARE_STOCK_EUR } from "../config/finance.js";
+import { BARI_RLUSD_RESERVE, BARI_SHARE_STOCK_RLUSD } from "../config/finance.js";
 import { loadNetworkConfig, type NetworkConfig } from "../config/network.js";
 import type { Fund } from "../fund/fund.js";
 import { DEMO_DEBTOR, VERIFIED_DEBTORS } from "../invoice/debtors.js";
@@ -17,10 +17,10 @@ import { buildDemoInvoice } from "../invoice/invoice.js";
 import { makeProvisioner } from "../kyb/onboarding.js";
 import { loanTerms } from "../lending/loanTerms.js";
 import { repayLoan } from "../lending/repayment.js";
-import { eurToUnits, formatEur } from "../lib/amounts.js";
+import { rlusdToUnits } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
+import { ensureTrustLine, issueStablecoin } from "../setup/stablecoin.js";
 import { xrplLedger } from "../xrpl/ledger.js";
-import { sendMpt } from "../xrpl/mpt.js";
 import { ledgerTime } from "../xrpl/ledgerTime.js";
 import { clientSubmitter } from "../xrpl/submit.js";
 import { computeInvoiceUuid, deriveDebtor, invoiceNullifier, releaseZkResources, toHex32 } from "../zk/index.js";
@@ -49,7 +49,7 @@ async function createFund(client: Client, store: FundStateStore): Promise<void> 
   const { actors, fund } = await openFund(
     client,
     { subscriptionWindowS: loadCohortTiming().subscriptionWindowS, redemptionDate: DURABLE_REDEMPTION_DATE },
-    { shareStock: eurToUnits(BARI_SHARE_STOCK_EUR), reserve: eurToUnits(BARI_EURC_RESERVE_EUR) },
+    { shareStock: rlusdToUnits(BARI_SHARE_STOCK_RLUSD), reserve: rlusdToUnits(BARI_RLUSD_RESERVE) },
   );
 
   // Même débiteur pour les deux factures : même pseudonyme, la concentration ressort à l'audit.
@@ -83,11 +83,14 @@ async function createFund(client: Client, store: FundStateStore): Promise<void> 
 
 /** Le remboursement d'un prêt passe par un paiement de la mairie : sa réserve est remise au plancher à chaque lancement. */
 async function topUpMairie(client: Client, actors: Actors, fund: Fund): Promise<void> {
-  const balance = await xrplLedger(client).mptBalance(fund.assetId, actors.mairie.address);
+  if (fund.stablecoin.issuer !== actors.stable_issuer.address) {
+    log.warn(`émetteur RLUSD externe ${fund.stablecoin.issuer} : réserve de la mairie non complétée`);
+    return;
+  }
+  const balance = await xrplLedger(client).stablecoinBalance(fund.stablecoin, actors.mairie.address);
   const missing = mairieTopUp(balance, loanTerms().invoice);
   if (missing === 0n) return;
-  const label = `Payment EURc → mairie (${formatEur(missing, 2)})`;
-  await sendMpt(client, fund.assetId, actors.stable_issuer, actors.mairie.address, missing, label);
+  await issueStablecoin(client, fund.stablecoin, actors.stable_issuer, actors.mairie.address, missing, "mairie");
 }
 
 /** Crée les comptes du pitch absents par le chemin de l'inscription ; renvoie les comptes prêts et les conflits. */
@@ -105,7 +108,7 @@ async function ensurePitchAccounts(
     submit: clientSubmitter(client),
     fundAccount: makeFunder(client, network),
     kycIssuer: actors.kyb_issuer,
-    fund: () => ({ assetId: fund.assetId, shareMptId: fund.cohort.shareMptId }),
+    fund: () => ({ stablecoin: fund.stablecoin, shareMptId: fund.cohort.shareMptId }),
     now: () => unixTimeToRippleTime(Date.now()),
   });
   const saveCredentials = () => {
@@ -127,6 +130,9 @@ async function ensurePitchAccounts(
     if (plan.action === "reuse") {
       log.info(`compte du pitch réutilisé : ${account.email} (${account.role})`);
       if (!passwords.has(account.email)) log.warn(`mot de passe de ${account.email} absent de ${PITCH_CREDENTIALS_FILE}`);
+      // Un compte ouvert avant le passage au RLUSD n'a pas encore sa ligne de confiance.
+      const managed = plan.user.account;
+      if (managed !== undefined) await ensureTrustLine(client, fund.stablecoin, Wallet.fromSeed(managed.seed), account.role);
       ready.push(plan.user);
       continue;
     }

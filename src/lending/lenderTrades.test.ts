@@ -6,15 +6,16 @@ import { Wallet, type SubmittableTransaction } from "xrpl";
 import type { Fund } from "../fund/fund.js";
 import type { PendingInner, SubmitBatch } from "../xrpl/batch.js";
 import type { SubmitTx, TxOutcome } from "../xrpl/submit.js";
+import { RLUSD_CURRENCY, type Stablecoin } from "../xrpl/stablecoin.js";
 import { buySharesFromBari, depositToVault, sellSharesToBari, withdrawFromVault } from "./lenderTrades.js";
 
-const ASSET_ID = "00".repeat(24);
+const RLUSD: Stablecoin = { currency: RLUSD_CURRENCY, issuer: Wallet.generate().address };
 const SHARE_ID = "11".repeat(24);
 const VAULT_ID = "22".repeat(32);
 const HASH = "AA".repeat(32);
 
 const fund = {
-  assetId: ASSET_ID,
+  stablecoin: RLUSD,
   domainId: "33".repeat(32),
   brokerId: "44".repeat(32),
   cohort: { vaultId: VAULT_ID, shareMptId: SHARE_ID, subscriptionDate: 100, redemptionDate: 200 },
@@ -47,9 +48,9 @@ function recordingBatch(): { submitBatch: SubmitBatch; batches: { submitter: str
 }
 
 describe("chemin natif", () => {
-  test("VaultDeposit d'EURc signé par le compte géré du prêteur", async () => {
+  test("VaultDeposit de RLUSD en valeur décimale, signé par le compte géré du prêteur", async () => {
     const { submit, sent } = recordingSubmit();
-    assert.equal(await depositToVault(submit, fund, lender, 5_000_000n), outcome);
+    assert.equal(await depositToVault(submit, fund, lender, 5_500_000n), outcome);
     assert.deepEqual(sent, [
       {
         signer: lender.address,
@@ -57,7 +58,7 @@ describe("chemin natif", () => {
           TransactionType: "VaultDeposit",
           Account: lender.address,
           VaultID: VAULT_ID,
-          Amount: { mpt_issuance_id: ASSET_ID, value: "5000000" },
+          Amount: { currency: RLUSD_CURRENCY, issuer: RLUSD.issuer, value: "5.5" },
         },
       },
     ]);
@@ -76,9 +77,9 @@ describe("chemin natif", () => {
 });
 
 describe("chemin immédiat : Batch atomique co-signé", () => {
-  test("entrée : EURc du prêteur → Bari, parts de Bari → prêteur", async () => {
+  test("entrée : RLUSD du prêteur → Bari, parts de Bari → prêteur", async () => {
     const { submitBatch, batches } = recordingBatch();
-    await buySharesFromBari(submitBatch, { fund, bari, lender }, { amount: 1_020n, shares: 1_000n });
+    await buySharesFromBari(submitBatch, { fund, bari, lender }, { amount: 1_020_000_000n, shares: 1_000_000_000n });
     assert.equal(batches.length, 1);
     const [batch] = batches;
     assert.equal(batch.submitter, bari.address);
@@ -86,20 +87,20 @@ describe("chemin immédiat : Batch atomique co-signé", () => {
     assert.deepEqual(
       batch.inner.map(({ tx }) => tx),
       [
-        { TransactionType: "Payment", Account: lender.address, Destination: bari.address, Amount: { mpt_issuance_id: ASSET_ID, value: "1020" } },
-        { TransactionType: "Payment", Account: bari.address, Destination: lender.address, Amount: { mpt_issuance_id: SHARE_ID, value: "1000" } },
+        { TransactionType: "Payment", Account: lender.address, Destination: bari.address, Amount: { currency: RLUSD_CURRENCY, issuer: RLUSD.issuer, value: "1020" } },
+        { TransactionType: "Payment", Account: bari.address, Destination: lender.address, Amount: { mpt_issuance_id: SHARE_ID, value: "1000000000" } },
       ],
     );
   });
 
-  test("sortie : parts du prêteur → Bari, EURc de Bari → prêteur", async () => {
+  test("sortie : parts du prêteur → Bari, RLUSD de Bari → prêteur", async () => {
     const { submitBatch, batches } = recordingBatch();
-    await sellSharesToBari(submitBatch, { fund, bari, lender }, { amount: 1_014n, shares: 1_000n });
+    await sellSharesToBari(submitBatch, { fund, bari, lender }, { amount: 1_014_500_000n, shares: 1_000_000_000n });
     assert.deepEqual(
       batches[0]?.inner.map(({ tx }) => tx),
       [
-        { TransactionType: "Payment", Account: lender.address, Destination: bari.address, Amount: { mpt_issuance_id: SHARE_ID, value: "1000" } },
-        { TransactionType: "Payment", Account: bari.address, Destination: lender.address, Amount: { mpt_issuance_id: ASSET_ID, value: "1014" } },
+        { TransactionType: "Payment", Account: lender.address, Destination: bari.address, Amount: { mpt_issuance_id: SHARE_ID, value: "1000000000" } },
+        { TransactionType: "Payment", Account: bari.address, Destination: lender.address, Amount: { currency: RLUSD_CURRENCY, issuer: RLUSD.issuer, value: "1014.5" } },
       ],
     );
   });

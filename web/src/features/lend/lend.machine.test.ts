@@ -7,13 +7,13 @@ import {
   checkDeposit,
   checkWithdraw,
   faucetMovement,
-  formatEurUnits,
+  formatRlusdUnits,
   formatSharePrice,
   formatShares,
   initialLendState,
   lendTransition,
   movementSummary,
-  parseEuros,
+  parseRlusd,
   parseShares,
   sharesInput,
   tradeMovement,
@@ -23,7 +23,7 @@ import {
   type Movement,
 } from "./lend.machine";
 
-/** Part à 1,005 € ; 10 000 € disponibles, aucune part : la période de prêt (voie immédiate). */
+/** Part à 1,005 RLUSD ; 10 000 RLUSD disponibles, aucune part : la période de prêt (voie immédiate). */
 const position: LenderPosition = {
   phase: "investment",
   shares: "0",
@@ -32,39 +32,40 @@ const position: LenderPosition = {
   gain: "0",
   sharePrice: "1005000",
   variableYieldPercent: 5.9,
-  eurcBalance: "10000000000",
+  rlusdBalance: "10000000000",
   entry: { route: "immediate", max: "10000000000", bariCap: "20100000000" },
   exit: { route: "immediate", max: "0", bariCap: "20000000000" },
   immediateExitDiscountPercent: 0.5,
 };
 
-/** Même compte après un dépôt de 5 000 €. */
+/** Même compte après un dépôt de 5 000 RLUSD. */
 const holder: LenderPosition = {
   ...position,
   shares: "4975124378",
   value: "4999999999",
   costBasis: "5000000000",
   gain: "-1",
-  eurcBalance: "5000000000",
+  rlusdBalance: "5000000000",
   entry: { route: "immediate", max: "5000000000", bariCap: "15100000000" },
   exit: { route: "immediate", max: "4975124378", bariCap: "20000000000" },
 };
 
-describe("parseEuros / parseShares", () => {
-  test("euros saisis → unités EURc exactes, sans dérive des flottants", () => {
-    assert.deepEqual(parseEuros("19.99"), { ok: true, units: 19_990_000n });
-    assert.deepEqual(parseEuros("1234567.89"), { ok: true, units: 1_234_567_890_000n });
-    assert.deepEqual(parseEuros(" €5,000 "), { ok: true, units: 5_000_000_000n });
-    assert.deepEqual(parseEuros("0.1"), { ok: true, units: 100_000n });
-    assert.deepEqual(parseEuros(".5"), { ok: true, units: 500_000n });
+describe("parseRlusd / parseShares", () => {
+  test("RLUSD saisis → unités exactes, sans dérive des flottants", () => {
+    assert.deepEqual(parseRlusd("19.99"), { ok: true, units: 19_990_000n });
+    assert.deepEqual(parseRlusd("1234567.89"), { ok: true, units: 1_234_567_890_000n });
+    assert.deepEqual(parseRlusd(" €5,000 "), { ok: true, units: 5_000_000_000n });
+    assert.deepEqual(parseRlusd("$5,000"), { ok: true, units: 5_000_000_000n });
+    assert.deepEqual(parseRlusd("0.1"), { ok: true, units: 100_000n });
+    assert.deepEqual(parseRlusd(".5"), { ok: true, units: 500_000n });
   });
 
   test("montant vide, illisible, trop précis ou nul refusé avec la correction", () => {
-    assert.deepEqual(parseEuros(""), { ok: false, error: "Enter an amount" });
-    assert.deepEqual(parseEuros("5k"), { ok: false, error: "Enter a number, e.g. 5000" });
-    assert.deepEqual(parseEuros("-5"), { ok: false, error: "Enter a number, e.g. 5000" });
-    assert.deepEqual(parseEuros("1.234"), { ok: false, error: "Use at most 2 decimals" });
-    assert.deepEqual(parseEuros("0.00"), { ok: false, error: "Enter an amount above zero" });
+    assert.deepEqual(parseRlusd(""), { ok: false, error: "Enter an amount" });
+    assert.deepEqual(parseRlusd("5k"), { ok: false, error: "Enter a number, e.g. 5000" });
+    assert.deepEqual(parseRlusd("-5"), { ok: false, error: "Enter a number, e.g. 5000" });
+    assert.deepEqual(parseRlusd("1.234"), { ok: false, error: "Use at most 2 decimals" });
+    assert.deepEqual(parseRlusd("0.00"), { ok: false, error: "Enter an amount above zero" });
   });
 
   test("parts : jusqu'à 6 décimales (une part affichée = 10^6 unités)", () => {
@@ -82,10 +83,10 @@ describe("parseEuros / parseShares", () => {
 });
 
 describe("formats", () => {
-  test("euros arrondis au centime inférieur : « at most » ne dépasse jamais le maximum", () => {
-    assert.equal(formatEurUnits(4_999_995_000n), "€4,999.99");
-    assert.equal(formatEurUnits(10_000_000_000n), "€10,000.00");
-    assert.equal(formatEurUnits(-1_500_000n), "-€1.50");
+  test("RLUSD arrondis au centième inférieur : « at most » ne dépasse jamais le maximum", () => {
+    assert.equal(formatRlusdUnits(4_999_995_000n), "4,999.99 RLUSD");
+    assert.equal(formatRlusdUnits(10_000_000_000n), "10,000.00 RLUSD");
+    assert.equal(formatRlusdUnits(-1_500_000n), "-1.50 RLUSD");
   });
 
   test("parts exactes, au moins 2 décimales", () => {
@@ -96,8 +97,8 @@ describe("formats", () => {
   });
 
   test("prix de la part : 4 à 6 décimales", () => {
-    assert.equal(formatSharePrice("1005000"), "€1.0050");
-    assert.equal(formatSharePrice("1000123"), "€1.000123");
+    assert.equal(formatSharePrice("1005000"), "1.0050 RLUSD");
+    assert.equal(formatSharePrice("1000123"), "1.000123 RLUSD");
   });
 });
 
@@ -106,7 +107,7 @@ describe("checkDeposit", () => {
     assert.deepEqual(checkDeposit(position, "5000"), {
       ok: true,
       amount: 5_000_000_000n,
-      preview: { route: "immediate", eurc: 5_000_000_000n, shares: 4_975_124_378n, fee: 0n },
+      preview: { route: "immediate", rlusd: 5_000_000_000n, shares: 4_975_124_378n, fee: 0n },
     });
   });
 
@@ -115,27 +116,27 @@ describe("checkDeposit", () => {
     assert.deepEqual(checkDeposit(subscription, "250.50"), {
       ok: true,
       amount: 250_500_000n,
-      preview: { route: "native", eurc: 250_500_000n, shares: 250_500_000n, fee: 0n },
+      preview: { route: "native", rlusd: 250_500_000n, shares: 250_500_000n, fee: 0n },
     });
   });
 
   test("au-dessus du solde : le maximum à saisir", () => {
     assert.deepEqual(checkDeposit(position, "10000.01"), {
       ok: false,
-      error: "Above your balance of €10,000.00. Enter at most €10,000.00.",
+      error: "Above your balance of 10,000.00 RLUSD. Enter at most 10,000.00 RLUSD.",
     });
   });
 
-  test("solde vide : ajouter des euros de test d'abord", () => {
-    const empty = { ...position, eurcBalance: "0", entry: { ...position.entry, max: "0" } };
-    assert.deepEqual(checkDeposit(empty, "100"), { ok: false, error: "Your balance is empty: add test euros first." });
+  test("solde vide : ajouter des RLUSD de test d'abord", () => {
+    const empty = { ...position, rlusdBalance: "0", entry: { ...position.entry, max: "0" } };
+    assert.deepEqual(checkDeposit(empty, "100"), { ok: false, error: "Your balance is empty: add test RLUSD first." });
   });
 
   test("au-dessus du stock de parts de Bari : le plafond et le maximum", () => {
     const capped = { ...position, entry: { route: "immediate" as const, max: "3000000000", bariCap: "3000000000" } };
     assert.deepEqual(checkDeposit(capped, "5000"), {
       ok: false,
-      error: "Bari can sell at most €3,000.00 of fund shares right now. Enter at most €3,000.00.",
+      error: "Bari can sell at most 3,000.00 RLUSD of fund shares right now. Enter at most 3,000.00 RLUSD.",
     });
   });
 
@@ -162,7 +163,7 @@ describe("checkWithdraw", () => {
     assert.deepEqual(checkWithdraw(holder, "1000"), {
       ok: true,
       amount: 1_000_000_000n,
-      preview: { route: "immediate", eurc: 999_975_000n, shares: 1_000_000_000n, fee: 5_025_000n },
+      preview: { route: "immediate", rlusd: 999_975_000n, shares: 1_000_000_000n, fee: 5_025_000n },
     });
   });
 
@@ -171,7 +172,7 @@ describe("checkWithdraw", () => {
     assert.deepEqual(checkWithdraw(redemption, "1000"), {
       ok: true,
       amount: 1_000_000_000n,
-      preview: { route: "native", eurc: 1_005_000_000n, shares: 1_000_000_000n, fee: 0n },
+      preview: { route: "native", rlusd: 1_005_000_000n, shares: 1_000_000_000n, fee: 0n },
     });
   });
 
@@ -216,11 +217,11 @@ describe("mouvements", () => {
   };
 
   test("réponse de l'API → mouvement, hash principal en tête, sans doublon", () => {
-    assert.deepEqual(faucetMovement(faucet), { action: "faucet", eurc: 10_000_000_000n, hash: "F", hashes: ["F"] });
+    assert.deepEqual(faucetMovement(faucet), { action: "faucet", rlusd: 10_000_000_000n, hash: "F", hashes: ["F"] });
     assert.deepEqual(tradeMovement("deposit", deposit), {
       action: "deposit",
       route: "immediate",
-      eurc: 5_000_000_000n,
+      rlusd: 5_000_000_000n,
       shares: 4_975_124_378n,
       hash: "B",
       hashes: ["B", "I1", "I2"],
@@ -228,17 +229,17 @@ describe("mouvements", () => {
   });
 
   test("résumé lisible de chaque mouvement", () => {
-    assert.equal(movementSummary(faucetMovement(faucet)), "Received €10,000.00 of test euros");
-    assert.equal(movementSummary(tradeMovement("deposit", deposit)), "Deposited €5,000.00 for 4,975.124378 shares");
+    assert.equal(movementSummary(faucetMovement(faucet)), "Received 10,000.00 RLUSD of test funds");
+    assert.equal(movementSummary(tradeMovement("deposit", deposit)), "Deposited 5,000.00 RLUSD for 4,975.124378 shares");
     assert.equal(
       movementSummary(tradeMovement("withdraw", { ...deposit, amount: "4950248756" })),
-      "Sold 4,975.124378 shares for €4,950.24",
+      "Sold 4,975.124378 shares for 4,950.24 RLUSD",
     );
   });
 });
 
 describe("lendTransition", () => {
-  const movement: Movement = { action: "deposit", route: "immediate", eurc: 1n, shares: 1n, hash: "H", hashes: ["H"] };
+  const movement: Movement = { action: "deposit", route: "immediate", rlusd: 1n, shares: 1n, hash: "H", hashes: ["H"] };
 
   test("envoi, puis succès : le mouvement rejoint l'historique, le plus récent en tête", () => {
     const submitting = lendTransition(initialLendState, { type: "SUBMIT", action: "deposit" });
@@ -247,7 +248,7 @@ describe("lendTransition", () => {
     assert.deepEqual(done, { operation: { status: "done", movement }, history: [movement] });
     const next = lendTransition(lendTransition(done, { type: "SUBMIT", action: "faucet" }), {
       type: "SUCCEEDED",
-      movement: { action: "faucet", eurc: 2n, hash: "F", hashes: ["F"] },
+      movement: { action: "faucet", rlusd: 2n, hash: "F", hashes: ["F"] },
     });
     assert.deepEqual(
       next.history.map((entry) => entry.hash),

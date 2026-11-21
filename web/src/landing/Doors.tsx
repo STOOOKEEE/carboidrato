@@ -4,7 +4,7 @@ import { spaceRoute, TRANSPARENCY_ROUTE } from "../routes";
 const DOORS = [
   {
     title: "Lend",
-    text: "Deposit euros into a vault that only finances invoices confirmed by public bodies. Your shares are a token on the XRP Ledger: exit anytime.",
+    text: "Deposit RLUSD into a vault that only finances invoices confirmed by public bodies. Your shares are a token on the XRP Ledger: exit anytime.",
     action: "Start lending",
     href: spaceRoute("lender"),
   },

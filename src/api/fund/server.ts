@@ -44,7 +44,7 @@ async function main(): Promise<void> {
       kycIssuer: actors.kyb_issuer,
       fund: () => {
         const fund = store.current?.fund;
-        return fund === undefined ? undefined : { assetId: fund.assetId, shareMptId: fund.cohort.shareMptId };
+        return fund === undefined ? undefined : { stablecoin: fund.stablecoin, shareMptId: fund.cohort.shareMptId };
       },
       now: () => unixTimeToRippleTime(Date.now()),
     }),
