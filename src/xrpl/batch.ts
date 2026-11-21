@@ -20,7 +20,7 @@ import { submitSignedBlob, UnexpectedTxResult, type TxOutcome } from "./submit.j
 
 const SUCCESS = "tesSUCCESS";
 /** Une seule signature dans BatchSigners (le co-signataire) : un surcoût d'une fois les frais de base. */
-const COSIGNER_SIGNATURES = 1;
+export const COSIGNER_SIGNATURES = 1;
 
 /** Transaction interne à séquence fixée d'avance (nécessaire pour calculer les identifiants déterministes). */
 export type SequencedTransaction = SubmittableTransaction & { Sequence: number };
@@ -73,11 +73,21 @@ async function currentSequence(client: Client, account: string): Promise<number>
   return response.result.account_data.Sequence;
 }
 
-function asInner(tx: SequencedTransaction): SequencedTransaction {
+function asInner<T extends SubmittableTransaction>(tx: T): T {
   if (tx.Flags !== undefined && typeof tx.Flags !== "number") {
     throw new Error(`${tx.TransactionType} interne : Flags numériques attendus`);
   }
   return { ...tx, Flags: (tx.Flags ?? 0) | GlobalFlags.tfInnerBatchTxn };
+}
+
+/** Batch tfAllOrNothing de `account` (signataire final, paie les frais) ; séquences et frais restent à l'autofill. */
+export function allOrNothingBatch(account: string, inner: readonly SubmittableTransaction[]): Batch {
+  return {
+    TransactionType: "Batch",
+    Account: account,
+    Flags: BatchFlags.tfAllOrNothing,
+    RawTransactions: inner.map((tx) => ({ RawTransaction: asInner(tx) })),
+  };
 }
 
 /** Construit, co-signe, signe et soumet le Batch ; lève une erreur si le Batch externe n'est pas tesSUCCESS. */
@@ -93,13 +103,7 @@ export async function submitAllOrNothingBatch(
   for (const { tx } of inner) {
     if (!allowedAccounts.has(tx.Account)) throw new Error(`Compte ${tx.Account} non signataire du Batch`);
   }
-  const batch: Batch = {
-    TransactionType: "Batch",
-    Account: submitter.address,
-    Sequence: sequencer.outerSequence,
-    Flags: BatchFlags.tfAllOrNothing,
-    RawTransactions: inner.map(({ tx }) => ({ RawTransaction: asInner(tx) })),
-  };
+  const batch: Batch = { ...allOrNothingBatch(submitter.address, inner.map(({ tx }) => tx)), Sequence: sequencer.outerSequence };
   // autofill complète aussi les transactions internes (Fee "0", SigningPubKey "", NetworkID) et calcule
   // les frais du Batch : 2 × base + frais des transactions internes + base par signature de BatchSigners.
   const prepared = await client.autofill(batch, COSIGNER_SIGNATURES);

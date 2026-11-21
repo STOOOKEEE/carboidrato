@@ -1,11 +1,14 @@
-// Espace prêteur `#/lend` : position et fonds lus sur le ledger, RLUSD de test, dépôt et retrait natifs ou immédiats.
+// Espace prêteur `#/lend` : position et fonds lus sur le ledger, RLUSD de test, dépôt et retrait natifs ou immédiats,
+// signés dans Otsu pour un wallet.
 import { useCallback, useEffect, useReducer, useState } from "react";
-import type { AccountView, LenderPosition } from "../../../../src/api/contract";
+import type { AccountView, LenderOrderResponse, LenderPosition } from "../../../../src/api/contract";
 import { formatDate } from "../../format";
 import { Button } from "../../ui/Button";
 import { Notice } from "../../ui/Notice";
+import { otsuProvider } from "../../wallet/otsu";
+import { signWithOtsu } from "../../wallet/sign";
 import { AccountCard } from "../account/AccountCard";
-import { addTestRlusd, deposit, fetchLendFund, fetchPosition, withdraw } from "./api";
+import { addTestRlusd, deposit, fetchLendFund, fetchPosition, submitOrder, withdraw } from "./api";
 import { FundCard } from "./FundCard";
 import {
   checkDeposit,
@@ -15,7 +18,10 @@ import {
   formatSharePrice,
   formatShares,
   initialLendState,
+  isBusy,
   lendTransition,
+  orderFailure,
+  placeOrder,
   ROUTE_LABELS,
   sharesInput,
   tradeMovement,
@@ -29,8 +35,6 @@ import { TradeForm } from "./TradeForm";
 
 type PositionView = { status: "loading" } | { status: "ready"; position: LenderPosition } | { status: "error"; message: string };
 
-const messageOf = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause));
-
 /** Position et fonds ; une relecture garde les chiffres affichés jusqu'à la réponse. */
 function useLenderData() {
   const [view, setView] = useState<PositionView>({ status: "loading" });
@@ -38,7 +42,7 @@ function useLenderData() {
   const reload = useCallback(() => {
     fetchPosition()
       .then((position) => setView({ status: "ready", position }))
-      .catch((cause: unknown) => setView({ status: "error", message: messageOf(cause) }));
+      .catch((cause: unknown) => setView({ status: "error", message: cause instanceof Error ? cause.message : String(cause) }));
     fetchLendFund()
       .then(setFund)
       .catch(() => setFund(undefined));
@@ -69,7 +73,7 @@ export function LendPage({ user }: { user: AccountView }) {
   const [state, dispatch] = useReducer(lendTransition, initialLendState);
 
   const run = (action: LendAction, call: () => Promise<Movement>): Promise<boolean> => {
-    if (state.operation.status === "submitting") return Promise.resolve(false);
+    if (isBusy(state.operation)) return Promise.resolve(false);
     dispatch({ type: "SUBMIT", action });
     return call()
       .then((movement) => {
@@ -77,11 +81,19 @@ export function LendPage({ user }: { user: AccountView }) {
         return true;
       })
       .catch((cause: unknown) => {
-        dispatch({ type: "FAILED", message: messageOf(cause) });
+        dispatch({ type: "FAILED", ...orderFailure(cause) });
         return false;
       })
       .finally(reload);
   };
+
+  // Compte géré : Bari exécute l'ordre ; wallet : Bari le prépare, Otsu le signe, Bari le soumet.
+  const trade = (action: "deposit" | "withdraw", place: () => Promise<LenderOrderResponse>) =>
+    run(action, () =>
+      placeOrder({ place, sign: (tx) => signWithOtsu(otsuProvider(), tx), submit: submitOrder }, dispatch).then((response) =>
+        tradeMovement(action, response),
+      ),
+    );
 
   let content;
   switch (view.status) {
@@ -128,7 +140,7 @@ export function LendPage({ user }: { user: AccountView }) {
               pendingLabel="Depositing…"
               primary
               operation={state.operation}
-              onSubmit={(amount) => run("deposit", () => deposit(amount).then((response) => tradeMovement("deposit", response)))}
+              onSubmit={(amount) => trade("deposit", () => deposit(amount))}
             />
             <TradeForm
               action="withdraw"
@@ -158,7 +170,7 @@ export function LendPage({ user }: { user: AccountView }) {
                     }
               }
               operation={state.operation}
-              onSubmit={(amount) => run("withdraw", () => withdraw(amount).then((response) => tradeMovement("withdraw", response)))}
+              onSubmit={(amount) => trade("withdraw", () => withdraw(amount))}
             />
           </div>
           <FundCard position={position} fund={fund} />

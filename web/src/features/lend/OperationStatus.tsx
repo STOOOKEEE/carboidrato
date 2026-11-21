@@ -1,4 +1,5 @@
-// État d'une opération du prêteur sous son bouton : en cours, faite avec ses transactions, ou refusée avec la marche à suivre.
+// État d'une opération du prêteur sous son bouton : en cours, à signer dans Otsu, faite avec ses transactions, ou refusée
+// avec la marche à suivre.
 import { Details } from "../../ui/Details";
 import { Notice } from "../../ui/Notice";
 import { TxLink } from "../../ui/TxLink";
@@ -10,17 +11,30 @@ const PENDING: Record<LendAction, string> = {
   withdraw: "Selling your shares on the XRP Ledger…",
 };
 
+const DEFAULT_FIX = "Your figures above are up to date: check the amount and try again.";
+
 export function OperationStatus({ operation, action }: { operation: Operation; action: LendAction }) {
   switch (operation.status) {
     case "idle":
       return null;
     case "submitting":
       return operation.action === action ? <Notice kind="info">{PENDING[action]} About 10 seconds.</Notice> : null;
+    case "signing":
+      return operation.action === action ? (
+        <div className="lend-status" data-testid={`lend-signing-${action}`}>
+          <Notice kind="info">Sign in Otsu to confirm. Bari then sends it to the XRP Ledger.</Notice>
+          <ul className="muted small">
+            {operation.labels.map((label) => (
+              <li key={label}>{label}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null;
     case "failed":
       return operation.action === action ? (
         <div className="lend-status">
           <Notice kind="error">{operation.message}</Notice>
-          <p className="muted small">Your figures above are up to date: check the amount and try again.</p>
+          <p className="muted small">{operation.fix ?? DEFAULT_FIX}</p>
         </div>
       ) : null;
     case "done": {

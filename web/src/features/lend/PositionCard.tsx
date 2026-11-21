@@ -2,7 +2,7 @@
 import type { LenderPosition } from "../../../../src/api/contract";
 import { formatPercent } from "../../format";
 import { Button } from "../../ui/Button";
-import { formatRlusdUnits, formatShares, type Operation } from "./lend.machine";
+import { formatRlusdUnits, formatShares, isBusy, type Operation } from "./lend.machine";
 import { OperationStatus } from "./OperationStatus";
 
 interface PositionCardProps {
@@ -15,7 +15,7 @@ export function PositionCard({ position, operation, onAddTestRlusd }: PositionCa
   const shares = BigInt(position.shares);
   const balance = BigInt(position.rlusdBalance);
   const gain = BigInt(position.gain);
-  const busy = operation.status === "submitting";
+  const busy = isBusy(operation);
   const mine = busy && operation.action === "faucet";
   const figures = [
     { id: "value", label: "Value", value: formatRlusdUnits(BigInt(position.value)) },

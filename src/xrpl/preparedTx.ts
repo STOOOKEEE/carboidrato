@@ -2,10 +2,14 @@
 // que le blob signé est exactement celle-ci, et dernière transaction préparée de chaque utilisateur, en mémoire.
 
 import { decode, encode, verifySignature, type Client, type SubmittableTransaction, type Transaction } from "xrpl";
+import type { Ledger } from "./ledger.js";
 import { submitSignedBlob, type TxOutcome } from "./submit.js";
 
 /** ≈ 5 minutes de ledgers de 3 s : le temps de lire et signer dans la fenêtre d'Otsu. */
 export const SIGNING_WINDOW_LEDGERS = 100;
+/** Résultat préliminaire d'une transaction soumise après son LastLedgerSequence. */
+export const EXPIRED_RESULT = "tefMAX_LEDGER";
+const SUCCESS = "tesSUCCESS";
 
 /** Préparation et soumission d'une transaction signée dans un wallet : le nœud en production, des faux dans les tests. */
 export interface WalletTxPorts {
@@ -29,6 +33,12 @@ export function clientWalletTxPorts(client: Client): WalletTxPorts {
     autofill: (tx, signersCount) => client.autofill(tx, signersCount),
     submitSigned: (txBlob, hash, label) => submitSignedBlob(client, txBlob, hash, label),
   };
+}
+
+/** Toutes les transactions internes d'un Batch validées et en tesSUCCESS (tfAllOrNothing : toutes ou aucune). */
+export async function innerApplied(ledger: Pick<Ledger, "transaction">, innerHashes: readonly string[]): Promise<boolean> {
+  const found = await Promise.all(innerHashes.map((hash) => ledger.transaction(hash)));
+  return found.every((tx) => tx?.validated === true && typeof tx.meta === "object" && tx.meta.TransactionResult === SUCCESS);
 }
 
 /**

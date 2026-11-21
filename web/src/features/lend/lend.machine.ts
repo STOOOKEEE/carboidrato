@@ -1,7 +1,15 @@
-// Espace prêteur, pur : montants saisis en unités exactes, contrôle et aperçu des ordres, opérations et historique.
+// Espace prêteur, pur : montants saisis en unités exactes, contrôle et aperçu des ordres, opérations et historique ;
+// ordre d'un wallet : préparé par Bari, signé dans Otsu (sans le soumettre), puis soumis par Bari.
 
-import type { LenderFaucetResponse, LenderPosition, LenderTradeResponse, LenderTradeRoute } from "../../../../src/api/contract";
+import type {
+  LenderFaucetResponse,
+  LenderOrderResponse,
+  LenderPosition,
+  LenderTradeResponse,
+  LenderTradeRoute,
+} from "../../../../src/api/contract";
 import { formatRlusd } from "../../format";
+import { WalletRejected } from "../../wallet/sign";
 
 /** RLUSD et parts ont 6 décimales : une part affichée = 10^6 unités, un RLUSD = 10^6 unités. */
 const DECIMALS = 6;
@@ -188,8 +196,11 @@ export function movementSummary({ action, rlusd, shares = 0n }: Movement): strin
 export type Operation =
   | { status: "idle" }
   | { status: "submitting"; action: LendAction }
+  /** Ordre d'un wallet en attente de sa signature dans Otsu ; `labels` : ce qu'il fait, étape par étape. */
+  | { status: "signing"; action: LendAction; labels: string[] }
   | { status: "done"; movement: Movement }
-  | { status: "failed"; action: LendAction; message: string };
+  /** `fix` : la marche à suivre quand elle n'est pas « vérifier le montant et réessayer ». */
+  | { status: "failed"; action: LendAction; message: string; fix?: string };
 
 export interface LendState {
   operation: Operation;
@@ -199,22 +210,61 @@ export interface LendState {
 
 export type LendEvent =
   | { type: "SUBMIT"; action: LendAction }
+  | { type: "SIGN_REQUESTED"; labels: string[] }
+  | { type: "SIGNED" }
   | { type: "SUCCEEDED"; movement: Movement }
-  | { type: "FAILED"; message: string };
+  | { type: "FAILED"; message: string; fix?: string };
 
 export const initialLendState: LendState = { operation: { status: "idle" }, history: [] };
+
+/** Une opération en cours (envoi ou signature) bloque les autres. */
+export const isBusy = (operation: Operation): operation is Extract<Operation, { status: "submitting" | "signing" }> =>
+  operation.status === "submitting" || operation.status === "signing";
 
 // Une opération à la fois : l'API sérialise déjà les transactions des comptes partagés.
 export function lendTransition(state: LendState, event: LendEvent): LendState {
   const { operation } = state;
   switch (event.type) {
     case "SUBMIT":
-      return operation.status === "submitting" ? state : { ...state, operation: { status: "submitting", action: event.action } };
+      return isBusy(operation) ? state : { ...state, operation: { status: "submitting", action: event.action } };
+    case "SIGN_REQUESTED":
+      if (operation.status !== "submitting" || operation.action === "faucet") return state;
+      return { ...state, operation: { status: "signing", action: operation.action, labels: event.labels } };
+    case "SIGNED":
+      if (operation.status !== "signing") return state;
+      return { ...state, operation: { status: "submitting", action: operation.action } };
     case "SUCCEEDED":
       if (operation.status !== "submitting" || operation.action !== event.movement.action) return state;
       return { operation: { status: "done", movement: event.movement }, history: [event.movement, ...state.history] };
-    case "FAILED":
-      if (operation.status !== "submitting") return state;
-      return { ...state, operation: { status: "failed", action: operation.action, message: event.message } };
+    case "FAILED": {
+      if (!isBusy(operation)) return state;
+      const fix = event.fix === undefined ? {} : { fix: event.fix };
+      return { ...state, operation: { status: "failed", action: operation.action, message: event.message, ...fix } };
+    }
   }
+}
+
+export interface OrderDeps {
+  place(): Promise<LenderOrderResponse>;
+  /** Signature dans Otsu, sans soumission : le blob signé. */
+  sign(tx: Record<string, unknown>): Promise<string>;
+  submit(txBlob: string): Promise<LenderTradeResponse>;
+}
+
+/** Ordre exécuté par Bari (compte géré), ou préparé, signé dans Otsu puis soumis par Bari (wallet). */
+export async function placeOrder(deps: OrderDeps, dispatch: (event: LendEvent) => void): Promise<LenderTradeResponse> {
+  const response = await deps.place();
+  if (!("status" in response)) return response;
+  dispatch({ type: "SIGN_REQUESTED", labels: response.labels });
+  const txBlob = await deps.sign(response.tx);
+  dispatch({ type: "SIGNED" });
+  return deps.submit(txBlob);
+}
+
+/** Message d'un échec, et sa solution quand Otsu a refusé. */
+export function orderFailure(cause: unknown): { message: string; fix?: string } {
+  if (cause instanceof WalletRejected) {
+    return { message: cause.message, fix: "Try again and approve the request in the Otsu window." };
+  }
+  return { message: cause instanceof Error ? cause.message : String(cause) };
 }

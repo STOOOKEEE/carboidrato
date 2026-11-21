@@ -3,7 +3,7 @@ import { useState, type SubmitEvent } from "react";
 import { Button } from "../../ui/Button";
 import { Facts, type Fact } from "../../ui/Facts";
 import { Field } from "../../ui/Field";
-import type { Operation, TradeCheck, TradePreview } from "./lend.machine";
+import { isBusy, type Operation, type TradeCheck, type TradePreview } from "./lend.machine";
 import { OperationStatus } from "./OperationStatus";
 
 const BUSY_REASON = "One transaction at a time: wait for the current one to finish.";
@@ -31,8 +31,9 @@ export function TradeForm(props: TradeFormProps) {
   const [input, setInput] = useState("");
   const [attempted, setAttempted] = useState(false);
   const check = props.check(input);
-  const busy = operation.status === "submitting";
+  const busy = isBusy(operation);
   const mine = busy && operation.action === action;
+  const pending = operation.status === "signing" ? "Sign in Otsu…" : props.pendingLabel;
   const error = !check.ok && (input !== "" || attempted) ? check.error : undefined;
 
   const edit = (value: string) => {
@@ -75,9 +76,9 @@ export function TradeForm(props: TradeFormProps) {
           primary={props.primary}
           variant={props.primary ? "solid" : "ghost"}
           disabled={busy}
-          reason={mine ? props.pendingLabel : BUSY_REASON}
+          reason={mine ? pending : BUSY_REASON}
         >
-          {mine ? props.pendingLabel : props.submitLabel}
+          {mine ? pending : props.submitLabel}
         </Button>
       </form>
       <OperationStatus operation={operation} action={action} />
