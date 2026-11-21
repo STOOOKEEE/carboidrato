@@ -13,7 +13,7 @@ import {
   type PublicDebtor,
   type RegistryLookup,
 } from "../../../../src/api/contract";
-import { debtorTree, invoiceNullifier, isListed } from "./witness";
+import { debtorTree, invoiceNullifier, isListed, provenThreshold } from "./witness";
 
 const MS_PER_SECOND = 1_000;
 const CENTS_PER_EUR = 100;
@@ -21,7 +21,7 @@ const CENTS_PER_EUR = 100;
 /** Sources publiques du pré-contrôle, injectées pour le tester sans réseau. */
 export interface PrecheckSources {
   debtors(): Promise<readonly PublicDebtor[]>;
-  params(): Promise<Pick<ProofParams, "networkId" | "registry" | "thresholdCents">>;
+  params(): Promise<Pick<ProofParams, "networkId" | "registry" | "thresholdsCents">>;
   registration(nullifier: string, account: string): Promise<RegistryLookup>;
   kybDone(account: string): Promise<boolean>;
   /** Barème du fonds (une offre par palier) pour une échéance ISO. */
@@ -48,9 +48,9 @@ export function parseAttestedFile(value: unknown): AttestedInvoiceFile | undefin
   return complete ? (value as AttestedInvoiceFile) : undefined;
 }
 
-/** Offre du palier que lie la preuve : le seuil publié par `GET /api/proof/params`. */
-function provenTierOffer(schedule: OfferSchedule, thresholdCents: string): LoanOffer | undefined {
-  return schedule.tiers.find((tier) => BigInt(Math.round(tier.provenThresholdEur * CENTS_PER_EUR)) === BigInt(thresholdCents));
+/** Offre du palier que prouvera la facture, lue dans le barème du fonds (avance, frais et coût calculés par l'API). */
+function provenTierOffer(schedule: OfferSchedule, thresholdCents: bigint): LoanOffer | undefined {
+  return schedule.tiers.find((tier) => BigInt(Math.round(tier.provenThresholdEur * CENTS_PER_EUR)) === thresholdCents);
 }
 
 export async function runPrecheck(file: AttestedInvoiceFile, sources: PrecheckSources): Promise<PrecheckResponse> {
@@ -64,11 +64,12 @@ export async function runPrecheck(file: AttestedInvoiceFile, sources: PrecheckSo
     sources.kybDone(attestation.account),
     sources.signatureIsValid(file),
   ]);
+  const threshold = provenThreshold(attestation.amountCents, params.thresholdsCents);
   const outcomes: Record<CheckId, boolean> = {
     signature: signatureOk,
     debtor: isListed(debtorTree(debtors), attestation.debtorPublicKey),
     network: attestation.networkId === params.networkId && attestation.registry === params.registry,
-    amount: BigInt(attestation.amountCents) >= BigInt(params.thresholdCents),
+    amount: threshold !== undefined,
     dueDate: dueDate.getTime() > sources.now().getTime(),
     unique: !registration.registered,
   };
@@ -86,6 +87,6 @@ export async function runPrecheck(file: AttestedInvoiceFile, sources: PrecheckSo
     kyb: { account: attestation.account, done: kybDone },
     nullifier,
     ...(registration.txHash === undefined ? {} : { registeredBy: registration.txHash }),
-    ...(eligible ? { offer: provenTierOffer(await sources.offer(dueDate.toISOString()), params.thresholdCents) } : {}),
+    ...(eligible && threshold !== undefined ? { offer: provenTierOffer(await sources.offer(dueDate.toISOString()), threshold) } : {}),
   };
 }

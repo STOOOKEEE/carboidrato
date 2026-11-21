@@ -3,8 +3,6 @@
 
 import { rippleTimeToISOTime } from "xrpl";
 import { parseUnits } from "../../lib/amounts.js";
-import { getLoan, getLoanBroker, getVault } from "../../xrpl/ledgerEntries.js";
-import { ledgerTime } from "../../xrpl/ledgerTime.js";
 import type { ApiContext } from "./context.js";
 import type { FundState } from "./stateStore.js";
 
@@ -16,16 +14,16 @@ export function phaseAt(time: number, state: FundState): FundPhase {
 }
 
 export async function fundView(context: ApiContext, state: FundState) {
-  const { client } = context;
+  const { ledger } = context;
   const { fund } = state;
   const [now, vault, broker] = await Promise.all([
-    ledgerTime(client),
-    getVault(client, fund.cohort.vaultId),
-    getLoanBroker(client, fund.brokerId),
+    ledger.closeTime(),
+    ledger.vault(fund.cohort.vaultId),
+    ledger.loanBroker(fund.brokerId),
   ]);
   const loans = await Promise.all(
     state.loans.map(async (loan) => {
-      const entry = await getLoan(client, loan.loanId);
+      const entry = await ledger.loan(loan.loanId);
       return {
         ...loan,
         principalOutstanding: parseUnits(entry.PrincipalOutstanding),

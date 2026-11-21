@@ -11,6 +11,8 @@ import type { OriginatedLoan } from "../lending/loan.js";
 import { redeemAll } from "../lending/redemption.js";
 import { repayLoan } from "../lending/repayment.js";
 import { log } from "../lib/logger.js";
+import { xrplLedger } from "../xrpl/ledger.js";
+import { clientSubmitter } from "../xrpl/submit.js";
 import { certifyAndIssue, financeInvoice, openFund } from "./financing.js";
 import { releaseZkResources } from "../zk/index.js";
 
@@ -40,7 +42,8 @@ async function run(client: Client, defaultScenario: boolean): Promise<void> {
       await defaultLoan(client, actors, fund, loan.loanId);
     } else {
       log.step(`Remboursement du prêt ${index + 1} · mairie → PME, LoanPay, retour du MPT facture`);
-      await repayLoan(client, actors, fund, loan);
+      const demoParties = { mairie: actors.mairie, borrower: actors.sme, bari: actors.bari };
+      await repayLoan(clientSubmitter(client), xrplLedger(client), demoParties, fund, loan);
     }
   }
 

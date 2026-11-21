@@ -141,6 +141,13 @@ export class UserStore {
     );
   }
 
+  /** Entreprise dont Bari gère le compte XRPL `address` (l'emprunteur d'un prêt, par exemple). */
+  findBusinessByAccount(address: string): Extract<UserRecord, { role: "business" }> | undefined {
+    return this.data.users.find(
+      (user): user is Extract<UserRecord, { role: "business" }> => user.role === "business" && user.account?.address === address,
+    );
+  }
+
   hasPublicBody(ipaCode: string): boolean {
     return this.data.users.some((user) => user.role === "public_body" && user.profile.ipaCode === ipaCode);
   }

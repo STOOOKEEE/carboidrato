@@ -4,7 +4,7 @@
 
 import { verifiedDebtorList } from "../../invoice/certificate.js";
 import { VERIFIED_DEBTORS } from "../../invoice/debtors.js";
-import { loanTerms } from "../../lending/loanTerms.js";
+import { provenThresholdCents } from "../../lending/loanTerms.js";
 import { BLINDING_BYTES } from "../../zk/constants.js";
 import { randomField } from "../../zk/field.js";
 import {
@@ -69,11 +69,11 @@ export async function debtorPath(publicKey: DebtorPublicKey): Promise<DebtorPath
 export async function buildProveInput(file: AttestedInvoiceFile, expected: ProofExpectations): Promise<ProveInput> {
   const fields = toCircuitAttestation(file);
   if (!(await verifyAttestation(fields))) refuse("Signature du débiteur invalide");
-  if (fields.account !== accountToField(expected.smeAccount)) refuse("La facture n'est pas attestée au nom de la PME de la démo");
+  if (fields.account !== accountToField(expected.smeAccount)) refuse("La facture n'est pas attestée au nom de cette entreprise");
   if (fields.registry !== accountToField(expected.registry)) refuse("La facture n'est pas liée au registre de ce fonds");
   if (fields.networkId !== BigInt(expected.networkId)) refuse("La facture est attestée pour un autre réseau");
-  const { provenThresholdCents } = loanTerms();
-  if (fields.amount < provenThresholdCents) refuse("Montant inférieur au seuil de l'avance demandée");
+  const threshold = provenThresholdCents(fields.amount);
+  if (threshold === undefined) refuse("Montant inférieur au premier palier de l'offre");
 
   const debtor = await debtorPath(fields.debtorPublicKey);
   if (debtor.root !== expected.debtorsRoot) refuse("La liste des débiteurs a changé depuis la création du fonds");
@@ -81,7 +81,7 @@ export async function buildProveInput(file: AttestedInvoiceFile, expected: Proof
     attestation: { ...fields, message: await computeAttestedMessage(fields) },
     merklePath: debtor.path,
     debtorsRoot: expected.debtorsRoot,
-    threshold: provenThresholdCents,
+    threshold,
     vintage: expected.vintage,
     blinding: randomField(BLINDING_BYTES),
   };

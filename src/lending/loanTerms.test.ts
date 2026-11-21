@@ -3,7 +3,15 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { eurToCents, eurToUnits } from "../lib/amounts.js";
-import { isOfferTier, loanPaymentInterval, loanTerms, maturityProblem, OFFER_TIERS_EUR, offerTier } from "./loanTerms.js";
+import {
+  isOfferTier,
+  loanPaymentInterval,
+  loanTerms,
+  maturityProblem,
+  OFFER_TIERS_EUR,
+  offerTier,
+  provenThresholdCents,
+} from "./loanTerms.js";
 
 describe("paliers de l'offre", () => {
   test("les seuils publics sont 5 000, 10 000, 20 000, 50 000 et 100 000 €", () => {
@@ -27,6 +35,12 @@ describe("paliers de l'offre", () => {
   test("seul un seuil public est un palier", () => {
     assert.equal(isOfferTier(eurToCents(20_000)), true);
     assert.equal(isOfferTier(eurToCents(12_000)), false);
+  });
+
+  test("le seuil prouvé d'un montant en centimes est son palier, en centimes ; aucun sous le premier", () => {
+    assert.equal(provenThresholdCents(eurToCents(10_340)), eurToCents(10_000));
+    assert.equal(provenThresholdCents(eurToCents(250_000)), eurToCents(100_000));
+    assert.equal(provenThresholdCents(eurToCents(4_999.99)), undefined);
   });
 });
 

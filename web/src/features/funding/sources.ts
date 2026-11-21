@@ -5,6 +5,7 @@ import type { AttestedInvoiceFile, PrecheckResponse } from "../../../../src/api/
 import { fetchDebtors, fetchKybStatus, fetchOffer, fetchProofParams, lookupRegistration } from "../../api";
 import { runPrecheck } from "./precheck";
 import type { BrowserProof } from "./prover";
+import { provenThreshold } from "./witness";
 
 export function precheckInBrowser(file: AttestedInvoiceFile): Promise<PrecheckResponse> {
   const params = fetchProofParams();
@@ -22,11 +23,10 @@ export function precheckInBrowser(file: AttestedInvoiceFile): Promise<PrecheckRe
   });
 }
 
-/** Preuve Groth16 de la facture pour le fonds courant, calculée dans cet onglet. */
+/** Preuve Groth16 de la facture pour le fonds courant, calculée dans cet onglet, au palier de son montant. */
 export async function proveInBrowser(file: AttestedInvoiceFile): Promise<BrowserProof> {
   const [{ proveInvoice }, debtors, params] = await Promise.all([import("./prover"), fetchDebtors(), fetchProofParams()]);
-  return proveInvoice(
-    { file, debtors, threshold: BigInt(params.thresholdCents), vintage: BigInt(params.vintage) },
-    params.artifacts,
-  );
+  const threshold = provenThreshold(file.attestation.amountCents, params.thresholdsCents);
+  if (threshold === undefined) throw new Error("The invoice is below the smallest tier of the offer");
+  return proveInvoice({ file, debtors, threshold, vintage: BigInt(params.vintage) }, params.artifacts);
 }

@@ -96,8 +96,11 @@ export interface ProofParams {
   networkId: number;
   /** Adresse XRPL du registre Bari. */
   registry: string;
-  /** Seuil prouvé, en centimes (décimal). */
-  thresholdCents: string;
+  /**
+   * Paliers publics de l'offre, en centimes (décimal), croissants : le navigateur prouve le plus grand qui ne dépasse
+   * pas le montant de la facture ; seul ce palier devient public.
+   */
+  thresholdsCents: string[];
   /** Millésime du fonds, portée du pseudonyme P. */
   vintage: number;
   /** Artefacts du circuit servis par l'API. */

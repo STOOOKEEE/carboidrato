@@ -4,14 +4,13 @@
 import {
   decodeAccountID,
   MPTokenAuthorizeFlags,
-  type Client,
   type MPTokenAuthorize,
   type MPTokenIssuanceCreate,
   type Payment,
   type Wallet,
 } from "xrpl";
-import { mptAmount, sendMpt } from "../xrpl/mpt.js";
-import { submitTx } from "../xrpl/submit.js";
+import { mptAmount } from "../xrpl/mpt.js";
+import type { SubmitTx } from "../xrpl/submit.js";
 
 export const INVOICE_TOKEN_SUPPLY = 1n;
 const INVOICE_TOKEN_SCALE = 0;
@@ -54,11 +53,14 @@ export function invoiceTokenHandoverTxs(tokenId: string, sme: string, bari: stri
   ];
 }
 
-/** Après remboursement : retour à la PME émettrice (l'unité est brûlée) et fermeture du MPToken de Bari. */
-export async function returnInvoiceToken(client: Client, tokenId: string, sme: Wallet, bari: Wallet): Promise<void> {
-  await sendMpt(client, tokenId, bari, sme.address, INVOICE_TOKEN_SUPPLY, "Payment MPT facture bari → sme");
-  await submitTx(
-    client,
+/** Après remboursement : retour à l'entreprise émettrice `sme` (l'unité est brûlée) et fermeture du MPToken de Bari. */
+export async function returnInvoiceToken(submit: SubmitTx, tokenId: string, sme: string, bari: Wallet): Promise<void> {
+  await submit(
+    { TransactionType: "Payment", Account: bari.address, Destination: sme, Amount: mptAmount(tokenId, INVOICE_TOKEN_SUPPLY) },
+    bari,
+    "Payment MPT facture bari → sme",
+  );
+  await submit(
     {
       TransactionType: "MPTokenAuthorize",
       Account: bari.address,

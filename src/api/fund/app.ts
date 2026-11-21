@@ -25,11 +25,11 @@ function serializeJson(payload: unknown): string {
   return JSON.stringify(payload, (_key, value: unknown) => (typeof value === "bigint" ? value.toString() : value));
 }
 
-/** `lenderPorts` : soumissions des ordres des prêteurs, remplacées par des faux dans les tests de routes. */
+/** `ports` : soumissions signées (ordres des prêteurs, remboursements), remplacées par des faux dans les tests de routes. */
 export async function buildApp(
   config: ApiConfig,
   context: ApiContext,
-  lenderPorts: LenderPorts = clientLenderPorts(context.client),
+  ports: LenderPorts = clientLenderPorts(context.client),
 ): Promise<FastifyInstance> {
   // Un champ inattendu (ex. une donnée du témoin) est refusé en 400, pas retiré en silence.
   const app = Fastify({ bodyLimit: BODY_LIMIT_BYTES, ajv: { customOptions: { removeAdditional: false } } });
@@ -40,11 +40,11 @@ export async function buildApp(
   registerAuthRoutes(app, context);
   registerFundRoutes(app, context);
   registerPublicBodyRoutes(app, context);
-  registerLenderRoutes(app, context, lenderPorts);
+  registerLenderRoutes(app, context, ports);
   registerDebtorRoutes(app);
   registerZkRoutes(app, context);
   registerSmeRoutes(app, context);
-  registerLoanRoutes(app, context);
+  registerLoanRoutes(app, context, ports.submit);
   registerAuditRoutes(app, context);
   registerEventRoutes(app, context);
   registerTxRoutes(app, context);

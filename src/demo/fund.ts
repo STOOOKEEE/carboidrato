@@ -11,7 +11,9 @@ import { buildDemoInvoice } from "../invoice/invoice.js";
 import { repayLoan } from "../lending/repayment.js";
 import { eurToUnits } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
+import { xrplLedger } from "../xrpl/ledger.js";
 import { ledgerTime } from "../xrpl/ledgerTime.js";
+import { clientSubmitter } from "../xrpl/submit.js";
 import { releaseZkResources } from "../zk/index.js";
 import { financeInvoice, openFund, type FinancedInvoice } from "./financing.js";
 import { isReusable } from "./fundReuse.js";
@@ -39,7 +41,8 @@ async function createFund(client: Client, store: FundStateStore): Promise<void> 
   // Le premier prêt est déjà soldé : l'historique montre un remboursement et un prêt en cours.
   const [repaid] = financed;
   log.step("Prêt 1 · remboursement (mairie → PME, LoanPay, retour du MPT facture)");
-  await repayLoan(client, actors, fund, repaid.loan);
+  const demoParties = { mairie: actors.mairie, borrower: actors.sme, bari: actors.bari };
+  await repayLoan(clientSubmitter(client), xrplLedger(client), demoParties, fund, repaid.loan);
 
   // Persisté une fois le fonds complet : une exécution interrompue laisse l'état précédent intact.
   const now = new Date().toISOString();

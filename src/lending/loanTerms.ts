@@ -12,7 +12,8 @@ import { eurToCents, eurToUnits, formatEur, percentOf, unitsToCents } from "../l
 export const OFFER_TIERS_EUR = [5_000, 10_000, 20_000, 50_000, 100_000] as const;
 
 const OFFER_TIERS = OFFER_TIERS_EUR.map(eurToUnits);
-const OFFER_TIER_CENTS = OFFER_TIERS_EUR.map(eurToCents);
+/** Les mêmes seuils en centimes, unité du seuil prouvé (`GET /api/proof/params`). */
+export const OFFER_TIER_CENTS = OFFER_TIERS_EUR.map(eurToCents);
 
 export interface LoanTerms {
   /** Palier prouvé : la facture vaut au moins ce montant (la facture type de la démo vaut exactement son palier). */
@@ -35,6 +36,11 @@ export function offerTier(amount: bigint): bigint | undefined {
 /** Un seuil prouvé (centimes) n'est accepté que s'il est un palier public : un autre seuil en dirait plus sur la facture. */
 export function isOfferTier(thresholdCents: bigint): boolean {
   return OFFER_TIER_CENTS.includes(thresholdCents);
+}
+
+/** Seuil à prouver pour une facture de `amountCents` : son palier en centimes, undefined sous le premier palier. */
+export function provenThresholdCents(amountCents: bigint): bigint | undefined {
+  return OFFER_TIER_CENTS.filter((tier) => tier <= amountCents).at(-1);
 }
 
 /** Conditions adossées au palier de `amount` unités EURc garanties par la preuve (par défaut : la facture type). */
