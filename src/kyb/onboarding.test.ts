@@ -136,7 +136,7 @@ describe("missingHoldings", () => {
   }
 
   function shareHolding(account: string) {
-    return { LedgerEntryType: "MPToken", Account: account, MPTokenIssuanceID: FUND.shareMptId.toLowerCase() } as unknown as LedgerEntry.MPToken;
+    return { LedgerEntryType: "MPToken", Account: account, MPTokenIssuanceID: FUND.shareMptId.toLowerCase() } as unknown as LedgerEntry.LedgerEntry;
   }
 
   test("prêteur ouvert avant le fonds courant : ligne de confiance RLUSD et parts du nouveau Vault manquantes", async () => {
@@ -167,7 +167,7 @@ describe("missingHoldings", () => {
       LedgerEntryType: "MPToken",
       Account: holder,
       MPTokenIssuanceID: "CC".repeat(24),
-    } as unknown as LedgerEntry.MPToken);
+    } as unknown as LedgerEntry.LedgerEntry);
     assert.deepEqual(
       (await missingHoldings(ledger, FUND, holder, "lender")).map((tx) => tx.TransactionType),
       ["TrustSet", "MPTokenAuthorize"],
