@@ -2,7 +2,7 @@
 import { ROLE_COPY } from "../features/account/roles";
 import { LANDING_ROUTE, SIGNIN_ROUTE, spaceRoute, TRANSPARENCY_ROUTE } from "../routes";
 import { useSession } from "../session";
-import { Blossom } from "../ui/Blossom";
+import { SpiralMark } from "../ui/SpiralMark";
 import { AccountMenu } from "./AccountMenu";
 
 const LINKS = [
@@ -17,7 +17,7 @@ export function Nav() {
   return (
     <header className="nav">
       <a className="logo" href={LANDING_ROUTE}>
-        <Blossom size={22} className="logo-mark" />
+        <SpiralMark size={34} className="logo-mark" />
         bari
         <span className="logo-dot" aria-hidden="true">
           .

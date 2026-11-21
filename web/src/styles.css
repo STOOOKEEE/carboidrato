@@ -1,36 +1,26 @@
-/* DA « sakura » : papier crème, encre presque noire, accent cramoisi, fleurs de cerisier roses.
-   Typo fine, petites étiquettes en capitales espacées (cf. référence Monogram). */
+/* DA « Atlas » : gravure d'Atlas à l'encre sur papier, trame et accents roses, tout en Inter, boutons arrondis. */
 
 :root {
-  --bg: #fdfbfa;
+  --bg: #fbfaf6;
   --surface: #ffffff;
-  --line: #efe7e4;
-  --fg: #231e1f;
-  --muted: #77706c;
-  --accent: #a3121f;
-  --danger: #cf3f12;
-  --ok: #231e1f;
-  --sakura: #f7c3d4;
-  --sakura-deep: #e2588a;
-  --sakura-vivid: #c2185b;
-  --sakura-heart: #7d0f37;
-  --sakura-wash: #fdeaf1;
-  --petal-line: #8e1240;
-  --anther: #f2c230;
-  --stamen: #8e1240;
-  --wood: #2e1013;
-  --wood-light: #6b3532;
-  --dither: #e2588a;
-  /* Distance du bord du contenu au bord de la fenêtre : les branches sortent du cadre. */
-  --bleed: calc(max(0px, (100vw - 1200px) / 2) + 32px);
-  --radius: 6px;
+  --line: #eadcdf;
+  --fg: #121212;
+  --muted: #66645e;
+  /* Rose foncé pour le texte (lisible sur le papier), rose moyen pour les traits, rose pâle pour les fonds. */
+  --accent: #c2416c;
+  --gold-line: #e48aa6;
+  --wash: #fcecf1;
+  --danger: #b3261e;
+  --ok: #121212;
+  --dither: #121212;
+  --radius: 0;
   --font: "Inter", system-ui, -apple-system, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, monospace;
   color-scheme: light;
 }
 
 ::selection {
-  background: var(--sakura);
+  background: var(--wash);
   color: var(--fg);
 }
 
@@ -72,24 +62,34 @@ h1,
 h2,
 h3 {
   margin: 0;
-  font-weight: 400;
-  letter-spacing: -0.025em;
-  line-height: 1.12;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
 }
 
 h1 {
-  font-size: clamp(2.4rem, 4.8vw, 4rem);
+  font-size: clamp(2.6rem, 5vw, 4.4rem);
 }
 
 h2 {
-  font-size: clamp(1.7rem, 3vw, 2.5rem);
+  font-size: clamp(1.8rem, 3.2vw, 2.6rem);
 }
 
 h3 {
-  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+/* Fond tramé en rose très clair, fixe derrière tout le site (ShaderBackground). */
+.page-shader {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
 }
 
 .page {
+  position: relative;
+  z-index: 1;
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 32px;
@@ -104,12 +104,12 @@ h3 {
   font-size: 0.85rem;
 }
 
-/* Surlignage rose pâle, comme un pétale posé sous le mot, qui se trace à l'apparition. */
+/* Mot clé souligné d'un trait rose. */
 .underline {
-  background-image: linear-gradient(var(--sakura), var(--sakura));
+  background-image: linear-gradient(var(--gold-line), var(--gold-line));
   background-repeat: no-repeat;
-  background-position: 0 88%;
-  background-size: 100% 0.34em;
+  background-position: 0 94%;
+  background-size: 100% 2px;
 }
 
 .kicker {
@@ -121,7 +121,7 @@ h3 {
   color: var(--accent);
 }
 
-/* Lien d'action façon « EXPLORE ↗ » : capitales cramoisies, flèche qui s'envole au survol. */
+/* Lien d'action façon « EXPLORE ↗ » : capitales roses, souligné au survol. */
 .cta {
   display: inline-flex;
   align-items: center;
@@ -158,14 +158,26 @@ h3 {
 .logo {
   display: flex;
   align-items: center;
-  font-weight: 500;
+  font-weight: 600;
   font-size: 1.35rem;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .logo-mark {
-  margin-right: 10px;
+  margin-right: 12px;
+}
+
+.mark-guide {
+  stroke: var(--fg);
+  stroke-width: 2.5;
+}
+
+.mark-spiral {
+  fill: none;
+  stroke: var(--gold-line);
+  stroke-width: 6;
+  stroke-linecap: round;
 }
 
 .logo-dot {
@@ -179,6 +191,18 @@ h3 {
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+/* Connexion : pilule rose pâle, plus soutenue au survol. */
+.nav-links > .button-ghost {
+  background: var(--wash);
+  color: var(--accent);
+}
+
+.nav-links > .button-ghost:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--surface);
 }
 
 .nav-links > a:not(.button):hover {
@@ -220,12 +244,12 @@ h3 {
 .button-ghost {
   background: transparent;
   color: var(--fg);
-  border-color: var(--line);
+  border-color: var(--gold-line);
 }
 
 .button-ghost:hover:not(:disabled) {
-  background: var(--sakura-wash);
-  border-color: var(--sakura-deep);
+  background: var(--wash);
+  border-color: var(--accent);
   color: var(--accent);
 }
 
@@ -239,7 +263,7 @@ h3 {
 .hero {
   position: relative;
   display: grid;
-  grid-template-rows: 1fr auto;
+  grid-template-columns: 1.15fr 0.85fr;
   align-items: center;
   gap: 48px;
   min-height: calc(100vh - 100px);
@@ -284,108 +308,70 @@ h3 {
   display: block;
   margin-bottom: 2px;
   color: var(--fg);
-  font-size: 1.6rem;
-  font-weight: 300;
+  font-size: 1.7rem;
+  font-weight: 500;
   letter-spacing: -0.02em;
   text-transform: none;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
-/* Branche qui retombe depuis le bord droit de la fenêtre. */
-.hero-sakura {
-  position: absolute;
-  top: 72px;
-  right: calc(-1 * var(--bleed));
-  width: min(52vw, 780px);
-  pointer-events: none;
-}
-
-.hero-foot {
-  position: relative;
-  z-index: 1;
+/* Gravure d'Atlas, légende façon planche. */
+.hero-figure {
   display: flex;
-  justify-content: space-between;
-  color: var(--muted);
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.hero-foot a:hover {
-  color: var(--accent);
-}
-
-/* Fin de la landing : branche qui monte du coin bas gauche, texte à droite. */
-.outro {
-  position: relative;
-  display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
   align-items: center;
-  min-height: 560px;
+  gap: 12px;
+  margin: 0;
+}
+
+.atlas {
+  height: min(74vh, 660px);
+  aspect-ratio: 866 / 1507;
+}
+
+.atlas img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+}
+
+/* Pas de capitales : elles changeraient φ en Φ. */
+.hero-figure figcaption {
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+/* Fin de la landing : le texte à gauche, un grand φ à droite. */
+.outro {
+  display: grid;
+  grid-template-columns: 1fr 0.62fr;
+  align-items: center;
+  gap: 48px;
+  min-height: 520px;
   padding: 96px 0;
 }
 
-.outro-sakura {
-  position: absolute;
-  bottom: -33px;
-  left: calc(-1 * var(--bleed));
-  width: min(56vw, 760px);
-  pointer-events: none;
+.outro-phi {
+  justify-self: center;
+  font-size: clamp(9rem, 20vw, 16rem);
+  font-weight: 300;
+  line-height: 0.8;
+  color: var(--fg);
 }
 
 .outro-copy {
-  position: relative;
-  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 18px;
-  max-width: 30rem;
+  max-width: 32rem;
 }
 
 .outro-copy .cta {
   align-self: flex-start;
 }
-
-/* Fleurs de cerisier : petite fleur du logo */
-
-.blossom-petal {
-  fill: var(--sakura);
-}
-
-.blossom-petal {
-  stroke: var(--petal-line);
-  stroke-width: 0.04;
-}
-
-.blossom-heart {
-  fill: var(--sakura-deep);
-}
-
-.blossom-stamen {
-  stroke: var(--stamen);
-  stroke-width: 0.025;
-  stroke-linecap: round;
-}
-
-.blossom-anther {
-  fill: var(--anther);
-}
-
-/* Branches de cerisier */
-
-.sakura {
-  display: block;
-  height: auto;
-  user-select: none;
-}
-
-/* La même branche, en miroir, entre par la gauche. */
-.sakura-rising {
-  transform: scaleX(-1);
-}
-
-
 
 /* Sections */
 
@@ -415,8 +401,8 @@ h3 {
 }
 
 .checker.is-dragging {
-  border-color: var(--sakura-deep);
-  box-shadow: 0 0 0 5px var(--sakura-wash);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 5px var(--wash);
 }
 
 .checker-visual {
@@ -494,8 +480,8 @@ h3 {
 }
 
 .steps li::before {
-  content: "✿ ";
-  color: var(--sakura-deep);
+  content: "— ";
+  color: var(--gold-line);
   animation: blink 900ms steps(2) infinite;
 }
 
@@ -584,7 +570,7 @@ h3 {
 }
 
 .step.done {
-  border-color: var(--sakura);
+  border-color: var(--accent);
 }
 
 .step-head {
@@ -642,8 +628,8 @@ h3 {
 .form input:focus,
 .form select:focus {
   outline: none;
-  border-color: var(--sakura-deep);
-  box-shadow: 0 0 0 4px var(--sakura-wash);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--wash);
 }
 
 .form [aria-invalid="true"] {
@@ -736,30 +722,21 @@ h3 {
     padding-top: 24px;
   }
 
-  .page {
-    --bleed: 20px;
-  }
-
-  .hero {
-    padding-top: 62vw;
-  }
-
-  .hero-sakura {
-    top: 0;
-    width: 88vw;
-  }
-
-  .hero-foot {
-    display: none;
+  .atlas {
+    height: min(60vh, 520px);
   }
 
   .outro {
+    grid-template-columns: 1fr;
+    gap: 16px;
     min-height: auto;
-    padding: 64px 0 52vw;
+    padding: 64px 0;
   }
 
-  .outro-sakura {
-    width: 80vw;
+  .outro-phi {
+    order: -1;
+    justify-self: start;
+    font-size: 8rem;
   }
 
   .checker-visual {
@@ -868,7 +845,7 @@ h3 {
 }
 
 .door:hover {
-  background: linear-gradient(90deg, transparent, var(--sakura-wash) 50%, transparent);
+  background: linear-gradient(90deg, transparent, var(--wash) 50%, transparent);
 }
 
 .door-copy {
@@ -1337,7 +1314,7 @@ h3 {
   display: block;
   height: 10px;
   border-radius: 999px;
-  background: var(--sakura-wash);
+  background: var(--wash);
   overflow: hidden;
 }
 
@@ -1345,7 +1322,7 @@ h3 {
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: var(--sakura-deep);
+  background: var(--accent);
 }
 
 .exposure.breach .exposure-fill {

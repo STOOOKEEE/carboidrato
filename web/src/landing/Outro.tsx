@@ -1,21 +1,25 @@
-// Fin de la landing : une branche monte du coin bas gauche, le mot de la fin et le lien vers Transparency.
+// Fin de la landing : le mot de la fin, le lien vers Transparency et le φ en grand.
 import { TRANSPARENCY_ROUTE } from "../routes";
-import { SakuraBranch } from "./SakuraBranch";
 
 export function Outro() {
   return (
     <section className="outro">
-      <SakuraBranch variant="rising" className="outro-sakura" />
       <div className="outro-copy">
-        <span className="kicker">A study in trust — 003</span>
+        <span className="kicker">The golden rule — 003</span>
         <h2>
-          Where invoices <span className="underline">blossom</span>.
+          Every loan carries its <span className="underline">proof</span>.
         </h2>
-        <p className="muted">Every loan carries its own proof, and anyone can check all of them in a browser.</p>
+        <p className="muted">
+          No invoice is shown, none can be financed twice, and no debtor weighs more than a fifth of the fund. Check it
+          all in your browser.
+        </p>
         <a className="cta" href={TRANSPARENCY_ROUTE}>
           Verify every loan <span aria-hidden="true">↗</span>
         </a>
       </div>
+      <span className="outro-phi" aria-hidden="true">
+        φ
+      </span>
     </section>
   );
 }
