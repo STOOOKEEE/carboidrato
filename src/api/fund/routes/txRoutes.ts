@@ -6,6 +6,7 @@ import { hashes, type Transaction } from "xrpl";
 import { explorerTransactionUrl } from "../../../config/network.js";
 import { decodeCertificateMetadata } from "../../../invoice/certificateMetadata.js";
 import type { LedgerTransaction } from "../../../xrpl/ledger.js";
+import { currencyLabel } from "../../../xrpl/stablecoin.js";
 import type { TxCertificate, TxDetail } from "../../contract.js";
 import type { ApiContext } from "../context.js";
 import { HttpError } from "../errors.js";
@@ -47,11 +48,12 @@ const txParamsSchema = {
   },
 } as const;
 
-/** Montant XRPL lisible : drops, ou objet { value, currency | mpt_issuance_id }. */
+/** Montant XRPL lisible : drops, ou objet { value, currency | mpt_issuance_id } ; un code de devise hex devient son texte (RLUSD). */
 function fieldValue(value: unknown): string | undefined {
   if (typeof value === "string" || typeof value === "number") return String(value);
   if (typeof value === "object" && value !== null && "value" in value) {
-    const unit = "currency" in value ? value.currency : "mpt_issuance_id" in value ? value.mpt_issuance_id : undefined;
+    const unit =
+      "currency" in value ? currencyLabel(String(value.currency)) : "mpt_issuance_id" in value ? value.mpt_issuance_id : undefined;
     return `${String(value.value)}${unit === undefined ? "" : ` ${String(unit)}`}`;
   }
   return undefined;

@@ -134,14 +134,14 @@ const STEPS: Record<UserRole, { label: string; matches: (txLabel: string) => boo
     { label: "XRPL account opened", matches: (tx) => tx.startsWith("Payment") },
     { label: "KYC_INVESTOR credential issued by Bari", matches: (tx) => tx.startsWith("CredentialCreate") },
     { label: "Credential accepted by your account", matches: (tx) => tx.startsWith("CredentialAccept") },
-    { label: "Euro token (EURc) enabled", matches: (tx) => tx.startsWith("MPTokenAuthorize EURc") },
+    { label: "Dollar stablecoin (RLUSD) enabled", matches: (tx) => tx.startsWith("TrustSet RLUSD") },
     { label: "Fund shares enabled", matches: (tx) => tx.startsWith("MPTokenAuthorize Vault shares") },
   ],
   business: [
     { label: "XRPL account opened", matches: (tx) => tx.startsWith("Payment") },
     { label: "KYB_PME credential issued by Bari", matches: (tx) => tx.startsWith("CredentialCreate") },
     { label: "Credential accepted by your account", matches: (tx) => tx.startsWith("CredentialAccept") },
-    { label: "Euro token (EURc) enabled", matches: (tx) => tx.startsWith("MPTokenAuthorize EURc") },
+    { label: "Dollar stablecoin (RLUSD) enabled", matches: (tx) => tx.startsWith("TrustSet RLUSD") },
   ],
   public_body: [],
 };

@@ -1,16 +1,18 @@
 // Ouverture du compte XRPL géré d'un nouvel utilisateur, par rôle : compte financé, credential KYC ou KYB émis par
-// Bari pour un an et accepté, MPT du fonds autorisés. Un organisme public n'a pas de compte XRPL.
+// Bari pour un an et accepté, ligne de confiance RLUSD (et parts du Vault pour un prêteur). Un organisme public n'a pas
+// de compte XRPL.
 
 import { Wallet } from "xrpl";
 import type { FundAccount } from "../accounts/funding.js";
 import type { AccountProfile, ManagedAccount, ProvisionAccount } from "../accounts/userStore.js";
 import { sha256Hex, textToHex } from "../lib/encoding.js";
+import { trustLine, type Stablecoin } from "../xrpl/stablecoin.js";
 import type { SubmitTx } from "../xrpl/submit.js";
 import { CREDENTIAL_TYPES, CREDENTIAL_VALIDITY_S, issueCredential } from "./kycCredentials.js";
 
-/** MPT du fonds ouvert : l'EURc (actif du Vault) et ses parts. */
+/** Jetons du fonds ouvert : le RLUSD (actif du Vault) et les parts du Vault. */
 export interface FundTokens {
-  assetId: string;
+  stablecoin: Stablecoin;
   shareMptId: string;
 }
 
@@ -52,7 +54,7 @@ export function makeProvisioner(deps: OnboardingDeps): ProvisionAccount {
       uriHex: dossierUri(wallet.address, account),
       expiration: deps.now() + CREDENTIAL_VALIDITY_S,
     });
-    await authorize(wallet, tokens.assetId, `MPTokenAuthorize EURc (${account.role})`);
+    await deps.submit(trustLine(tokens.stablecoin, wallet.address), wallet, `TrustSet RLUSD (${account.role})`);
     if (account.role === "lender") await authorize(wallet, tokens.shareMptId, "MPTokenAuthorize Vault shares (lender)");
     return { address: wallet.address, seed: wallet.seed };
   };

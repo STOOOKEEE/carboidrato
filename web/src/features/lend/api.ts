@@ -1,4 +1,4 @@
-// Appels de l'espace prêteur : position, euros de test, dépôt et retrait par le compte géré de la session.
+// Appels de l'espace prêteur : position, RLUSD de test, dépôt et retrait par le compte géré de la session.
 
 import type {
   LenderFaucetResponse,
@@ -13,9 +13,9 @@ export const fetchPosition = () => request<LenderPosition>("/api/lender/position
 
 export const fetchLendFund = () => request<LendFund>("/api/fund");
 
-export const addTestEuros = () => postJson<LenderFaucetResponse>("/api/lender/faucet", {});
+export const addTestRlusd = () => postJson<LenderFaucetResponse>("/api/lender/faucet", {});
 
-/** `amount` en unités EURc. */
+/** `amount` en unités RLUSD. */
 export const deposit = (amount: bigint) =>
   postJson<LenderTradeResponse>("/api/lender/deposit", { amount: amount.toString() } satisfies LenderTradeRequest);
 

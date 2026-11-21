@@ -296,18 +296,18 @@ export interface LoanCheck {
   reason?: string;
 }
 
-/** Montant en unités EURc (6 décimales), en chaîne décimale. */
-export type EurcUnits = string;
+/** Montant en unités RLUSD (6 décimales : 1 RLUSD = 10^6 unités), en chaîne décimale. */
+export type RlusdUnits = string;
 
 /** Réponse de `POST /api/sme/loan` (201). */
 export interface LoanResponse {
   loanId: string;
   tokenId: string;
   checks: LoanCheck[];
-  principal: EurcUnits;
-  originationFee: EurcUnits;
+  principal: RlusdUnits;
+  originationFee: RlusdUnits;
   /** Ce que l'entreprise reçoit : principal − frais. */
-  netAdvance: EurcUnits;
+  netAdvance: RlusdUnits;
   /** Échéance du prêt (ISO). */
   dueDate: string;
   /** Hash du `LoanSet` co-signé. */
@@ -336,56 +336,56 @@ export interface BusinessInvoice {
   loanId?: string;
   /** Hash du `LoanSet`. */
   loanTxHash?: string;
-  principal?: EurcUnits;
-  originationFee?: EurcUnits;
+  principal?: RlusdUnits;
+  originationFee?: RlusdUnits;
   /** Échéance du prêt (ISO). */
   dueDate?: string;
 }
 
-// Espace prêteur : position, faucet d'euros de test, dépôt et retrait (natifs ou immédiats par Bari selon la phase).
+// Espace prêteur : position, faucet de RLUSD de test, dépôt et retrait (natifs ou immédiats par Bari selon la phase).
 
 export type FundPhase = "subscription" | "investment" | "redemption";
 
 /** `native` : VaultDeposit / VaultWithdraw ; `immediate` : Batch atomique avec Bari pendant la période de prêt. */
 export type LenderTradeRoute = "native" | "immediate";
 
-/** Montant en unités de part du Vault, en chaîne décimale ; une part affichée = 10^6 unités (1 EURc au pair). */
+/** Montant en unités de part du Vault, en chaîne décimale ; une part affichée = 10^6 unités (1 RLUSD au pair). */
 export type ShareUnits = string;
 
 /** Ce que le prêteur de la session peut passer dans un sens, dans la phase courante. */
 export interface LenderTradeLimit {
   /** Chemin de l'ordre ; null si ce sens est fermé (dépôt pendant le rachat). */
   route: LenderTradeRoute | null;
-  /** Maximum accepté : min(solde du prêteur, plafond de Bari). Entrée en EURc, sortie en parts. */
-  max: EurcUnits | ShareUnits;
-  /** Chemin immédiat : stock de parts de Bari au prix de la part (entrée, EURc), parts que sa réserve rachète (sortie). */
-  bariCap?: EurcUnits | ShareUnits;
+  /** Maximum accepté : min(solde du prêteur, plafond de Bari). Entrée en RLUSD, sortie en parts. */
+  max: RlusdUnits | ShareUnits;
+  /** Chemin immédiat : stock de parts de Bari au prix de la part (entrée, RLUSD), parts que sa réserve rachète (sortie). */
+  bariCap?: RlusdUnits | ShareUnits;
 }
 
-/** `GET /api/lender/position`. Les prix sont en unités EURc par part affichée (10^6 unités de part). */
+/** `GET /api/lender/position`. Les prix sont en unités RLUSD par part affichée (10^6 unités de part). */
 export interface LenderPosition {
   phase: FundPhase;
   shares: ShareUnits;
   /** Valeur des parts au prix de la part. */
-  value: EurcUnits;
-  /** EURc payés pour les parts détenues. */
-  costBasis: EurcUnits;
+  value: RlusdUnits;
+  /** RLUSD payés pour les parts détenues. */
+  costBasis: RlusdUnits;
   /** Prix moyen d'achat par part affichée ; absent sans achat suivi. */
-  averageCost?: EurcUnits;
+  averageCost?: RlusdUnits;
   /** value − costBasis, négatif en cas de perte. */
-  gain: EurcUnits;
+  gain: RlusdUnits;
   /** (AssetsTotal − LossUnrealized) / parts en circulation, par part affichée. */
-  sharePrice: EurcUnits;
+  sharePrice: RlusdUnits;
   /** Rendement annuel variable des prêts en cours, net des frais de gestion de Bari, en %. */
   variableYieldPercent: number;
-  eurcBalance: EurcUnits;
+  rlusdBalance: RlusdUnits;
   entry: LenderTradeLimit;
   exit: LenderTradeLimit;
   /** Remise de la sortie immédiate sur le prix de la part, en %. */
   immediateExitDiscountPercent: number;
 }
 
-/** Corps de `POST /api/lender/deposit` (`amount` en unités EURc) et `POST /api/lender/withdraw` (`amount` en unités de part). */
+/** Corps de `POST /api/lender/deposit` (`amount` en unités RLUSD) et `POST /api/lender/withdraw` (`amount` en unités de part). */
 export interface LenderTradeRequest {
   amount: string;
 }
@@ -395,17 +395,17 @@ export interface LenderTradeResponse {
   hash: string;
   route: LenderTradeRoute;
   phase: FundPhase;
-  /** EURc versés (dépôt) ou reçus (retrait). */
-  amount: EurcUnits;
+  /** RLUSD versés (dépôt) ou reçus (retrait). */
+  amount: RlusdUnits;
   /** Parts reçues (dépôt) ou rendues (retrait). */
   shares: ShareUnits;
   transactions: SubmittedTx[];
 }
 
-/** `POST /api/lender/faucet` : euros de test (EURc) envoyés au compte géré du prêteur. */
+/** `POST /api/lender/faucet` : RLUSD de test envoyés au compte géré du prêteur. */
 export interface LenderFaucetResponse {
   hash: string;
-  amount: EurcUnits;
+  amount: RlusdUnits;
   transactions: SubmittedTx[];
 }
 
@@ -420,9 +420,9 @@ export interface AuditLoan {
   /** Hash du `LoanSet`. */
   loanSetHash: string;
   borrower: string;
-  principal: EurcUnits;
+  principal: RlusdUnits;
   /** Principal restant dû. */
-  outstanding: EurcUnits;
+  outstanding: RlusdUnits;
   status: AuditLoanStatus;
   /** Prochaine échéance (ISO), absente une fois le prêt soldé. */
   dueDate?: string;
@@ -434,7 +434,7 @@ export interface AuditLoan {
   anomalies: number;
 }
 
-/** `GET /api/audit` : public, montants en unités EURc. */
+/** `GET /api/audit` : public, montants en unités RLUSD. */
 export interface FundAudit {
   vaultId: string;
   brokerId: string;
@@ -446,9 +446,9 @@ export interface FundAudit {
   /** Preuves valides selon le serveur ; le navigateur refait le calcul. */
   verifiedProofs: number;
   anomalies: number;
-  fundAssets: EurcUnits;
-  /** Prix de la part, en unités EURc par part affichée. */
-  sharePrice: EurcUnits;
+  fundAssets: RlusdUnits;
+  /** Prix de la part, en unités RLUSD par part affichée. */
+  sharePrice: RlusdUnits;
   /** Plafond d'encours par débiteur, en % de l'actif du fonds. */
   concentrationLimitPercent: number;
   loanAudits: AuditLoan[];

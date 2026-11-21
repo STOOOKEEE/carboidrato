@@ -11,9 +11,10 @@ import type { LoanReference } from "../fund/loanData.js";
 import { listOwnerLoanRecords } from "../fund/loanRecords.js";
 import type { CertificateMetadata } from "../invoice/certificateMetadata.js";
 import { isSmeKybDone } from "../kyb/smeKyb.js";
-import { centsToUnits, formatEur, formatPercent, parseUnits, percentOf, ratioPercent, unitsToEur } from "../lib/amounts.js";
+import { centsToUnits, formatEur, formatPercent, formatRlusd, percentOf, ratioPercent, unitsToEur } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
 import type { Ledger } from "../xrpl/ledger.js";
+import { valueToUnits } from "../xrpl/stablecoin.js";
 import { loanTerms, maturityProblem, OFFER_TIERS_EUR, offerTier, type LoanTerms } from "./loanTerms.js";
 
 const MS_PER_SECOND = 1_000;
@@ -135,11 +136,11 @@ export async function reviewLoan(ledger: Ledger, parties: LoanParties, fund: Fun
     outcomes.concentration = NEEDS_TIER;
   } else {
     const records = bariRecords.filter((record) => record.loan.LoanBrokerID === fund.brokerId);
-    const fundAssets = parseUnits((await ledger.vault(fund.cohort.vaultId)).AssetsTotal);
+    const fundAssets = valueToUnits((await ledger.vault(fund.cohort.vaultId)).AssetsTotal);
     const current = exposuresByPseudonym(records).find((exposure) => exposure.pseudonym === reference.pseudonym);
     const exposureAfter = (current?.outstanding ?? 0n) + terms.principal;
     const share = formatPercent(ratioPercent(exposureAfter, fundAssets));
-    log.info(`concentration P=${reference.pseudonym.slice(0, 8)}… : ${formatEur(exposureAfter, 2)} / ${formatEur(fundAssets, 2)} = ${share}`);
+    log.info(`concentration P=${reference.pseudonym.slice(0, 8)}… : ${formatRlusd(exposureAfter, 2)} / ${formatRlusd(fundAssets, 2)} = ${share}`);
     outcomes.concentration =
       exposureAfter > concentrationLimit(fundAssets)
         ? `Exposure to this debtor would reach ${share} of the fund, above the ${MAX_DEBTOR_CONCENTRATION_PERCENT} % limit`
@@ -160,6 +161,6 @@ export async function reviewLoan(ledger: Ledger, parties: LoanParties, fund: Fun
     return reason === undefined ? { id, label: LOAN_CHECK_LABELS[id], ok: true } : { id, label: LOAN_CHECK_LABELS[id], ok: false, reason };
   });
   if (certificate === undefined || terms === undefined || checks.some((check) => !check.ok)) return { checks };
-  log.info(`contrôles Bari OK pour ${parties.borrower} : palier ${formatEur(terms.invoice, 2)}, avance ${formatEur(terms.principal, 2)}`);
+  log.info(`contrôles Bari OK pour ${parties.borrower} : palier ${formatEur(terms.invoice, 2)}, avance ${formatRlusd(terms.principal, 2)}`);
   return { checks, approval: { certificate, terms } };
 }

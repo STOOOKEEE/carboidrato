@@ -1,13 +1,13 @@
 // Espace prêteur, pur : montants saisis en unités exactes, contrôle et aperçu des ordres, opérations et historique.
 
 import type { LenderFaucetResponse, LenderPosition, LenderTradeResponse, LenderTradeRoute } from "../../../../src/api/contract";
-import { formatEur } from "../../format";
+import { formatRlusd } from "../../format";
 
-/** EURc et parts ont 6 décimales : une part affichée = 10^6 unités, un euro = 10^6 unités EURc. */
+/** RLUSD et parts ont 6 décimales : une part affichée = 10^6 unités, un RLUSD = 10^6 unités. */
 const DECIMALS = 6;
 const UNIT = 10n ** BigInt(DECIMALS);
 const UNITS_PER_CENT = UNIT / 100n;
-const EURO_DECIMALS = 2;
+const DISPLAY_DECIMALS = 2;
 const TENTH_BIPS_PER_PERCENT = 1_000;
 const TENTH_BIPS_PER_WHOLE = 100n * BigInt(TENTH_BIPS_PER_PERCENT);
 const AMOUNT_PATTERN = /^(\d*)(?:\.(\d*))?$/;
@@ -15,7 +15,7 @@ const AMOUNT_PATTERN = /^(\d*)(?:\.(\d*))?$/;
 export type Parsed = { ok: true; units: bigint } | { ok: false; error: string };
 
 function parseFixed(text: string, maxDecimals: number, example: string): Parsed {
-  const cleaned = text.replace(/[\s,€]/g, "");
+  const cleaned = text.replace(/[\s,€$]/g, "");
   if (cleaned === "") return { ok: false, error: "Enter an amount" };
   const match = AMOUNT_PATTERN.exec(cleaned);
   const whole = match?.[1] ?? "";
@@ -26,8 +26,8 @@ function parseFixed(text: string, maxDecimals: number, example: string): Parsed 
   return units === 0n ? { ok: false, error: "Enter an amount above zero" } : { ok: true, units };
 }
 
-/** Euros saisis (au centime) → unités EURc, sans passer par un flottant. */
-export const parseEuros = (text: string) => parseFixed(text, EURO_DECIMALS, "5000");
+/** RLUSD saisis (au centième) → unités, sans passer par un flottant. */
+export const parseRlusd = (text: string) => parseFixed(text, DISPLAY_DECIMALS, "5000");
 
 /** Parts saisies → unités de part. */
 export const parseShares = (text: string) => parseFixed(text, DECIMALS, "1000");
@@ -46,29 +46,24 @@ const grouped = new Intl.NumberFormat("en-GB");
 
 /** Parts exactes, au moins 2 décimales. */
 export function formatShares(units: bigint): string {
-  return `${grouped.format(units / UNIT)}.${fractionDigits(units).padEnd(EURO_DECIMALS, "0")}`;
+  return `${grouped.format(units / UNIT)}.${fractionDigits(units).padEnd(DISPLAY_DECIMALS, "0")}`;
 }
 
-/** Unités EURc en euros, tronquées au centime : un maximum affiché ne dépasse jamais le vrai maximum. */
-export const formatEurUnits = (units: bigint) => formatEur(Number(units / UNITS_PER_CENT) / 100);
+/** Unités RLUSD, tronquées au centième : un maximum affiché ne dépasse jamais le vrai maximum. */
+export const formatRlusdUnits = (units: bigint) => formatRlusd(Number(units / UNITS_PER_CENT) / 100);
 
-const sharePriceFormatter = new Intl.NumberFormat("en-GB", {
-  style: "currency",
-  currency: "EUR",
-  minimumFractionDigits: 4,
-  maximumFractionDigits: DECIMALS,
-});
+const sharePriceFormatter = new Intl.NumberFormat("en-GB", { minimumFractionDigits: 4, maximumFractionDigits: DECIMALS });
 
-/** Prix de la part (unités EURc par part affichée) : ses variations se lisent après le centime. */
-export const formatSharePrice = (units: string) => sharePriceFormatter.format(Number(units) / Number(UNIT));
+/** Prix de la part (unités RLUSD par part affichée) : ses variations se lisent après le centième. */
+export const formatSharePrice = (units: string) => `${sharePriceFormatter.format(Number(units) / Number(UNIT))} RLUSD`;
 
 export interface TradePreview {
   route: LenderTradeRoute;
-  /** EURc versés (dépôt) ou reçus (retrait), en unités. */
-  eurc: bigint;
+  /** RLUSD versés (dépôt) ou reçus (retrait), en unités. */
+  rlusd: bigint;
   /** Parts reçues (dépôt) ou rendues (retrait), en unités. */
   shares: bigint;
-  /** Remise de la sortie immédiate, en unités EURc. */
+  /** Remise de la sortie immédiate, en unités RLUSD. */
   fee: bigint;
 }
 
@@ -81,32 +76,32 @@ export type TradeCheck = { ok: true; amount: bigint; preview: TradePreview } | {
 
 const refuse = (error: string): TradeCheck => ({ ok: false, error });
 
-/** Euros → parts au prix de la part (EURc par part affichée), arrondi en faveur du fonds comme l'API. */
+/** RLUSD → parts au prix de la part (RLUSD par part affichée), arrondi en faveur du fonds comme l'API. */
 export function checkDeposit(position: LenderPosition, input: string): TradeCheck {
   const { route } = position.entry;
   if (route === null) return refuse("Deposits are closed: the fund is repaying its lenders. You can still withdraw.");
-  const parsed = parseEuros(input);
+  const parsed = parseRlusd(input);
   if (!parsed.ok) return parsed;
   const amount = parsed.units;
-  const balance = BigInt(position.eurcBalance);
+  const balance = BigInt(position.rlusdBalance);
   const max = BigInt(position.entry.max);
   if (amount > balance) {
     return refuse(
       balance === 0n
-        ? "Your balance is empty: add test euros first."
-        : `Above your balance of ${formatEurUnits(balance)}. Enter at most ${formatEurUnits(max)}.`,
+        ? "Your balance is empty: add test RLUSD first."
+        : `Above your balance of ${formatRlusdUnits(balance)}. Enter at most ${formatRlusdUnits(max)}.`,
     );
   }
   if (amount > max) {
     const cap = BigInt(position.entry.bariCap ?? position.entry.max);
-    return refuse(`Bari can sell at most ${formatEurUnits(cap)} of fund shares right now. Enter at most ${formatEurUnits(max)}.`);
+    return refuse(`Bari can sell at most ${formatRlusdUnits(cap)} of fund shares right now. Enter at most ${formatRlusdUnits(max)}.`);
   }
   const shares = (amount * UNIT) / BigInt(position.sharePrice);
   if (shares === 0n) return refuse("Amount too small to buy a share.");
-  return { ok: true, amount, preview: { route, eurc: amount, shares, fee: 0n } };
+  return { ok: true, amount, preview: { route, rlusd: amount, shares, fee: 0n } };
 }
 
-/** Parts → euros au prix de la part ; la sortie immédiate retient la remise de Bari, arrondi inférieur comme l'API. */
+/** Parts → RLUSD au prix de la part ; la sortie immédiate retient la remise de Bari, arrondi inférieur comme l'API. */
 export function checkWithdraw(position: LenderPosition, input: string): TradeCheck {
   const { route } = position.exit;
   if (route === null) return refuse("Withdrawals are closed right now.");
@@ -126,12 +121,12 @@ export function checkWithdraw(position: LenderPosition, input: string): TradeChe
   const price = BigInt(position.sharePrice);
   const gross = (shares * price) / UNIT;
   const kept = TENTH_BIPS_PER_WHOLE - BigInt(Math.round(position.immediateExitDiscountPercent * TENTH_BIPS_PER_PERCENT));
-  const eurc = route === "immediate" ? (shares * price * kept) / (UNIT * TENTH_BIPS_PER_WHOLE) : gross;
-  if (eurc === 0n) return refuse("Amount too small to receive any euros.");
-  return { ok: true, amount: shares, preview: { route, eurc, shares, fee: gross - eurc } };
+  const rlusd = route === "immediate" ? (shares * price * kept) / (UNIT * TENTH_BIPS_PER_WHOLE) : gross;
+  if (rlusd === 0n) return refuse("Amount too small to receive any RLUSD.");
+  return { ok: true, amount: shares, preview: { route, rlusd, shares, fee: gross - rlusd } };
 }
 
-/** Champs de `GET /api/fund` lus par la carte du fonds (unités EURc en chaînes). */
+/** Champs de `GET /api/fund` lus par la carte du fonds (unités RLUSD en chaînes). */
 export interface LendFund {
   subscriptionEndsAt: string;
   redemptionStartsAt: string;
@@ -152,8 +147,8 @@ export type LendAction = "faucet" | "deposit" | "withdraw";
 export interface Movement {
   action: LendAction;
   route?: LenderTradeRoute;
-  /** EURc reçus (faucet, retrait) ou versés (dépôt), en unités. */
-  eurc: bigint;
+  /** RLUSD reçus (faucet, retrait) ou versés (dépôt), en unités. */
+  rlusd: bigint;
   shares?: bigint;
   /** Transaction principale (VaultDeposit / VaultWithdraw, Batch externe, Payment). */
   hash: string;
@@ -165,7 +160,7 @@ const hashesOf = (hash: string, transactions: { hash: string }[]) => [...new Set
 
 export const faucetMovement = ({ hash, amount, transactions }: LenderFaucetResponse): Movement => ({
   action: "faucet",
-  eurc: BigInt(amount),
+  rlusd: BigInt(amount),
   hash,
   hashes: hashesOf(hash, transactions),
 });
@@ -173,20 +168,20 @@ export const faucetMovement = ({ hash, amount, transactions }: LenderFaucetRespo
 export const tradeMovement = (action: "deposit" | "withdraw", response: LenderTradeResponse): Movement => ({
   action,
   route: response.route,
-  eurc: BigInt(response.amount),
+  rlusd: BigInt(response.amount),
   shares: BigInt(response.shares),
   hash: response.hash,
   hashes: hashesOf(response.hash, response.transactions),
 });
 
-export function movementSummary({ action, eurc, shares = 0n }: Movement): string {
+export function movementSummary({ action, rlusd, shares = 0n }: Movement): string {
   switch (action) {
     case "faucet":
-      return `Received ${formatEurUnits(eurc)} of test euros`;
+      return `Received ${formatRlusdUnits(rlusd)} of test funds`;
     case "deposit":
-      return `Deposited ${formatEurUnits(eurc)} for ${formatShares(shares)} shares`;
+      return `Deposited ${formatRlusdUnits(rlusd)} for ${formatShares(shares)} shares`;
     case "withdraw":
-      return `Sold ${formatShares(shares)} shares for ${formatEurUnits(eurc)}`;
+      return `Sold ${formatShares(shares)} shares for ${formatRlusdUnits(rlusd)}`;
   }
 }
 

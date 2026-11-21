@@ -3,17 +3,18 @@
 import { LoanManageFlags, type Client } from "xrpl";
 import type { Actors } from "../accounts/actors.js";
 import type { Fund } from "../fund/fund.js";
-import { formatEur, parseUnits } from "../lib/amounts.js";
+import { formatRlusd } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
 import { getLoan, getLoanBroker, getVault } from "../xrpl/ledgerEntries.js";
 import { waitForLedgerTimeAfter } from "../xrpl/ledgerTime.js";
+import { valueToUnits } from "../xrpl/stablecoin.js";
 import { submitTx } from "../xrpl/submit.js";
 
 async function logExposure(client: Client, fund: Fund, moment: string): Promise<void> {
   const broker = await getLoanBroker(client, fund.brokerId);
   const vault = await getVault(client, fund.cohort.vaultId);
   log.info(
-    `${moment} : first-loss Bari ${formatEur(parseUnits(broker.CoverAvailable))}, actifs du Vault ${formatEur(parseUnits(vault.AssetsTotal))}, perte latente ${formatEur(parseUnits(vault.LossUnrealized))}`,
+    `${moment} : first-loss Bari ${formatRlusd(valueToUnits(broker.CoverAvailable))}, actifs du Vault ${formatRlusd(valueToUnits(vault.AssetsTotal))}, perte latente ${formatRlusd(valueToUnits(vault.LossUnrealized))}`,
   );
 }
 

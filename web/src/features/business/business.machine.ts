@@ -1,7 +1,7 @@
 // Machine d'état pure de l'espace entreprise : fichier signé, pré-contrôle et offre, financement, factures du compte.
 
 import type { AttestedInvoiceFile, BusinessInvoice, CheckId, LoanCheck, PrecheckResponse } from "../../../../src/api/contract";
-import { formatEur } from "../../format";
+import { formatRlusd } from "../../format";
 import { parseJsonOrUndefined } from "../../json";
 import {
   initialFundingState,
@@ -208,7 +208,7 @@ export function fundingSteps(funding: FundingState): FundingStep[] {
     proof: durationMs === undefined ? {} : { detail: `in ${formatDuration(durationMs)}` },
     certificate: certificateTx === undefined ? {} : { hash: certificateTx },
     checks: checks === undefined ? {} : { checks },
-    loan: loan === undefined ? {} : { hash: loan.txHash, detail: `${formatEur(loan.netAdvanceEur)} received` },
+    loan: loan === undefined ? {} : { hash: loan.txHash, detail: `${formatRlusd(loan.netAdvanceRlusd)} received` },
   };
   return STEP_IDS.map((id, index) => {
     const current = index === progress.done ? active : undefined;
@@ -222,9 +222,9 @@ export interface InvoiceRow {
   fingerprint: string;
   status: string;
   issuedAt: string;
-  advanceEur?: number;
-  feeEur?: number;
-  netEur?: number;
+  advanceRlusd?: number;
+  feeRlusd?: number;
+  netRlusd?: number;
   dueDate?: string;
   certificateTxHash?: string;
   loanTxHash?: string;
@@ -236,12 +236,12 @@ const STATUS_LABELS: Record<BusinessInvoice["status"], string> = {
   repaid: "Repaid",
   defaulted: "Defaulted",
 };
-/** EURc à 6 décimales. */
-const EURC_UNITS_PER_EUR = 1_000_000;
+/** RLUSD à 6 décimales. */
+const RLUSD_UNITS = 1_000_000;
 
-const eurOf = (units: string) => Number(units) / EURC_UNITS_PER_EUR;
+const rlusdOf = (units: string) => Number(units) / RLUSD_UNITS;
 
-/** Factures du compte, les plus récentes d'abord ; montants du prêt en euros une fois financée. */
+/** Factures du compte, les plus récentes d'abord ; montants du prêt en RLUSD une fois financée. */
 export function invoiceRows(invoices: readonly BusinessInvoice[]): InvoiceRow[] {
   return [...invoices]
     .sort((a, b) => b.issuedAt.localeCompare(a.issuedAt))
@@ -251,9 +251,9 @@ export function invoiceRows(invoices: readonly BusinessInvoice[]): InvoiceRow[] 
         principal === undefined || originationFee === undefined
           ? {}
           : {
-              advanceEur: eurOf(principal),
-              feeEur: eurOf(originationFee),
-              netEur: Number(BigInt(principal) - BigInt(originationFee)) / EURC_UNITS_PER_EUR,
+              advanceRlusd: rlusdOf(principal),
+              feeRlusd: rlusdOf(originationFee),
+              netRlusd: Number(BigInt(principal) - BigInt(originationFee)) / RLUSD_UNITS,
             };
       return {
         id: invoice.tokenId,

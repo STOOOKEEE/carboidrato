@@ -7,9 +7,9 @@ import { TENTH_BIPS_PER_PERCENT, percentToTenthBips } from "../lib/rates.js";
 export const IMMEDIATE_EXIT_DISCOUNT_PERCENT = 0.5;
 
 /**
- * Parts d'une « part affichée » : les parts d'un Vault d'actif MPT ont l'échelle de l'actif (Scale 0, une unité de
- * part vaut une unité d'EURc au pair). Les prix par part sont donc exprimés en unités EURc pour 10^6 unités de part,
- * et s'affichent comme un montant EURc (1,000000 au pair).
+ * Parts d'une « part affichée » : le Vault RLUSD a Scale 6, une unité de part vaut une unité de RLUSD (10^-6) au
+ * pair. Les prix par part sont donc exprimés en unités RLUSD pour 10^6 unités de part, et s'affichent comme un montant
+ * RLUSD (1,000000 au pair).
  */
 export const SHARE_DISPLAY_UNITS = 10n ** BigInt(STABLECOIN_ASSET_SCALE);
 
@@ -23,7 +23,7 @@ export interface VaultShares {
   sharesOutstanding: bigint;
 }
 
-/** Prix exact de la part : `assets` unités EURc pour `shares` unités de part. */
+/** Prix exact de la part : `assets` unités RLUSD pour `shares` unités de part. */
 export interface SharePrice {
   assets: bigint;
   shares: bigint;
@@ -35,7 +35,7 @@ export function sharePrice({ assetsTotal, lossUnrealized, sharesOutstanding }: V
   return { assets: assetsTotal - lossUnrealized, shares: sharesOutstanding };
 }
 
-/** `units` EURc pour `shares` unités de part, ramené à une part affichée (voir `SHARE_DISPLAY_UNITS`). */
+/** `units` RLUSD pour `shares` unités de part, ramené à une part affichée (voir `SHARE_DISPLAY_UNITS`). */
 export function perDisplayShare(units: bigint, shares: bigint): bigint {
   return (units * SHARE_DISPLAY_UNITS) / shares;
 }
@@ -45,26 +45,26 @@ export function positionValue(price: SharePrice, shares: bigint): bigint {
   return (shares * price.assets) / price.shares;
 }
 
-/** Parts remises pour `amount` EURc à l'entrée immédiate, arrondies en faveur du fonds. */
+/** Parts remises pour `amount` unités RLUSD à l'entrée immédiate, arrondies en faveur du fonds. */
 export function entryShares(price: SharePrice, amount: bigint): bigint {
   return (amount * price.shares) / price.assets;
 }
 
-/** EURc versés pour `shares` unités de part à la sortie immédiate : prix de la part −0,5 %, arrondi inférieur. */
+/** RLUSD versés pour `shares` unités de part à la sortie immédiate : prix de la part −0,5 %, arrondi inférieur. */
 export function exitPayout(price: SharePrice, shares: bigint): bigint {
   return (shares * price.assets * EXIT_KEPT_TENTH_BIPS) / (price.shares * TENTH_BIPS_PER_WHOLE);
 }
 
-/** Liquidités de Bari hors Vault : son stock de parts et sa réserve EURc. */
+/** Liquidités de Bari hors Vault : son stock de parts et sa réserve RLUSD. */
 export interface BariHoldings {
   shareStock: bigint;
   reserve: bigint;
 }
 
 export interface ImmediateLimits {
-  /** EURc maximal d'une entrée immédiate : le stock de parts de Bari au prix de la part. */
+  /** RLUSD maximal d'une entrée immédiate : le stock de parts de Bari au prix de la part. */
   maxEntryAmount: bigint;
-  /** Parts maximales d'une sortie immédiate : celles que la réserve EURc de Bari rachète à −0,5 %. */
+  /** Parts maximales d'une sortie immédiate : celles que la réserve RLUSD de Bari rachète à −0,5 %. */
   maxExitShares: bigint;
 }
 

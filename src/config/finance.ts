@@ -1,15 +1,16 @@
-// Paramètres financiers de Bari (IDEE §4). Montants en euros, taux en pourcentage (annuel pour les intérêts).
+// Paramètres financiers de Bari (IDEE §4). Factures en euros, fonds et prêts en RLUSD (1 € = 1 RLUSD sans oracle de
+// prix), taux en pourcentage (annuel pour les intérêts).
 
-/** Décimales du stablecoin EURc : 6 pour que les intérêts d'une cohorte compressée restent visibles. */
+/** Décimales des montants internes (unités) et Scale du Vault RLUSD : 6, pour que les intérêts d'une cohorte compressée restent visibles. */
 export const STABLECOIN_ASSET_SCALE = 6;
 
 /** Facture type de la démo : 10 000 € payables à 90 jours par la mairie. */
 export const INVOICE_AMOUNT_EUR = 10_000;
 export const INVOICE_TERM_DAYS = 90;
 
-/** Avance : le principal du prêt vaut 90 % de la facture (9 000 €). */
+/** Avance : le principal du prêt vaut 90 % de la facture (9 000 RLUSD). */
 export const ADVANCE_RATE_PERCENT = 90;
-/** Frais de dossier prélevés à l'octroi (LoanOriginationFee) : 0,5 % du principal, soit 45 €. */
+/** Frais de dossier prélevés à l'octroi (LoanOriginationFee) : 0,5 % du principal, soit 45 RLUSD. */
 export const ORIGINATION_FEE_PERCENT = 0.5;
 
 export const INTEREST_RATE_PERCENT = 6;
@@ -25,13 +26,13 @@ export const COVER_RATE_LIQUIDATION_PERCENT = 100;
 /** Plafond d'exposition par pseudonyme de débiteur P, en % de l'actif du fonds (IDEE §7.5 idée 3). */
 export const MAX_DEBTOR_CONCENTRATION_PERCENT = 20;
 
-/** Dépôts des investisseurs : 100 000 € au total, pour que 2 factures du même débiteur restent sous le plafond. */
-export const INVESTOR_DEPOSITS_EUR = { investor_1: 60_000, investor_2: 40_000 } as const;
+/** Dépôts des investisseurs : 100 000 RLUSD au total, pour que 2 factures du même débiteur restent sous le plafond. */
+export const INVESTOR_DEPOSITS_RLUSD = { investor_1: 60_000, investor_2: 40_000 } as const;
 
-/** Fonds durable : parts que Bari souscrit elle-même pendant la souscription, gardées en stock pour les prêteurs. */
-export const BARI_SHARE_STOCK_EUR = 20_000;
-/** Fonds durable : EURc que Bari garde sur son compte, hors Vault. */
-export const BARI_EURC_RESERVE_EUR = 20_000;
+/** Fonds durable : parts que Bari souscrit elle-même pendant la souscription (en RLUSD), gardées en stock pour les prêteurs. */
+export const BARI_SHARE_STOCK_RLUSD = 20_000;
+/** Fonds durable : RLUSD que Bari garde sur son compte, hors Vault. */
+export const BARI_RLUSD_RESERVE = 20_000;
 
 /** Nombre de factures financées par le scénario (deux, du même débiteur, pour illustrer la concentration). */
 export const DEMO_INVOICE_COUNT = 2;

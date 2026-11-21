@@ -1,4 +1,4 @@
-// Chiffres clés du fonds pour la landing, lus de `GET /api/fund` (montants en unités EURc, 6 décimales).
+// Chiffres clés du fonds pour la landing, lus de `GET /api/fund` (montants en unités RLUSD, 6 décimales).
 
 import { formatDate } from "../format";
 
@@ -14,12 +14,12 @@ export interface FundFigure {
   label: string;
 }
 
-const EURC_UNITS_PER_EUR = 1_000_000n;
-const wholeEur = new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+const RLUSD_UNITS = 1_000_000n;
+const wholeRlusd = new Intl.NumberFormat("en-GB", { maximumFractionDigits: 0 });
 
 export function fundFigures(fund: FundSnapshot): FundFigure[] {
   return [
-    { value: wholeEur.format(Number(BigInt(fund.vault.assetsTotal) / EURC_UNITS_PER_EUR)), label: "in the fund" },
+    { value: `${wholeRlusd.format(Number(BigInt(fund.vault.assetsTotal) / RLUSD_UNITS))} RLUSD`, label: "in the fund" },
     { value: String(fund.loans.length), label: "invoices financed" },
     { value: formatDate(fund.redemptionStartsAt), label: "lending until" },
   ];

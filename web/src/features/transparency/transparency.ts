@@ -9,7 +9,7 @@ import {
   type FundAudit,
 } from "../../../../src/api/contract";
 import { formatDate, formatPercent, shortHash } from "../../format";
-import { formatEurUnits, formatSharePrice, utilisationPercent, type LendFund } from "../lend/lend.machine";
+import { formatRlusdUnits, formatSharePrice, utilisationPercent, type LendFund } from "../lend/lend.machine";
 
 /** `mismatch` : la preuve tient, mais pour un autre prêt ou un autre fonds ; `missing` : aucune preuve lisible. */
 export type LoanVerdict = "verified" | "invalid" | "mismatch" | "missing";
@@ -137,7 +137,7 @@ export interface Exposure {
   /** Alias court du pseudonyme P, affiché en mono. */
   alias: string;
   loans: number;
-  /** Principal restant dû sur ce débiteur, en unités EURc : c'est lui qui est plafonné. */
+  /** Principal restant dû sur ce débiteur, en unités RLUSD : c'est lui qui est plafonné. */
   outstanding: bigint;
   /** Part de l'actif du fonds, en %. */
   fundPercent: number;
@@ -265,7 +265,7 @@ export function loanRows(audit: FundAudit, run: Verification): LoanRow[] {
     id: loan.loanId,
     sequence: loan.loanSequence,
     status: STATUS_LABELS[loan.status],
-    principal: formatEurUnits(BigInt(loan.principal)),
+    principal: formatRlusdUnits(BigInt(loan.principal)),
     due: loan.dueDate === undefined ? "—" : formatDate(loan.dueDate),
     debtor: loan.reference === undefined ? "—" : shortHash(loan.reference.pseudonym, 4),
     fingerprint: loan.reference === undefined ? "—" : shortHash(loan.reference.nullifier, 4),

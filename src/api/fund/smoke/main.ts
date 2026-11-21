@@ -60,12 +60,12 @@ async function proveLikeBrowser(attested: unknown, expected: ProofExpectations, 
 }
 
 async function run(api: ApiClient, events: EventCounter): Promise<void> {
-  log.step("Fonds · comptes, création (stablecoin, KYC, domaine, Vault + broker, souscription des investisseurs de démo)");
+  log.step("Fonds · comptes, création (RLUSD, KYC, domaine, Vault + broker, souscription des investisseurs de démo)");
   const created = await api.call("POST", "/api/fund", { replace: true });
   const vaultId = stringField(field(field(created, "fund"), "cohort"), "vaultId");
   log.info(`Vault ${vaultId}`);
 
-  log.step("Entreprise · inscription (compte géré, KYB émis par Bari, EURc autorisé)");
+  log.step("Entreprise · inscription (compte géré, KYB émis par Bari, ligne de confiance RLUSD)");
   const runId = Date.now();
   const businessAccount = await signUpBusiness(api, String(runId));
 

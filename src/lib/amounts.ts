@@ -1,4 +1,4 @@
-// Conversions euros ↔ unités entières du MPT (les montants MPT sont des entiers).
+// Montants en unités entières à 6 décimales : euros des factures et RLUSD du fonds (1 € = 1 RLUSD sans oracle de prix).
 
 import { STABLECOIN_ASSET_SCALE } from "../config/finance.js";
 import { TENTH_BIPS_PER_PERCENT, percentToTenthBips } from "./rates.js";
@@ -8,11 +8,19 @@ const TENTH_BIPS_PER_UNIT = 100n * BigInt(TENTH_BIPS_PER_PERCENT);
 
 export const CENTS_PER_EUR = 100;
 
-export function eurToUnits(eur: number): bigint {
-  if (!Number.isInteger(eur) || eur <= 0) {
-    throw new Error(`Montant invalide : ${eur} € (entier strictement positif attendu)`);
+function wholeToUnits(amount: number, unit: string): bigint {
+  if (!Number.isInteger(amount) || amount <= 0) {
+    throw new Error(`Montant invalide : ${amount} ${unit} (entier strictement positif attendu)`);
   }
-  return BigInt(eur) * UNITS_PER_EUR;
+  return BigInt(amount) * UNITS_PER_EUR;
+}
+
+export function eurToUnits(eur: number): bigint {
+  return wholeToUnits(eur, "€");
+}
+
+export function rlusdToUnits(rlusd: number): bigint {
+  return wholeToUnits(rlusd, "RLUSD");
 }
 
 /** Unités → euros (nombre), pour l'affichage et les réponses JSON. */
@@ -66,33 +74,48 @@ export function ratioPercent(part: bigint, whole: bigint): number {
 const LEDGER_NUMBER_PATTERN = /^(-?)(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/i;
 
 /**
- * Parse un montant MPT renvoyé par le ledger (« 123 », « 123.5 » ou « 1.23e5 »).
- * Une partie fractionnaire éventuelle est arrondie à l'unité supérieure (cas d'un montant dû).
+ * Nombre renvoyé par le ledger (« 123 », « 123.5 » ou « 1.23e5 ») multiplié par 10^`decimals`, en entier.
+ * Une partie fractionnaire restante est arrondie selon `rounding` : vers le haut par défaut (cas d'un montant dû).
  */
-export function parseUnits(value: string | number | undefined): bigint {
+export function parseScaled(value: string | number | undefined, decimals: number, rounding: Rounding = "up"): bigint {
   if (value === undefined) return 0n;
   const match = LEDGER_NUMBER_PATTERN.exec(String(value));
   if (match === null) {
-    throw new Error(`Montant MPT illisible : ${String(value)}`);
+    throw new Error(`Montant illisible : ${String(value)}`);
   }
   const [, sign, whole, fraction = "", exponentText = "0"] = match;
   const digits = BigInt(whole + fraction);
-  const exponent = Number(exponentText) - fraction.length;
+  const exponent = Number(exponentText) + decimals - fraction.length;
   let units: bigint;
   if (exponent >= 0) {
     units = digits * 10n ** BigInt(exponent);
   } else {
     const divisor = 10n ** BigInt(-exponent);
-    units = digits / divisor + (digits % divisor === 0n ? 0n : 1n);
+    const remainder = rounding === "up" && digits % divisor !== 0n ? 1n : 0n;
+    units = digits / divisor + remainder;
   }
   return sign === "-" ? -units : units;
 }
 
-/** Formate un montant ; `decimals` tronque l'affichage (2 pour des montants déjà arrondis au centime). */
-export function formatEur(units: bigint, decimals: number = STABLECOIN_ASSET_SCALE): string {
+/** Montant entier renvoyé par le ledger (MPT : parts du Vault, MPT facture). */
+export function parseUnits(value: string | number | undefined): bigint {
+  return parseScaled(value, 0);
+}
+
+function formatScaled(units: bigint, decimals: number, unit: string): string {
   const negative = units < 0n;
   const abs = negative ? -units : units;
-  const whole = abs / UNITS_PER_EUR;
+  const whole = (abs / UNITS_PER_EUR).toLocaleString("fr-FR");
   const fraction = (abs % UNITS_PER_EUR).toString().padStart(STABLECOIN_ASSET_SCALE, "0").slice(0, decimals);
-  return `${negative ? "-" : ""}${whole.toLocaleString("fr-FR")},${fraction} EURc`;
+  return `${negative ? "-" : ""}${whole}${fraction === "" ? "" : `,${fraction}`} ${unit}`;
+}
+
+/** Montant en euros (facture, palier) ; `decimals` tronque l'affichage (2 pour des montants arrondis au centime). */
+export function formatEur(units: bigint, decimals: number = STABLECOIN_ASSET_SCALE): string {
+  return formatScaled(units, decimals, "€");
+}
+
+/** Montant en RLUSD (fonds, prêts, prêteurs) ; `decimals` tronque l'affichage. */
+export function formatRlusd(units: bigint, decimals: number = STABLECOIN_ASSET_SCALE): string {
+  return formatScaled(units, decimals, "RLUSD");
 }

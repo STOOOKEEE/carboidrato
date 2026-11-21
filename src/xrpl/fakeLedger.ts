@@ -2,6 +2,7 @@
 
 import type { AccountObjectType, LedgerEntry } from "xrpl";
 import type { Ledger, LedgerTransaction } from "./ledger.js";
+import type { Stablecoin } from "./stablecoin.js";
 
 const HEX = /^[0-9A-F]+$/i;
 
@@ -31,6 +32,10 @@ export class FakeLedger implements Ledger {
 
   putMptBalance(id: string, holder: string, amount: bigint): void {
     this.balances.set(key(id, holder), amount);
+  }
+
+  putStablecoinBalance(asset: Stablecoin, holder: string, units: bigint): void {
+    this.balances.set(key(asset.currency, asset.issuer, holder), units);
   }
 
   putVault(vault: LedgerEntry.Vault): void {
@@ -75,6 +80,10 @@ export class FakeLedger implements Ledger {
 
   async mptBalance(id: string, holder: string): Promise<bigint> {
     return this.balances.get(key(id, holder)) ?? 0n;
+  }
+
+  async stablecoinBalance(asset: Stablecoin, holder: string): Promise<bigint> {
+    return this.balances.get(key(asset.currency, asset.issuer, holder)) ?? 0n;
   }
 
   async vault(id: string): Promise<LedgerEntry.Vault> {

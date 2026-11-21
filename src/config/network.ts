@@ -15,6 +15,8 @@ export interface NetworkConfig {
   explorerUrl: string;
   /** Faux sur un réseau sans explorer (AlphaNet) : devnet par défaut, ou XRPL_EXPLORER_URL explicite. */
   hasExplorer: boolean;
+  /** Émetteur du RLUSD (RLUSD_ISSUER, ex. Ripple sur le mainnet) ; par défaut, l'émetteur de test de Bari. */
+  rlusdIssuer: string | undefined;
 }
 
 function readEnv(name: string): string | undefined {
@@ -30,6 +32,7 @@ export function loadNetworkConfig(): NetworkConfig {
     walletsFile: readEnv("XRPL_WALLETS_FILE") ?? DEFAULT_WALLETS_FILE,
     explorerUrl: readEnv("XRPL_EXPLORER_URL") ?? DEFAULT_EXPLORER_URL,
     hasExplorer: readEnv("XRPL_EXPLORER_URL") !== undefined || readEnv("XRPL_WS") === undefined,
+    rlusdIssuer: readEnv("RLUSD_ISSUER"),
   };
 }
 

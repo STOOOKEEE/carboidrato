@@ -2,7 +2,7 @@
 import { TxLink } from "../../ui/TxLink";
 import { movementSummary, ROUTE_LABELS, type LendAction, type Movement } from "./lend.machine";
 
-const ACTION_LABELS: Record<LendAction, string> = { faucet: "Test euros", deposit: "Deposit", withdraw: "Withdraw" };
+const ACTION_LABELS: Record<LendAction, string> = { faucet: "Test RLUSD", deposit: "Deposit", withdraw: "Withdraw" };
 
 export function MovementHistory({ history }: { history: Movement[] }) {
   return (
@@ -10,7 +10,7 @@ export function MovementHistory({ history }: { history: Movement[] }) {
       <h2>Your movements</h2>
       {history.length === 0 ? (
         <p className="muted">
-          Nothing yet in this session. Test euros, deposits and withdrawals appear here, each with its transaction on the
+          Nothing yet in this session. Test RLUSD, deposits and withdrawals appear here, each with its transaction on the
           XRP Ledger.
         </p>
       ) : (

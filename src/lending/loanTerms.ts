@@ -1,4 +1,5 @@
-// Conditions d'un prêt Bari par palier public, en unités EURc, dérivées des paramètres de src/config/finance.ts, et son échéance.
+// Conditions d'un prêt Bari par palier public, dérivées des paramètres de src/config/finance.ts, et son échéance. Palier en
+// unités d'euro, principal et frais en unités RLUSD : 1 € de palier vaut 1 RLUSD (pas encore d'oracle de prix).
 
 import {
   LEDGER_LOAN_REDEMPTION_BUFFER_S,
@@ -16,9 +17,9 @@ const OFFER_TIERS = OFFER_TIERS_EUR.map(eurToUnits);
 export const OFFER_TIER_CENTS = OFFER_TIERS_EUR.map(eurToCents);
 
 export interface LoanTerms {
-  /** Palier prouvé : la facture vaut au moins ce montant (la facture type de la démo vaut exactement son palier). */
+  /** Palier prouvé, en unités d'euro : la facture vaut au moins ce montant (la facture type de la démo vaut exactement son palier). */
   invoice: bigint;
-  /** Principal demandé (PrincipalRequested) : le taux d'avance appliqué au palier. */
+  /** Principal demandé (PrincipalRequested), en unités RLUSD : le taux d'avance appliqué au palier. */
   principal: bigint;
   /** Frais de dossier (LoanOriginationFee), déduits de l'avance versée. */
   originationFee: bigint;
@@ -28,7 +29,7 @@ export interface LoanTerms {
   provenThresholdCents: bigint;
 }
 
-/** Palier d'un montant en unités EURc : le plus grand seuil public qui ne le dépasse pas, undefined sous le premier. */
+/** Palier d'un montant en unités d'euro : le plus grand seuil public qui ne le dépasse pas, undefined sous le premier. */
 export function offerTier(amount: bigint): bigint | undefined {
   return OFFER_TIERS.filter((tier) => tier <= amount).at(-1);
 }
@@ -43,7 +44,7 @@ export function provenThresholdCents(amountCents: bigint): bigint | undefined {
   return OFFER_TIER_CENTS.filter((tier) => tier <= amountCents).at(-1);
 }
 
-/** Conditions adossées au palier de `amount` unités EURc garanties par la preuve (par défaut : la facture type). */
+/** Conditions adossées au palier de `amount` unités d'euro garanties par la preuve (par défaut : la facture type). */
 export function loanTerms(amount: bigint = eurToUnits(INVOICE_AMOUNT_EUR)): LoanTerms {
   const tier = offerTier(amount);
   if (tier === undefined) throw new Error(`Aucune offre sous le premier palier (${formatEur(OFFER_TIERS[0], 0)}) : ${formatEur(amount, 2)}`);

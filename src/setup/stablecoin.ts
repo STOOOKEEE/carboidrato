@@ -1,37 +1,47 @@
-// Stablecoin de test « EURc » : MPT transférable. Le flag CanHoldConfidentialBalance est gardé (accepté comme
-// actif de Vault, vérifié sur devnet) pour rester compatible avec XLS-96, hors périmètre de la démo.
+// RLUSD du fonds, jeton de ligne de confiance : sur un réseau de test, l'émetteur de test de Bari active le rippling,
+// chaque détenteur ouvre sa ligne de confiance, puis l'émetteur verse les soldes par Payment.
 
-import { MPTokenIssuanceCreateFlags, encodeMPTokenMetadata, type Client, type Wallet } from "xrpl";
-import { STABLECOIN_ASSET_SCALE } from "../config/finance.js";
-import { createdMptIssuanceId } from "../xrpl/meta.js";
+import { AccountSetAsfFlags, LedgerEntry, type Client, type Wallet } from "xrpl";
+import type { Actors } from "../accounts/actors.js";
+import type { NetworkConfig } from "../config/network.js";
+import { formatRlusd } from "../lib/amounts.js";
+import { RLUSD_CURRENCY, findTrustLine, stablecoinPayment, trustLine, type Stablecoin } from "../xrpl/stablecoin.js";
 import { submitTx } from "../xrpl/submit.js";
 
-const STABLECOIN_METADATA = {
-  ticker: "EURC",
-  name: "Euro coin de test (IXH26)",
-  icon: "https://xrpl.org/favicon.ico",
-  asset_class: "rwa",
-  asset_subclass: "stablecoin",
-  issuer_name: "stable_issuer (démo)",
-};
+/** RLUSD de l'émetteur configuré (RLUSD_ISSUER), sinon de l'émetteur de test de Bari. */
+export function fundStablecoin(network: NetworkConfig, actors: Actors): Stablecoin {
+  return { currency: RLUSD_CURRENCY, issuer: network.rlusdIssuer ?? actors.stable_issuer.address };
+}
 
 /**
- * Pas de TransferFee ni de RequireAuth (évite d'autoriser le pseudo-compte du Vault).
- * CanTransfer est obligatoire pour un actif de Vault.
+ * asfDefaultRipple, posé avant toute ligne de confiance : les RLUSD passent d'un détenteur à l'autre par l'émetteur.
+ * Idempotent : rien n'est soumis si le flag est déjà actif.
  */
-export async function createStablecoin(client: Client, issuer: Wallet): Promise<string> {
-  const outcome = await submitTx(
+export async function enableRippling(client: Client, issuer: Wallet): Promise<void> {
+  const { result } = await client.request({ command: "account_info", account: issuer.address, ledger_index: "validated" });
+  if ((result.account_data.Flags & LedgerEntry.AccountRootFlags.lsfDefaultRipple) !== 0) return;
+  await submitTx(
     client,
-    {
-      TransactionType: "MPTokenIssuanceCreate",
-      Account: issuer.address,
-      AssetScale: STABLECOIN_ASSET_SCALE,
-      Flags:
-        MPTokenIssuanceCreateFlags.tfMPTCanTransfer | MPTokenIssuanceCreateFlags.tfMPTCanHoldConfidentialBalance,
-      MPTokenMetadata: encodeMPTokenMetadata(STABLECOIN_METADATA),
-    },
+    { TransactionType: "AccountSet", Account: issuer.address, SetFlag: AccountSetAsfFlags.asfDefaultRipple },
     issuer,
-    "MPTokenIssuanceCreate EURc",
+    "AccountSet asfDefaultRipple (émetteur RLUSD)",
   );
-  return createdMptIssuanceId(outcome.meta);
+}
+
+/** Ligne de confiance d'un détenteur, ouverte une seule fois : elle sert à tous les fonds du même actif. */
+export async function ensureTrustLine(client: Client, asset: Stablecoin, holder: Wallet, holderName: string): Promise<void> {
+  if ((await findTrustLine(client, asset, holder.address)) !== undefined) return;
+  await submitTx(client, trustLine(asset, holder.address), holder, `TrustSet RLUSD (${holderName})`);
+}
+
+/** Émission : Payment de l'émetteur vers un détenteur qui a déjà sa ligne de confiance. */
+export async function issueStablecoin(
+  client: Client,
+  asset: Stablecoin,
+  issuer: Wallet,
+  to: string,
+  units: bigint,
+  holderName: string,
+): Promise<void> {
+  await submitTx(client, stablecoinPayment(asset, issuer.address, to, units), issuer, `Payment RLUSD → ${holderName} (${formatRlusd(units, 2)})`);
 }
