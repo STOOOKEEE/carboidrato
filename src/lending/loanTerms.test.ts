@@ -1,22 +1,51 @@
-// Tests des conditions du prêt : seuil prouvé dérivé de l'avance demandée, échéance bornée par le rachat du fonds.
+// Tests des conditions du prêt : palier public prouvé, avance de 90 % du palier, frais, échéance bornée par le rachat.
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { loanPaymentInterval, loanTerms, provenThresholdCents } from "./loanTerms.js";
+import { eurToCents, eurToUnits } from "../lib/amounts.js";
+import { isOfferTier, loanPaymentInterval, loanTerms, maturityProblem, OFFER_TIERS_EUR, offerTier } from "./loanTerms.js";
 
-describe("seuil prouvé", () => {
-  test("une avance de 9 000 € demande une facture d'au moins 10 000 €", () => {
-    assert.equal(provenThresholdCents(900_000n), 1_000_000n);
+describe("paliers de l'offre", () => {
+  test("les seuils publics sont 5 000, 10 000, 20 000, 50 000 et 100 000 €", () => {
+    assert.deepEqual(OFFER_TIERS_EUR, [5_000, 10_000, 20_000, 50_000, 100_000]);
   });
 
-  test("le seuil est le plus petit qui couvre l'avance à 90 %", () => {
-    const threshold = provenThresholdCents(900_001n);
-    assert.equal(threshold, 1_000_002n);
-    assert.ok((threshold - 1n) * 90n < 900_001n * 100n);
+  test("une facture de 10 340 € relève du palier de 10 000 €", () => {
+    assert.equal(offerTier(eurToUnits(10_340)), eurToUnits(10_000));
   });
 
-  test("les conditions de la facture type portent le seuil de son avance", () => {
-    assert.equal(loanTerms().provenThresholdCents, 1_000_000n);
+  test("un montant égal à un seuil relève de ce palier ; au-delà du dernier, le dernier", () => {
+    assert.equal(offerTier(eurToUnits(5_000)), eurToUnits(5_000));
+    assert.equal(offerTier(eurToUnits(250_000)), eurToUnits(100_000));
+  });
+
+  test("sous 5 000 € : aucune offre", () => {
+    assert.equal(offerTier(eurToUnits(4_999)), undefined);
+    assert.throws(() => loanTerms(eurToUnits(4_999)), /premier palier/);
+  });
+
+  test("seul un seuil public est un palier", () => {
+    assert.equal(isOfferTier(eurToCents(20_000)), true);
+    assert.equal(isOfferTier(eurToCents(12_000)), false);
+  });
+});
+
+describe("conditions du palier", () => {
+  test("palier de 10 000 € : avance 9 000 €, frais 45 €, la PME reçoit 8 955 €", () => {
+    const terms = loanTerms(eurToUnits(10_000));
+    assert.equal(terms.principal, eurToUnits(9_000));
+    assert.equal(terms.originationFee, eurToUnits(45));
+    assert.equal(terms.netAdvance, eurToUnits(8_955));
+    assert.equal(terms.provenThresholdCents, eurToCents(10_000));
+  });
+
+  test("l'avance dérive du palier, pas du montant exact de la facture", () => {
+    assert.deepEqual(loanTerms(eurToUnits(10_340)), loanTerms(eurToUnits(10_000)));
+    assert.equal(loanTerms(eurToUnits(60_000)).principal, eurToUnits(45_000));
+  });
+
+  test("les conditions de la facture type portent le palier de 10 000 €", () => {
+    assert.equal(loanTerms().provenThresholdCents, eurToCents(10_000));
   });
 });
 
@@ -37,20 +66,23 @@ describe("échéance du prêt", () => {
   });
 
   test("une facture déjà échue est refusée", () => {
-    assert.throws(
-      () => loanPaymentInterval({ now: NOW, invoiceDueDate: NOW, redemptionDate: REDEMPTION_DATE }),
-      /échéance de la facture dépassée/,
-    );
+    const inputs = { now: NOW, invoiceDueDate: NOW, redemptionDate: REDEMPTION_DATE };
+    assert.match(maturityProblem(inputs) ?? "", /due date has passed/);
+    assert.throws(() => loanPaymentInterval(inputs), /due date has passed/);
   });
 
   test("un prêt plus court que le minimum du ledger est refusé", () => {
     assert.throws(
       () => loanPaymentInterval({ now: NOW, invoiceDueDate: NOW + 59, redemptionDate: REDEMPTION_DATE }),
-      /trop court/,
+      /too short/,
     );
     assert.throws(
       () => loanPaymentInterval({ now: NOW, invoiceDueDate: NOW + 90 * DAY_S, redemptionDate: NOW + 60 + 30 + 59 }),
-      /trop court/,
+      /too short/,
     );
+  });
+
+  test("une échéance valide ne lève aucun problème", () => {
+    assert.equal(maturityProblem({ now: NOW, invoiceDueDate: NOW + 90 * DAY_S, redemptionDate: REDEMPTION_DATE }), undefined);
   });
 });

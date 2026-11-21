@@ -10,6 +10,7 @@ import {
   getVault,
   listAccountObjects,
 } from "./ledgerEntries.js";
+import { ledgerTime } from "./ledgerTime.js";
 import { rippledErrorCode } from "./rippledError.js";
 
 export type LedgerTransaction = TxResponse["result"];
@@ -28,6 +29,8 @@ export interface Ledger {
   accountObjects(account: string, type: AccountObjectType): Promise<LedgerEntry.LedgerEntry[]>;
   /** Transaction par son hash, undefined si le nœud ne la connaît pas. */
   transaction(hash: string): Promise<LedgerTransaction | undefined>;
+  /** Heure de clôture du dernier ledger validé (secondes depuis l'époque Ripple). */
+  closeTime(): Promise<number>;
 }
 
 async function findTransaction(client: Client, hash: string): Promise<LedgerTransaction | undefined> {
@@ -49,5 +52,6 @@ export function xrplLedger(client: Client): Ledger {
     loanBroker: (id) => getLoanBroker(client, id),
     accountObjects: (account, type) => listAccountObjects(client, account, type),
     transaction: (hash) => findTransaction(client, hash),
+    closeTime: () => ledgerTime(client),
   };
 }

@@ -11,6 +11,7 @@ import { buildApp } from "./app.js";
 import { fakeApiConfig, fakeContext } from "./fakeContext.js";
 
 const HTTP_BAD_REQUEST = 400;
+const HTTP_UNAUTHORIZED = 401;
 const HTTP_NOT_FOUND = 404;
 const NULLIFIER = "AB".repeat(32);
 const REGISTRATION_TX = "CD".repeat(32);
@@ -57,9 +58,9 @@ before(async () => {
 after(() => app.close());
 
 describe("POST /api/sme/certificate", () => {
-  test("une preuve bien formée passe la validation (refus suivant : aucun fonds ouvert)", async () => {
+  test("une preuve bien formée passe la validation (refus suivant : session d'entreprise requise)", async () => {
     const response = await app.inject({ method: "POST", url: "/api/sme/certificate", payload: proofBody() });
-    assert.equal(response.statusCode, HTTP_NOT_FOUND);
+    assert.equal(response.statusCode, HTTP_UNAUTHORIZED);
   });
 
   for (const field of WITNESS_FIELDS) {

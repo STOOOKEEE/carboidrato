@@ -1,54 +1,60 @@
-// Contrôles de Bari avant co-signature, sur un faux Ledger : une facture déjà financée par un fonds Bari est refusée partout.
+// Contrôles de Bari avant co-signature, sur un faux Ledger : chacun rendu avec sa raison, pour le compte de l'entreprise.
 
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
-import { Wallet, type LedgerEntry, type TxResponse } from "xrpl";
-import { ACTOR_NAMES, type Actors } from "../accounts/actors.js";
+import { isoTimeToRippleTime, Wallet, type LedgerEntry, type TxResponse } from "xrpl";
 import type { Fund } from "../fund/fund.js";
 import { encodeLoanData, type LoanReference } from "../fund/loanData.js";
 import { produceInvoiceCertificate, verifiedDebtorsRoot, type InvoiceCertificate } from "../invoice/certificate.js";
 import { DEMO_DEBTOR } from "../invoice/debtors.js";
 import { INVOICE_TOKEN_SUPPLY } from "../invoice/invoiceToken.js";
-import { centsToUnits } from "../lib/amounts.js";
-import { textToHex } from "../lib/encoding.js";
 import { CREDENTIAL_TYPES } from "../kyb/kycCredentials.js";
+import { centsToUnits, eurToUnits } from "../lib/amounts.js";
+import { textToHex } from "../lib/encoding.js";
 import { FakeLedger } from "../xrpl/fakeLedger.js";
 import { releaseZkResources } from "../zk/index.js";
-import { verifyBeforeCosigning } from "./loanChecks.js";
+import { refusalReason, reviewLoan, type LoanParties } from "./loanChecks.js";
 
 const NETWORK_ID = 1000;
 const VINTAGE = 2026;
 const LSF_CREDENTIAL_ACCEPTED = 0x00010000;
 const INVOICE_TOKEN_ID = "00000001".padEnd(48, "A");
 const OTHER_NULLIFIER = "B".repeat(64);
-/** 10 000 € de facture prouvée, 5 000 € demandés, 100 000 € d'actif par fonds. */
-const THRESHOLD_CENTS = 1_000_000;
-const PRINCIPAL = centsToUnits(500_000);
+/** 100 000 € d'actif par fonds : 9 000 € sur un débiteur restent sous le plafond de 20 %. */
 const FUND_ASSETS = centsToUnits(10_000_000);
+const NOW = isoTimeToRippleTime("2026-11-21T10:00:00Z");
+const INVOICE_DUE_DATE = isoTimeToRippleTime("2027-02-18T00:00:00Z");
+const REDEMPTION_DATE = isoTimeToRippleTime("2027-03-31T00:00:00Z");
 
 const hex64 = (digit: string) => digit.repeat(64);
 
-const actors = Object.fromEntries(ACTOR_NAMES.map((name) => [name, Wallet.generate()])) as Actors;
+const business = Wallet.generate();
+const bari = Wallet.generate();
+const kybIssuer = Wallet.generate();
+const registry = Wallet.generate();
+const pseudoAccounts = [Wallet.generate().address, Wallet.generate().address];
+const parties: LoanParties = { borrower: business.address, bari: bari.address, kybIssuer: kybIssuer.address };
+/** Facture de 12 000 € prouvée au palier de 10 000 €, et une de 4 500 € prouvée à 4 000 € (sous le premier palier). */
 let certificate: InvoiceCertificate;
-let reference: LoanReference;
+let belowTierCertificate: InvoiceCertificate;
 
 function makeFund(brokerDigit: string, vaultDigit: string, debtorsRoot: string): Fund {
   return {
-    assetId: INVOICE_TOKEN_ID,
+    assetId: "00000002".padEnd(48, "E"),
     domainId: hex64("D"),
-    cohort: { vaultId: hex64(vaultDigit), shareMptId: INVOICE_TOKEN_ID, subscriptionDate: 0, redemptionDate: 0 },
+    cohort: { vaultId: hex64(vaultDigit), shareMptId: INVOICE_TOKEN_ID, subscriptionDate: 0, redemptionDate: REDEMPTION_DATE },
     brokerId: hex64(brokerDigit),
-    manifest: { debtorsRoot, vintage: VINTAGE, registry: actors.bari_registry.address },
+    manifest: { debtorsRoot, vintage: VINTAGE, registry: registry.address },
   };
 }
 
 /** Fonds Bari en place sur le faux ledger : Vault, LoanBroker possédé par Bari et son pseudo-compte. */
-function addFund(ledger: FakeLedger, fund: Fund, pseudoAccount: string): void {
-  ledger.putVault({ index: fund.cohort.vaultId, AssetsTotal: FUND_ASSETS.toString() } as LedgerEntry.Vault);
+function addFund(ledger: FakeLedger, fund: Fund, pseudoAccount: string, assets = FUND_ASSETS): void {
+  ledger.putVault({ index: fund.cohort.vaultId, AssetsTotal: assets.toString() } as LedgerEntry.Vault);
   ledger.putLoanBroker({
     LedgerEntryType: "LoanBroker",
     index: fund.brokerId,
-    Owner: actors.bari.address,
+    Owner: bari.address,
     Account: pseudoAccount,
     VaultID: fund.cohort.vaultId,
   } as LedgerEntry.LoanBroker);
@@ -58,23 +64,24 @@ function addFund(ledger: FakeLedger, fund: Fund, pseudoAccount: string): void {
 function addLoan(ledger: FakeLedger, fund: Fund, pseudoAccount: string, loanReference: LoanReference): void {
   const loanId = hex64("E");
   const loanSetHash = hex64("F");
+  const principal = eurToUnits(5_000);
   ledger.putAccountObject(pseudoAccount, "loan", {
     LedgerEntryType: "Loan",
     index: loanId,
     LoanBrokerID: fund.brokerId,
     LoanSequence: 1,
     PreviousTxnID: loanSetHash,
-    PrincipalOutstanding: PRINCIPAL.toString(),
-    Borrower: actors.sme.address,
+    PrincipalOutstanding: principal.toString(),
+    Borrower: business.address,
   } as LedgerEntry.Loan);
   ledger.putTransaction({
     hash: loanSetHash,
     validated: true,
     tx_json: {
       TransactionType: "LoanSet",
-      Account: actors.sme.address,
+      Account: business.address,
       LoanBrokerID: fund.brokerId,
-      PrincipalRequested: PRINCIPAL.toString(),
+      PrincipalRequested: principal.toString(),
       Data: encodeLoanData(loanReference),
     },
     meta: {
@@ -85,66 +92,141 @@ function addLoan(ledger: FakeLedger, fund: Fund, pseudoAccount: string, loanRefe
   } as TxResponse["result"]);
 }
 
-/** Ledger où la PME a son KYB, a enregistré N et a confié son MPT facture à Bari ; fonds A et B ouverts. */
-function ledgerWithCertificate(): FakeLedger {
+interface LedgerOptions {
+  kyb?: boolean;
+  heldByBari?: boolean;
+  invoice?: InvoiceCertificate;
+}
+
+/** Ledger où l'entreprise a son KYB, a enregistré N et a confié son MPT facture à Bari. */
+function ledgerWithCertificate({ kyb = true, heldByBari = true, invoice = certificate }: LedgerOptions = {}): FakeLedger {
   const ledger = new FakeLedger(NETWORK_ID);
+  ledger.setCloseTime(NOW);
+  if (kyb) {
+    ledger.putCredential({
+      LedgerEntryType: "Credential",
+      Subject: business.address,
+      Issuer: kybIssuer.address,
+      CredentialType: textToHex(CREDENTIAL_TYPES.kybSme),
+      Flags: LSF_CREDENTIAL_ACCEPTED,
+    } as LedgerEntry.Credential);
+  }
   ledger.putCredential({
     LedgerEntryType: "Credential",
-    Subject: actors.sme.address,
-    Issuer: actors.kyb_issuer.address,
-    CredentialType: textToHex(CREDENTIAL_TYPES.kybSme),
-    Flags: LSF_CREDENTIAL_ACCEPTED,
-  } as LedgerEntry.Credential);
-  ledger.putCredential({
-    LedgerEntryType: "Credential",
-    Subject: actors.bari_registry.address,
-    Issuer: actors.sme.address,
-    CredentialType: certificate.nullifier,
+    Subject: registry.address,
+    Issuer: business.address,
+    CredentialType: invoice.nullifier,
     Flags: 0,
   } as LedgerEntry.Credential);
   ledger.putMptIssuance(INVOICE_TOKEN_ID, {
     LedgerEntryType: "MPTokenIssuance",
-    Issuer: actors.sme.address,
-    MPTokenMetadata: certificate.metadataHex,
+    Issuer: business.address,
+    MPTokenMetadata: invoice.metadataHex,
   } as LedgerEntry.MPTokenIssuance);
-  ledger.putMptBalance(INVOICE_TOKEN_ID, actors.bari.address, INVOICE_TOKEN_SUPPLY);
+  if (heldByBari) ledger.putMptBalance(INVOICE_TOKEN_ID, bari.address, INVOICE_TOKEN_SUPPLY);
   return ledger;
 }
 
-before(async () => {
-  certificate = await produceInvoiceCertificate({
+const referenceOf = (invoice: InvoiceCertificate): LoanReference => ({
+  nullifier: invoice.nullifier,
+  invoiceTokenId: INVOICE_TOKEN_ID,
+  pseudonym: invoice.pseudonym,
+});
+
+function prove(number: string, amountEur: number, thresholdCents: bigint): Promise<InvoiceCertificate> {
+  return produceInvoiceCertificate({
     invoice: {
       debtor: DEMO_DEBTOR,
-      number: "IT-PA-2026-000777",
+      number,
       issueDate: new Date("2026-11-01T00:00:00Z"),
       dueDate: new Date("2027-02-18T00:00:00Z"),
-      amountEur: 12_000,
+      amountEur,
     },
-    smeAccount: actors.sme.address,
-    registry: actors.bari_registry.address,
+    smeAccount: business.address,
+    registry: registry.address,
     networkId: NETWORK_ID,
     vintage: VINTAGE,
-    thresholdCents: BigInt(THRESHOLD_CENTS),
+    thresholdCents,
   });
-  reference = { nullifier: certificate.nullifier, invoiceTokenId: INVOICE_TOKEN_ID, pseudonym: certificate.pseudonym };
+}
+
+/** Un fonds ouvert, la facture du compte de l'entreprise prête à financer. */
+async function openFund(options: LedgerOptions & { assets?: bigint } = {}) {
+  const fund = makeFund("A", "1", await verifiedDebtorsRoot());
+  const ledger = ledgerWithCertificate(options);
+  addFund(ledger, fund, pseudoAccounts[0], options.assets);
+  return { fund, ledger };
+}
+
+const failed = (checks: { id: string; ok: boolean }[]) => checks.filter((check) => !check.ok).map((check) => check.id);
+const reasonOf = (checks: { id: string; reason?: string }[], id: string) => checks.find((check) => check.id === id)?.reason;
+
+before(async () => {
+  certificate = await prove("IT-PA-2026-000777", 12_000, 1_000_000n);
+  belowTierCertificate = await prove("IT-PA-2026-000778", 4_500, 400_000n);
 });
 
 after(releaseZkResources);
 
-describe("unicité de N parmi tous les fonds de Bari", () => {
-  test("N financé dans le fonds A → refus dans le fonds B", async () => {
+describe("contrôles avant co-signature", () => {
+  test("facture conforme : six contrôles passés dans l'ordre, avance de 90 % du palier prouvé", async () => {
+    const { fund, ledger } = await openFund();
+    const review = await reviewLoan(ledger, parties, fund, referenceOf(certificate));
+    assert.deepEqual(
+      review.checks.map(({ id, ok }) => ({ id, ok })),
+      ["kyb", "proof", "advance", "unique", "concentration", "maturity"].map((id) => ({ id, ok: true })),
+    );
+    assert.ok(review.checks.every((check) => check.label.length > 0 && check.reason === undefined));
+    assert.equal(review.approval?.terms.principal, eurToUnits(9_000));
+    assert.equal(review.approval?.terms.originationFee, eurToUnits(45));
+    assert.equal(review.approval?.certificate.account, business.address);
+    assert.equal(refusalReason(review.checks), undefined);
+  });
+
+  test("KYB absent sur le compte de l'entreprise : refus KYB", async () => {
+    const { fund, ledger } = await openFund({ kyb: false });
+    const review = await reviewLoan(ledger, parties, fund, referenceOf(certificate));
+    assert.deepEqual(failed(review.checks), ["kyb"]);
+    assert.match(reasonOf(review.checks, "kyb") ?? "", /KYB_PME/);
+    assert.equal(review.approval, undefined);
+    assert.equal(refusalReason(review.checks), reasonOf(review.checks, "kyb"));
+  });
+
+  test("certificat d'un autre compte : la preuve ne lie pas l'emprunteur", async () => {
+    const { fund, ledger } = await openFund();
+    const other = { ...parties, borrower: Wallet.generate().address };
+    const review = await reviewLoan(ledger, other, fund, referenceOf(certificate));
+    assert.ok(failed(review.checks).includes("proof"));
+    assert.match(reasonOf(review.checks, "proof") ?? "", /certificate/i);
+  });
+
+  test("MPT facture non remis à Bari : refus de la preuve", async () => {
+    const { fund, ledger } = await openFund({ heldByBari: false });
+    const review = await reviewLoan(ledger, parties, fund, referenceOf(certificate));
+    assert.deepEqual(failed(review.checks), ["proof"]);
+    assert.match(reasonOf(review.checks, "proof") ?? "", /Bari does not hold/);
+  });
+
+  test("seuil prouvé sous le premier palier : refus de l'avance", async () => {
+    const { fund, ledger } = await openFund({ invoice: belowTierCertificate });
+    const review = await reviewLoan(ledger, parties, fund, referenceOf(belowTierCertificate));
+    assert.equal(failed(review.checks)[0], "advance");
+    assert.match(reasonOf(review.checks, "advance") ?? "", /smallest tier/);
+    assert.equal(refusalReason(review.checks), reasonOf(review.checks, "advance"));
+  });
+
+  test("N financé dans le fonds A → refus d'unicité dans le fonds B", async () => {
     const root = await verifiedDebtorsRoot();
     const fundA = makeFund("A", "1", root);
     const fundB = makeFund("C", "2", root);
     const ledger = ledgerWithCertificate();
-    addFund(ledger, fundA, actors.investor_1.address);
-    addFund(ledger, fundB, actors.investor_2.address);
-    addLoan(ledger, fundA, actors.investor_1.address, reference);
+    addFund(ledger, fundA, pseudoAccounts[0]);
+    addFund(ledger, fundB, pseudoAccounts[1]);
+    addLoan(ledger, fundA, pseudoAccounts[0], referenceOf(certificate));
 
-    await assert.rejects(
-      verifyBeforeCosigning(ledger, actors, fundB, reference, PRINCIPAL),
-      /déjà référencée par un prêt d'un fonds Bari/,
-    );
+    const review = await reviewLoan(ledger, parties, fundB, referenceOf(certificate));
+    assert.deepEqual(failed(review.checks), ["unique"]);
+    assert.match(reasonOf(review.checks, "unique") ?? "", /already financed/);
   });
 
   test("N jamais financé : le fonds B co-signe, même si le fonds A prête sur une autre facture", async () => {
@@ -152,10 +234,34 @@ describe("unicité de N parmi tous les fonds de Bari", () => {
     const fundA = makeFund("A", "1", root);
     const fundB = makeFund("C", "2", root);
     const ledger = ledgerWithCertificate();
-    addFund(ledger, fundA, actors.investor_1.address);
-    addFund(ledger, fundB, actors.investor_2.address);
-    addLoan(ledger, fundA, actors.investor_1.address, { ...reference, nullifier: OTHER_NULLIFIER });
+    addFund(ledger, fundA, pseudoAccounts[0]);
+    addFund(ledger, fundB, pseudoAccounts[1]);
+    addLoan(ledger, fundA, pseudoAccounts[0], { ...referenceOf(certificate), nullifier: OTHER_NULLIFIER });
 
-    await verifyBeforeCosigning(ledger, actors, fundB, reference, PRINCIPAL);
+    const review = await reviewLoan(ledger, parties, fundB, referenceOf(certificate));
+    assert.deepEqual(failed(review.checks), []);
+  });
+
+  test("fonds trop petit pour 9 000 € sur ce débiteur : refus de concentration", async () => {
+    const { fund, ledger } = await openFund({ assets: eurToUnits(20_000) });
+    const review = await reviewLoan(ledger, parties, fund, referenceOf(certificate));
+    assert.deepEqual(failed(review.checks), ["concentration"]);
+    assert.match(reasonOf(review.checks, "concentration") ?? "", /20 %/);
+  });
+
+  test("rachat du fonds trop proche : refus de l'échéance", async () => {
+    const { fund, ledger } = await openFund();
+    fund.cohort.redemptionDate = NOW + 100;
+    const review = await reviewLoan(ledger, parties, fund, referenceOf(certificate));
+    assert.deepEqual(failed(review.checks), ["maturity"]);
+    assert.match(reasonOf(review.checks, "maturity") ?? "", /too short/);
+  });
+
+  test("facture échue : refus de l'échéance", async () => {
+    const { fund, ledger } = await openFund();
+    ledger.setCloseTime(INVOICE_DUE_DATE + 1);
+    const review = await reviewLoan(ledger, parties, fund, referenceOf(certificate));
+    assert.deepEqual(failed(review.checks), ["maturity"]);
+    assert.match(reasonOf(review.checks, "maturity") ?? "", /due date has passed/);
   });
 });
