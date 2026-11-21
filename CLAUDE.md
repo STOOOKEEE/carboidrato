@@ -19,7 +19,7 @@
 - `src/setup`, `src/kyb`, `src/accounts`, `src/config`, `src/xrpl`, `src/lib` : mise en place, KYB/KYC, comptes, paramètres, utilitaires
 - `src/api` : API du front (`/api/check` pré-contrôle d'une facture attestée `.bari.json`, `/api/kyb`), `contract.ts` = types partagés avec `web/`
 - `src/api/fund` : API Fastify du fonds (port 8788) : fonds, dépôts, attestation mairie, entrée du circuit + artefacts pour la preuve dans le navigateur, certificat (409 si N déjà enregistré), prêt, remboursement, défaut, rachat, audit structuré, SSE `/api/events` ; état dans `.bari-state.<réseau>.json` (gitignoré)
-- `web/` : landing (héros, simulation drag & drop, « how it works ») + app (`#/app` : KYB, facture, financement à venir) ; `web/src/dither` : moteur de rendu tramé (Bayer 4×4) et formes ; `web/public/samples` : factures d'exemple générées
+- `web/` : routes en hash (`web/src/routes.ts` : `#/`, `#/signin`, `#/signup/<rôle>`, `#/lend`, `#/public`, `#/business`, `#/transparency`, `#/tx/<hash>`), garde des espaces par rôle, session lue de `GET /api/me` (`web/src/session.ts`) ; landing (héros, chiffres du fonds en direct, trois portes) ; `web/src/features/<fonctionnalité>/` : machine d'état pure testée + composants minces ; `web/src/ui/` : composants partagés ; `web/src/dither` : moteur de rendu tramé (Bayer 4×4) et formes ; `web/public/samples` : factures d'exemple générées
 - `scripts/check-amendments.mjs` ; `infra/alphanet/` : nœud alphanet local sur hermes (bonus, hors démo)
 
 ## Commandes
