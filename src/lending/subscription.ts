@@ -9,8 +9,9 @@ import { log } from "../lib/logger.js";
 import { getMptBalance } from "../xrpl/ledgerEntries.js";
 import { ledgerTime } from "../xrpl/ledgerTime.js";
 import { mptAmount } from "../xrpl/mpt.js";
-import { submitTx } from "../xrpl/submit.js";
+import { clientSubmitter, submitTx } from "../xrpl/submit.js";
 import { bariFirstLossUnits } from "./economics.js";
+import { depositToVault } from "./lenderTrades.js";
 
 /** Liquidités de Bari au-delà de sa first-loss (fonds durable), en unités EURc. */
 export interface BariLiquidity {
@@ -21,17 +22,7 @@ export interface BariLiquidity {
 }
 
 async function deposit(client: Client, depositor: Wallet, name: string, fund: Fund, units: bigint): Promise<void> {
-  await submitTx(
-    client,
-    {
-      TransactionType: "VaultDeposit",
-      Account: depositor.address,
-      VaultID: fund.cohort.vaultId,
-      Amount: mptAmount(fund.assetId, units),
-    },
-    depositor,
-    `VaultDeposit ${name} (${formatEur(units, 2)})`,
-  );
+  await depositToVault(clientSubmitter(client), fund, depositor, units, `VaultDeposit ${name}`);
 }
 
 export async function subscribe(client: Client, actors: Actors, fund: Fund, liquidity?: BariLiquidity): Promise<void> {

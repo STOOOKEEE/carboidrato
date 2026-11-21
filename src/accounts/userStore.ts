@@ -49,6 +49,14 @@ export interface ManagedAccount {
 /** Ouvre le compte XRPL d'un nouvel utilisateur (aucun pour un organisme public). */
 export type ProvisionAccount = (account: AccountProfile) => Promise<ManagedAccount | undefined>;
 
+/** Prix de revient d'un prêteur, en unités : parts suivies et EURc payés pour elles. */
+export interface CostBasis {
+  shares: bigint;
+  cost: bigint;
+}
+
+const NO_COST_BASIS: CostBasis = { shares: 0n, cost: 0n };
+
 interface PasswordHash {
   salt: string;
   hash: string;
@@ -59,6 +67,8 @@ export type UserRecord = AccountProfile & {
   email: string;
   password: PasswordHash;
   account?: ManagedAccount;
+  /** Prix de revient (prêteur), entiers en décimal ; absent tant que le prêteur n'a rien acheté. */
+  costBasis?: { shares: string; cost: string };
   createdAt: string;
 };
 
@@ -167,6 +177,29 @@ export class UserStore {
     const user = this.data.users.find((candidate) => candidate.email === normalizeEmail(email));
     const matches = await passwordMatches(password, user?.password ?? DECOY_HASH);
     return matches ? user : undefined;
+  }
+
+  costBasis(userId: string): CostBasis {
+    const stored = this.findById(userId)?.costBasis;
+    return stored === undefined ? NO_COST_BASIS : { shares: BigInt(stored.shares), cost: BigInt(stored.cost) };
+  }
+
+  recordPurchase(userId: string, bought: CostBasis): void {
+    const { shares, cost } = this.costBasis(userId);
+    this.setCostBasis(userId, { shares: shares + bought.shares, cost: cost + bought.cost });
+  }
+
+  /** Le coût sort au prorata des parts vendues : le prix moyen des parts restantes ne change pas. */
+  recordSale(userId: string, sold: bigint): void {
+    const { shares, cost } = this.costBasis(userId);
+    this.setCostBasis(userId, sold >= shares ? NO_COST_BASIS : { shares: shares - sold, cost: cost - (cost * sold) / shares });
+  }
+
+  private setCostBasis(userId: string, basis: CostBasis): void {
+    const user = this.findById(userId);
+    if (user === undefined) throw new Error(`Utilisateur inconnu : ${userId}`);
+    user.costBasis = { shares: basis.shares.toString(), cost: basis.cost.toString() };
+    this.save();
   }
 
   private load(): UsersFile {

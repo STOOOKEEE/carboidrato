@@ -1,7 +1,7 @@
 // `npm run api:smoke` : parcours complet contre l'API du fonds déjà démarrée (npm run api:fund), comme le ferait
-// le front : fonds → dépôts → attestation → entrée du circuit construite ici (jamais par l'API) → preuve
-// calculée côté client avec snarkjs et les artefacts servis par l'API → certificat → rejeu refusé (409) → prêt →
-// audit → remboursement → rachat.
+// le front : fonds et souscription des investisseurs de démo → attestation → entrée du circuit construite ici (jamais
+// par l'API) → preuve calculée côté client avec snarkjs et les artefacts servis par l'API → certificat → rejeu
+// refusé (409) → prêt → audit → remboursement.
 // SMOKE_DUMP_FILE=<fichier> enregistre toutes les réponses (exemples pour le front).
 
 import { groth16 } from "snarkjs";
@@ -36,17 +36,14 @@ async function proveLikeBrowser(attested: unknown, expected: ProofExpectations, 
 }
 
 async function run(api: ApiClient, events: EventCounter): Promise<void> {
-  log.step("Fonds · comptes, création (stablecoin, KYC, domaine, Vault + broker)");
+  log.step("Fonds · comptes, création (stablecoin, KYC, domaine, Vault + broker, souscription des investisseurs de démo)");
   const actors = await api.call("GET", "/api/actors");
   if (!Array.isArray(actors)) throw new Error("Liste des acteurs illisible");
   const sme = actors.find((actor) => field(actor, "name") === "sme");
   const smeAccount = stringField(sme, "address");
   const created = await api.call("POST", "/api/fund", { replace: true });
   const vaultId = stringField(field(field(created, "fund"), "cohort"), "vaultId");
-  log.info(`Vault ${vaultId}`);
-
-  log.step("Souscription (KYB de la PME de démo : émis par npm run demo:fund)");
-  await api.call("POST", "/api/investors/deposit");
+  log.info(`Vault ${vaultId} (KYB de la PME de démo : émis par npm run demo:fund)`);
 
   log.step("Organisme public · attestation signée localement ; PME · entrée du circuit et preuve côté client");
   const path = await api.call("GET", `/api/debtors/path?debtor=${encodeURIComponent(DEMO_DEBTOR)}`);
@@ -92,9 +89,8 @@ async function run(api: ApiClient, events: EventCounter): Promise<void> {
   assert(field(audit, "anomalies") === 0, "anomalies à l'audit");
   assert(field(audit, "verifiedProofs") === 1 && field(audit, "loans") === 1, "preuve non vérifiée à l'audit");
 
-  log.step("Remboursement et rachat");
+  log.step("Remboursement");
   await api.call("POST", `/api/loans/${loanId}/repay`);
-  await api.call("POST", "/api/investors/redeem");
 
   const transactions = events.counts.get("tx") ?? 0;
   log.info(`SSE : ${events.total()} événements (${[...events.counts].map(([type, count]) => `${type} ${count}`).join(", ")})`);

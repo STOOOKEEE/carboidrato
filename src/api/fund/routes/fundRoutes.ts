@@ -1,11 +1,12 @@
-// Fonds : création (stablecoin, KYC, domaine, Vault + broker), état public, comptes des acteurs, souscription,
-// rachat.
+// Fonds : création (stablecoin, KYC, domaine, Vault + broker, souscription des investisseurs de démo et liquidités de
+// Bari), état public, comptes des acteurs.
 
 import type { FastifyInstance } from "fastify";
 import { ACTOR_NAMES } from "../../../accounts/actors.js";
 import { loadCohortTiming } from "../../../config/cohort.js";
-import { redeemAll } from "../../../lending/redemption.js";
+import { BARI_EURC_RESERVE_EUR, BARI_SHARE_STOCK_EUR } from "../../../config/finance.js";
 import { subscribe } from "../../../lending/subscription.js";
+import { eurToUnits } from "../../../lib/amounts.js";
 import { setupFund } from "../../../setup/fundSetup.js";
 import { requireFund, type ApiContext } from "../context.js";
 import { HttpError } from "../errors.js";
@@ -36,36 +37,19 @@ export function registerFundRoutes(app: FastifyInstance, context: ApiContext): v
       subscriptionWindowS: subscriptionWindowS ?? defaults.subscriptionWindowS,
       investmentPeriodS: investmentPeriodS ?? defaults.investmentPeriodS,
     };
-    const { result: fund, transactions } = await context.operations.run("fund.create", () =>
-      setupFund(context.client, context.actors, timing),
-    );
+    // Comme `npm run demo:fund` : stock de parts et réserve EURc de Bari pour l'entrée et la sortie immédiates.
+    const liquidity = { shareStock: eurToUnits(BARI_SHARE_STOCK_EUR), reserve: eurToUnits(BARI_EURC_RESERVE_EUR) };
+    const { result: fund, transactions } = await context.operations.run("fund.create", async () => {
+      const created = await setupFund(context.client, context.actors, timing, liquidity);
+      await subscribe(context.client, context.actors, created, liquidity);
+      return created;
+    });
     const state = context.store.reset(fund);
+    context.store.update((current) => {
+      current.deposited = true;
+    });
     return reply.status(HTTP_CREATED).send({ fund: await fundView(context, state), timing, transactions });
   });
 
   app.get("/api/fund", async () => fundView(context, requireFund(context)));
-
-  app.post("/api/investors/deposit", async () => {
-    const state = requireFund(context);
-    if (state.deposited) throw new HttpError(HTTP_CONFLICT, "Dépôts déjà effectués pour ce fonds");
-    const { transactions } = await context.operations.run("investors.deposit", () =>
-      subscribe(context.client, context.actors, state.fund),
-    );
-    context.store.update((current) => {
-      current.deposited = true;
-    });
-    return { fund: await fundView(context, state), transactions };
-  });
-
-  app.post("/api/investors/redeem", async () => {
-    const state = requireFund(context);
-    if (state.redeemed) throw new HttpError(HTTP_CONFLICT, "Rachat déjà effectué pour ce fonds");
-    const { transactions } = await context.operations.run("investors.redeem", () =>
-      redeemAll(context.client, context.actors, state.fund),
-    );
-    context.store.update((current) => {
-      current.redeemed = true;
-    });
-    return { fund: await fundView(context, state), transactions };
-  });
 }

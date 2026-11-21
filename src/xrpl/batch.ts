@@ -16,7 +16,7 @@ import {
 } from "xrpl";
 import { log } from "../lib/logger.js";
 import { rippledErrorCode } from "./rippledError.js";
-import { submitSignedBlob, type TxOutcome } from "./submit.js";
+import { submitSignedBlob, UnexpectedTxResult, type TxOutcome } from "./submit.js";
 
 const SUCCESS = "tesSUCCESS";
 /** Une seule signature dans BatchSigners (le co-signataire) : un surcoût d'une fois les frais de base. */
@@ -140,4 +140,34 @@ export async function readAllOrNothingOutcome(
   if (applied.length === 0) return undefined;
   if (applied.length === found.length && applied.every((entry) => entry.result === SUCCESS)) return applied;
   throw new Error(`Batch ${submission.outcome.hash} : application partielle incohérente avec tfAllOrNothing`);
+}
+
+/** Transaction interne avant attribution de sa séquence. */
+export interface PendingInner {
+  tx: SubmittableTransaction;
+  label: string;
+}
+
+/** Batch tfAllOrNothing à deux signataires, entièrement appliqué : `clientBatchSubmitter`, ou un faux dans les tests. */
+export type SubmitBatch = (
+  submitter: Wallet,
+  cosigner: Wallet,
+  inner: readonly PendingInner[],
+  label: string,
+) => Promise<TxOutcome>;
+
+/** Séquences attribuées dans l'ordre des transactions internes ; lève `UnexpectedTxResult` si aucune n'est appliquée. */
+export function clientBatchSubmitter(client: Client): SubmitBatch {
+  return async (submitter, cosigner, pending, label) => {
+    const sequencer = await BatchSequencer.open(client, submitter.address);
+    const inner: InnerTransaction[] = [];
+    for (const { tx, label: innerLabel } of pending) {
+      inner.push({ tx: { ...tx, Sequence: await sequencer.next(tx.Account) }, label: innerLabel });
+    }
+    const submission = await submitAllOrNothingBatch(client, submitter, cosigner, sequencer, inner, label);
+    if ((await readAllOrNothingOutcome(client, submission, inner)) === undefined) {
+      throw new UnexpectedTxResult(label, "aucune transaction interne appliquée", submission.outcome.hash);
+    }
+    return submission.outcome;
+  };
 }
