@@ -2,6 +2,7 @@
 
 import type { Client } from "xrpl";
 import type { Actors } from "../../accounts/actors.js";
+import type { ProvisionAccount, UserStore } from "../../accounts/userStore.js";
 import type { NetworkConfig } from "../../config/network.js";
 import type { Ledger } from "../../xrpl/ledger.js";
 import { fromHex } from "../../zk/index.js";
@@ -23,6 +24,10 @@ export interface ApiContext {
   store: FundStateStore;
   events: EventHub;
   operations: OperationQueue;
+  /** Comptes des utilisateurs et secret de session. */
+  users: UserStore;
+  /** Ouvre le compte XRPL géré d'un nouvel utilisateur. */
+  provisionAccount: ProvisionAccount;
 }
 
 export function requireFund(context: ApiContext): FundState {

@@ -8,6 +8,7 @@ import { ACTOR_NAMES, type Actors } from "../../accounts/actors.js";
 import { UserStore } from "../../accounts/userStore.js";
 import type { NetworkConfig } from "../../config/network.js";
 import { FakeLedger } from "../../xrpl/fakeLedger.js";
+import type { ApiConfig } from "./config.js";
 import type { ApiContext } from "./context.js";
 import { EventHub } from "./events.js";
 import { OperationQueue } from "./operations.js";
@@ -15,7 +16,7 @@ import { FundStateStore } from "./stateStore.js";
 
 const NETWORK_ID = 1000;
 
-export const fakeNetwork: NetworkConfig = {
+const fakeNetwork: NetworkConfig = {
   wsUrl: "wss://alphanet.example",
   faucetHost: "",
   genesisSeed: undefined,
@@ -23,6 +24,8 @@ export const fakeNetwork: NetworkConfig = {
   explorerUrl: "https://devnet.xrpl.org",
   hasExplorer: false,
 };
+
+export const fakeApiConfig: ApiConfig = { host: "127.0.0.1", port: 0, corsOrigins: [], stateFile: "", usersFile: "" };
 
 export function fakeContext(overrides: Partial<ApiContext> = {}): ApiContext {
   const directory = mkdtempSync(join(tmpdir(), "bari-api-"));

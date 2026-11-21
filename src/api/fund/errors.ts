@@ -3,12 +3,14 @@
 
 import type { FastifyError, FastifyReply, FastifyRequest } from "fastify";
 import { ConnectionError, RippledError, TimeoutError, XrplError } from "xrpl";
-import { InvalidInvoiceFile } from "../attestedInvoice.js";
+import { DuplicateUser, type DuplicateField } from "../../accounts/userStore.js";
 import { log } from "../../lib/logger.js";
 import { UnexpectedTxResult } from "../../xrpl/submit.js";
+import { InvalidInvoiceFile } from "../attestedInvoice.js";
 import { OperationFailed } from "./operations.js";
 
 const HTTP_BAD_REQUEST = 400;
+const HTTP_CONFLICT = 409;
 const HTTP_UNPROCESSABLE = 422;
 const HTTP_BAD_GATEWAY = 502;
 const HTTP_INTERNAL_ERROR = 500;
@@ -24,6 +26,12 @@ export class HttpError extends Error {
   }
 }
 
+const DUPLICATE_MESSAGES: Record<DuplicateField, string> = {
+  email: "An account already exists for this email. Sign in instead.",
+  vatNumber: "A business with this VAT number is already registered.",
+  publicBody: "This public body already has an account.",
+};
+
 /** Erreurs de programmation : leur message n'est pas destiné au client. */
 const PROGRAMMING_ERRORS = [TypeError, RangeError, ReferenceError, SyntaxError];
 
@@ -35,6 +43,7 @@ interface ErrorBody {
 function describe(error: unknown, explorerUrl: (hash: string) => string): { status: number; body: ErrorBody } {
   if (error instanceof HttpError) return { status: error.status, body: { error: error.message, ...error.details } };
   if (error instanceof InvalidInvoiceFile) return { status: HTTP_BAD_REQUEST, body: { error: error.message } };
+  if (error instanceof DuplicateUser) return { status: HTTP_CONFLICT, body: { error: DUPLICATE_MESSAGES[error.field] } };
   if (error instanceof UnexpectedTxResult) {
     return {
       status: HTTP_UNPROCESSABLE,

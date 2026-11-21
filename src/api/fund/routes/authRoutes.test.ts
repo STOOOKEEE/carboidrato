@@ -8,7 +8,7 @@ import type { AccountProfile } from "../../../accounts/userStore.js";
 import type { AccountView, SignupResponse } from "../../contract.js";
 import { buildApp } from "../app.js";
 import { requireRole } from "../auth.js";
-import { fakeContext } from "../fakeContext.js";
+import { fakeApiConfig, fakeContext } from "../fakeContext.js";
 
 const HTTP_OK = 200;
 const HTTP_CREATED = 201;
@@ -59,7 +59,7 @@ before(async () => {
       return { address: wallet.address, seed: wallet.seed ?? "" };
     },
   });
-  app = await buildApp({ host: "127.0.0.1", port: 0, corsOrigins: [], stateFile: "" }, context);
+  app = await buildApp(fakeApiConfig, context);
   app.get("/test/lender-only", { preHandler: requireRole(context, "lender") }, async () => ({ ok: true }));
   await app.ready();
 });

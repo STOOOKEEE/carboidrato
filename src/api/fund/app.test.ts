@@ -1,21 +1,14 @@
 // Routes de l'API du fonds par app.inject(), sur un faux contexte : aucun appel réseau.
 
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { after, before, describe, test } from "node:test";
 import type { FastifyInstance } from "fastify";
-import { Client, Wallet, type LedgerEntry } from "xrpl";
+import { Wallet, type LedgerEntry } from "xrpl";
 import { ACTOR_NAMES, type Actors } from "../../accounts/actors.js";
-import type { NetworkConfig } from "../../config/network.js";
 import { FakeLedger } from "../../xrpl/fakeLedger.js";
 import { PUBLIC_SIGNAL_ORDER } from "../../zk/index.js";
 import { buildApp } from "./app.js";
-import type { ApiContext } from "./context.js";
-import { EventHub } from "./events.js";
-import { OperationQueue } from "./operations.js";
-import { FundStateStore } from "./stateStore.js";
+import { fakeApiConfig, fakeContext } from "./fakeContext.js";
 
 const HTTP_BAD_REQUEST = 400;
 const HTTP_FORBIDDEN = 403;
@@ -24,14 +17,6 @@ const NULLIFIER = "AB".repeat(32);
 const REGISTRATION_TX = "CD".repeat(32);
 const WITNESS_FIELDS = ["amount", "uuid", "signature", "pathElements", "blinding"];
 
-const network: NetworkConfig = {
-  wsUrl: "wss://alphanet.example",
-  faucetHost: "",
-  genesisSeed: undefined,
-  walletsFile: ".wallets.alphanet.json",
-  explorerUrl: "https://devnet.xrpl.org",
-  hasExplorer: false,
-};
 const actors = Object.fromEntries(ACTOR_NAMES.map((name) => [name, Wallet.generate()])) as Actors;
 const ledger = new FakeLedger(1000);
 let app: FastifyInstance;
@@ -66,17 +51,7 @@ const registration: LedgerEntry.Credential = {
 
 before(async () => {
   ledger.putCredential(registration);
-  const events = new EventHub(network.explorerUrl);
-  const context: ApiContext = {
-    client: new Client(network.wsUrl),
-    ledger,
-    network,
-    actors,
-    store: new FundStateStore(join(mkdtempSync(join(tmpdir(), "bari-api-")), "state.json")),
-    events,
-    operations: new OperationQueue(events),
-  };
-  app = await buildApp({ host: "127.0.0.1", port: 0, corsOrigins: [], stateFile: "" }, context);
+  app = await buildApp(fakeApiConfig, fakeContext({ actors, ledger }));
   await app.ready();
 });
 
