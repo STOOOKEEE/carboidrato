@@ -1,7 +1,7 @@
 // Comptes : inscription (compte XRPL ouvert par Bari), connexion, déconnexion et compte de la session.
 
 import type { FastifyInstance } from "fastify";
-import { normalizeVat, type AccountProfile, type NewUser, type UserRecord } from "../../../accounts/userStore.js";
+import { normalizeVat, userAddress, type AccountProfile, type NewUser, type UserRecord } from "../../../accounts/userStore.js";
 import { VERIFIED_DEBTORS } from "../../../invoice/debtors.js";
 import type { AccountView, SigninRequest, SigninResponse, SignupRequest, SignupResponse } from "../../contract.js";
 import { CLEARED_SESSION_COOKIE, currentUser, issueSession, sessionCookie } from "../auth.js";
@@ -40,7 +40,7 @@ export function accountProfile(request: ProfileRequest): AccountProfile {
 
 export function accountView(user: UserRecord): AccountView {
   const verification = user.role === "public_body" ? "verified public body registry" : "basic (self-declared)";
-  const address = user.custody === "wallet" ? user.address : user.account?.address;
+  const address = userAddress(user);
   const base = {
     custody: user.custody,
     verification,

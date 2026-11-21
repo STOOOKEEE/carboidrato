@@ -104,6 +104,11 @@ export function normalizeVat(vatNumber: string): string {
   return vatNumber.replace(WHITESPACE, "").toUpperCase();
 }
 
+/** Compte XRPL de l'utilisateur : son wallet, ou le compte que Bari gère pour lui (absent pour un organisme public). */
+export function userAddress(user: UserRecord): string | undefined {
+  return user.custody === "wallet" ? user.address : user.account?.address;
+}
+
 async function hashPassword(password: string): Promise<PasswordHash> {
   const salt = randomBytes(SALT_BYTES);
   return { salt: salt.toString("hex"), hash: (await derive(password, salt, HASH_BYTES)).toString("hex") };
@@ -171,7 +176,7 @@ export class UserStore {
 
   /** Utilisateur dont le compte XRPL est `address` : son wallet, ou le compte que Bari gère pour lui. */
   findByAddress(address: string): UserRecord | undefined {
-    return this.data.users.find((user) => (user.custody === "wallet" ? user.address : user.account?.address) === address);
+    return this.data.users.find((user) => userAddress(user) === address);
   }
 
   findPublicBody(ipaCode: string): Extract<UserRecord, { role: "public_body" }> | undefined {
