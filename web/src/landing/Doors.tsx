@@ -26,7 +26,7 @@ export function Doors() {
   return (
     <section id="doors" className="section">
       <div className="section-head">
-        <span className="kicker">Three doors, one fund</span>
+        <span className="kicker">Three doors, one fund — 002</span>
         <h2>
           Who are you <span className="underline">today</span>?
         </h2>
@@ -39,8 +39,8 @@ export function Doors() {
               <h3>{door.title}</h3>
               <p className="muted">{door.text}</p>
             </div>
-            <a className="button" href={door.href}>
-              {door.action}
+            <a className="cta" href={door.href}>
+              {door.action} <span aria-hidden="true">↗</span>
             </a>
           </li>
         ))}
