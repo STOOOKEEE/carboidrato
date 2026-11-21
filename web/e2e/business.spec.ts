@@ -65,7 +65,7 @@ test("a business drops a signed invoice, gets paid now, and cannot finance it tw
   try {
     await test.step("the signed invoice is checked in the page and the offer shows", async () => {
       await page.goto("/#/business");
-      await expect(page.getByRole("heading", { name: "Ask your client to confirm your invoice on Bari." })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Ask your client to confirm your invoice on Atlas." })).toBeVisible();
       await dropInvoice(page, file);
       const checks = page.getByTestId("invoice-checks");
       await expect(checks.locator(".check")).toHaveCount(7);
@@ -76,7 +76,7 @@ test("a business drops a signed invoice, gets paid now, and cannot finance it tw
       await capture(page, "business-offer");
     });
 
-    await test.step("Get paid now: proof, certificate, Bari's checks, loan", async () => {
+    await test.step("Get paid now: proof, certificate, Atlas's checks, loan", async () => {
       const loanResponse = page.waitForResponse((response) => response.url().endsWith("/api/sme/loan"), {
         timeout: FUNDING_TIMEOUT_MS,
       });

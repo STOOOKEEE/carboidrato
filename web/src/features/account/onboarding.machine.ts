@@ -25,8 +25,8 @@ export interface OnboardingDeps {
 
 /** Titre et explication de chaque état, en langage simple. */
 export const ONBOARDING_COPY: Record<OnboardingState["status"], { title: string; detail: string }> = {
-  preparing: { title: "Opening your account…", detail: "Bari is checking your account and issuing your credential." },
-  signing: { title: "Sign in Otsu to finish.", detail: "One signature covers every step below. Bari sends it to the ledger." },
+  preparing: { title: "Opening your account…", detail: "Atlas is checking your account and issuing your credential." },
+  signing: { title: "Sign in Otsu to finish.", detail: "One signature covers every step below. Atlas sends it to the ledger." },
   submitting: { title: "Recording on the ledger…", detail: "This takes a few seconds." },
   ready: { title: "Your account is ready.", detail: "" },
   done: { title: "Your account is ready.", detail: "Every step below is a transaction on the XRP Ledger. Open one to see it." },
@@ -74,7 +74,7 @@ export function onboardingHelp(failure: OnboardingFailure): { message: string; f
     case "rejected":
       return { message: "The request was declined in Otsu.", fix: "Try again and approve the request in the Otsu window." };
     case "expired":
-      return { message: "The request expired before it reached the ledger.", fix: "Try again: Bari prepares a fresh one." };
+      return { message: "The request expired before it reached the ledger.", fix: "Try again: Atlas prepares a fresh one." };
     case "error":
       return { message: failure.message, fix: "Try again. If it keeps failing, connect your wallet again." };
   }

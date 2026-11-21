@@ -253,7 +253,7 @@ describe("fundingSteps", () => {
           "Proof computed in your browser",
           "Sign the certificate in Otsu",
           "Invoice certificate on the ledger",
-          "Bari's checks",
+          "Atlas's checks",
           "Sign the loan in Otsu",
           "Loan signed, money sent",
         ],

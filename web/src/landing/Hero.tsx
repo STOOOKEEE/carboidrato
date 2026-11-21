@@ -19,7 +19,7 @@ export function Hero() {
           Your invoice is worth cash. <span className="underline">Today.</span>
         </h1>
         <p className="lead">
-          Waiting months for a client to pay drains a supplier's cash. On Bari, the client confirms the invoice, the
+          Waiting months for a client to pay drains a supplier's cash. On Atlas, the client confirms the invoice, the
           supplier gets 90% of it in seconds, and verified lenders fund it from a vault on the XRP Ledger. The invoice
           itself never leaves their two browsers.
         </p>

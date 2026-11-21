@@ -14,7 +14,7 @@ export function FundFacts() {
   }, []);
 
   if (state.status === "unavailable") {
-    return <p className="muted small">The fund's figures are unavailable right now: Bari's server is not answering.</p>;
+    return <p className="muted small">The fund's figures are unavailable right now: Atlas's server is not answering.</p>;
   }
   return (
     <ul className="hero-facts" data-testid="fund-facts" aria-busy={state.status === "loading"}>

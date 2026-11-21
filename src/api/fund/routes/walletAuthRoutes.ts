@@ -118,7 +118,7 @@ export function registerWalletAuthRoutes(
     const signed = signedChallenge(request.body.tx_blob);
     const challenge = signed === undefined ? undefined : challenges.get(signed.nonce);
     if (signed === undefined || challenge === undefined) {
-      throw new HttpError(HTTP_UNAUTHORIZED, "This signature does not answer a Bari sign-in request. Try again.");
+      throw new HttpError(HTTP_UNAUTHORIZED, "This signature does not answer an Atlas sign-in request. Try again.");
     }
     challenges.delete(signed.nonce);
     if (challenge.expiresAtMs <= Date.now()) throw new HttpError(HTTP_UNAUTHORIZED, "This sign-in request expired. Try again.");
@@ -135,7 +135,7 @@ export function registerWalletAuthRoutes(
       };
       return body;
     }
-    if (user.custody !== "wallet") throw new HttpError(HTTP_CONFLICT, "Bari manages this account: sign in with your email.");
+    if (user.custody !== "wallet") throw new HttpError(HTTP_CONFLICT, "Atlas manages this account: sign in with your email.");
     const body: WalletVerifyResponse = { status: "signedIn", user: accountView(user) };
     return reply.header("set-cookie", signIn(user.id)).send(body);
   });

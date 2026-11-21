@@ -42,7 +42,7 @@ function walletUser(context: ApiContext, request: FastifyRequest) {
   const user = currentUser(context, request);
   if (user === undefined) throw new HttpError(HTTP_UNAUTHORIZED, "Sign in to continue");
   if (user.role === "public_body") throw new HttpError(HTTP_FORBIDDEN, "Public bodies have no XRPL account to open");
-  if (user.custody !== "wallet") throw new HttpError(HTTP_CONFLICT, "Bari already opened your account.");
+  if (user.custody !== "wallet") throw new HttpError(HTTP_CONFLICT, "Atlas already opened your account.");
   return user;
 }
 
@@ -65,7 +65,7 @@ export function registerOnboardingRoutes(
     const transactions: OnboardingTx[] = [];
     const credential = await context.ledger.credential(user.address, issuer.address, textToHex(type));
     if (credential === undefined) {
-      const label = `${type} credential issued by Bari`;
+      const label = `${type} credential issued by Atlas`;
       const offer = credentialOffer(issuer.address, user.address, user, await context.ledger.closeTime());
       const { hash } = await submit(offer, issuer, label);
       transactions.push({ label, hash });
@@ -98,7 +98,7 @@ export function registerOnboardingRoutes(
       if (pending === undefined) throw new HttpError(HTTP_CONFLICT, "Nothing is waiting for your signature. Start again.");
       const txBlob = request.body.tx_blob;
       if (!matchesPrepared(pending.tx, txBlob)) {
-        throw new HttpError(HTTP_BAD_REQUEST, "This is not the transaction Bari prepared. Start again.");
+        throw new HttpError(HTTP_BAD_REQUEST, "This is not the transaction Atlas prepared. Start again.");
       }
       // Oubliée avant la soumission : la séquence est consommée quoi qu'il arrive, elle ne se resoumet pas.
       prepared.delete(user.id);

@@ -20,7 +20,7 @@ test("a lender signs up, signs out and signs back in through the lend space", as
   const email = `lender-${unique()}@e2e.example`;
   await page.goto("/#/signup/lender");
   await page.getByRole("button", { name: "Create my account" }).click();
-  await expect(page.getByText("Tick this box to lend through Bari")).toBeVisible();
+  await expect(page.getByText("Tick this box to lend through Atlas")).toBeVisible();
 
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(PASSWORD);
@@ -64,7 +64,7 @@ test("a business signs up and is kept out of the lend space", async ({ page }) =
 
   await page.getByRole("link", { name: "Open my space" }).click();
   await expect(page).toHaveURL(/#\/business$/);
-  await expect(page.getByRole("heading", { name: "Ask your client to confirm your invoice on Bari." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Ask your client to confirm your invoice on Atlas." })).toBeVisible();
   await expect(page.getByTestId("account-card")).toContainText("KYB_PME");
 
   await page.goto("/#/lend");

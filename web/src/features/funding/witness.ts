@@ -72,7 +72,7 @@ export function provenThreshold(amountCents: string, thresholdsCents: readonly s
 /** Chemin d'appartenance d'un débiteur ; échoue s'il n'est pas dans la liste, la preuve serait impossible. */
 export function merklePathOf(tree: DebtorTree, key: DebtorKey): MerklePath {
   let index = tree.levels[0].indexOf(leafOf(key));
-  if (index < 0) throw new Error("The debtor is not on Bari's verified list");
+  if (index < 0) throw new Error("The debtor is not on Atlas's verified list");
   const pathElements: bigint[] = [];
   const pathIndices: number[] = [];
   for (let depth = 0; depth < MERKLE_DEPTH; depth++) {

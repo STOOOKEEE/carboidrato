@@ -68,7 +68,7 @@ function errorField(payload: unknown, key: "error" | "hash"): string | undefined
 }
 
 const errorMessage = (payload: unknown, status: number) =>
-  errorField(payload, "error") ?? `Bari is unreachable (HTTP ${status}). Try again in a moment.`;
+  errorField(payload, "error") ?? `Atlas is unreachable (HTTP ${status}). Try again in a moment.`;
 
 function signatureOf(status: number, payload: unknown): PreparedSignature | undefined {
   if (status !== HTTP_OK || typeof payload !== "object" || payload === null) return undefined;
@@ -86,7 +86,7 @@ export function certificateOutcome(status: number, payload: unknown): Certificat
   if (status !== HTTP_CREATED || payload === undefined) return { kind: "failed", message: errorMessage(payload, status) };
   const { tokenId, nullifier, transactions } = payload as CertificateResponse;
   const shown = transactions.find((tx) => tx.label.startsWith("Batch")) ?? transactions[0];
-  if (shown === undefined) return { kind: "failed", message: "Bari sent no certificate transaction. Try again in a moment." };
+  if (shown === undefined) return { kind: "failed", message: "Atlas sent no certificate transaction. Try again in a moment." };
   return { kind: "issued", certificate: { txHash: shown.hash, tokenId, nullifier } };
 }
 

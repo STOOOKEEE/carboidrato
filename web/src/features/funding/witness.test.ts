@@ -59,7 +59,7 @@ describe("témoin construit dans le navigateur", () => {
           vintage: BigInt(fixture.vintage),
           blinding: BigInt(fixture.blinding),
         }),
-      /not on Bari's verified list/,
+      /not on Atlas's verified list/,
     );
   });
 

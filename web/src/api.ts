@@ -33,7 +33,7 @@ function errorMessage(payload: unknown, status: number): string {
   if (typeof payload === "object" && payload !== null && "error" in payload && typeof payload.error === "string") {
     return payload.error;
   }
-  return `Bari API unavailable (HTTP ${status}). Is \`npm run api:fund\` running?`;
+  return `Atlas API unavailable (HTTP ${status}). Is \`npm run api:fund\` running?`;
 }
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {

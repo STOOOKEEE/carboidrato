@@ -83,7 +83,7 @@ test("a new wallet opens a lender account, signs out and connects straight back 
   await page.getByRole("button", { name: "Create my account" }).click();
 
   await finishOnboarding(page, otsu, "wallet-onboarding-lender", [
-    "KYC_INVESTOR credential issued by Bari",
+    "KYC_INVESTOR credential issued by Atlas",
     "Accept your KYC credential",
     "Open your RLUSD trust line",
     "Authorize vault shares",
@@ -120,7 +120,7 @@ test("a new wallet opens a business account from the business space", async ({ p
   await page.getByRole("button", { name: "Create my account" }).click();
 
   await finishOnboarding(page, otsu, "wallet-onboarding-business", [
-    "KYB_PME credential issued by Bari",
+    "KYB_PME credential issued by Atlas",
     "Accept your KYB credential",
     "Open your RLUSD trust line",
     BATCH_LABEL,

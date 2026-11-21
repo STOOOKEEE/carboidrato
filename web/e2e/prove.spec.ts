@@ -89,7 +89,7 @@ test("the business page computes the proof and sends only { proof, publicSignals
 
   // Le certificat est émis ; la demande de prêt coupée échoue avec une consigne, et l'action reste disponible.
   await expect(steps.locator('li[data-step="certificate"].done a[href^="#/tx/"]')).toHaveCount(1, { timeout: FUNDING_TIMEOUT_MS });
-  await expect(steps.locator('li[data-step="checks"].failed')).toContainText("Bari did not answer.");
+  await expect(steps.locator('li[data-step="checks"].failed')).toContainText("Atlas did not answer.");
   await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
 
   // Pré-contrôle et preuve : aucune requête de la page ne porte le témoin ni la facture.

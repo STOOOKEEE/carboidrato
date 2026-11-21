@@ -22,7 +22,7 @@ export function OperationStatus({ operation, action }: { operation: Operation; a
     case "signing":
       return operation.action === action ? (
         <div className="lend-status" data-testid={`lend-signing-${action}`}>
-          <Notice kind="info">Sign in Otsu to confirm. Bari then sends it to the XRP Ledger.</Notice>
+          <Notice kind="info">Sign in Otsu to confirm. Atlas then sends it to the XRP Ledger.</Notice>
           <ul className="muted small">
             {operation.labels.map((label) => (
               <li key={label}>{label}</li>

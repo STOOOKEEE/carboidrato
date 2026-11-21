@@ -77,7 +77,7 @@ export interface TradePreview {
 
 export const ROUTE_LABELS: Record<LenderTradeRoute, string> = {
   native: "Directly with the fund's vault",
-  immediate: "Immediate, through Bari",
+  immediate: "Immediate, through Atlas",
 };
 
 export type TradeCheck = { ok: true; amount: bigint; preview: TradePreview } | { ok: false; error: string };
@@ -102,7 +102,7 @@ export function checkDeposit(position: LenderPosition, input: string): TradeChec
   }
   if (amount > max) {
     const cap = BigInt(position.entry.bariCap ?? position.entry.max);
-    return refuse(`Bari can sell at most ${formatRlusdUnits(cap)} of fund shares right now. Enter at most ${formatRlusdUnits(max)}.`);
+    return refuse(`Atlas can sell at most ${formatRlusdUnits(cap)} of fund shares right now. Enter at most ${formatRlusdUnits(max)}.`);
   }
   const shares = (amount * UNIT) / BigInt(position.sharePrice);
   if (shares === 0n) return refuse("Amount too small to buy a share.");
@@ -123,7 +123,7 @@ export function checkWithdraw(position: LenderPosition, input: string): TradeChe
   if (shares > max) {
     const cap = BigInt(position.exit.bariCap ?? position.exit.max);
     return refuse(
-      `Bari's reserve buys back at most ${formatShares(cap)} shares right now. Enter at most ${formatShares(max)}, or exit for free at maturity.`,
+      `Atlas's reserve buys back at most ${formatShares(cap)} shares right now. Enter at most ${formatShares(max)}, or exit for free at maturity.`,
     );
   }
   const price = BigInt(position.sharePrice);

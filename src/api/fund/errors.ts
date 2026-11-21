@@ -30,7 +30,7 @@ const DUPLICATE_MESSAGES: Record<DuplicateField, string> = {
   email: "An account already exists for this email. Sign in instead.",
   vatNumber: "A business with this VAT number is already registered.",
   publicBody: "This public body already has an account.",
-  address: "This wallet already has a Bari account. Connect it to sign in.",
+  address: "This wallet already has an Atlas account. Connect it to sign in.",
 };
 
 /** Erreurs de programmation : leur message n'est pas destiné au client. */
@@ -62,7 +62,7 @@ function describe(error: unknown, explorerUrl: (hash: string) => string): { stat
     return { status: HTTP_UNPROCESSABLE, body: { error: error.message } };
   }
   log.warn(`erreur interne de l'API : ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
-  return { status: HTTP_INTERNAL_ERROR, body: { error: "Something went wrong on Bari's side. Try again." } };
+  return { status: HTTP_INTERNAL_ERROR, body: { error: "Something went wrong on Atlas's side. Try again." } };
 }
 
 export function makeErrorHandler(explorerUrl: (hash: string) => string) {

@@ -68,7 +68,7 @@ const LEDGER_INDEX = 900;
 const AUTOFILLED_FEE = "48";
 const LOAN_ID = "4C".repeat(32);
 const LSF_ACCEPTED = 0x00010000;
-const NOT_PREPARED = "This is not the transaction Bari prepared. Start again.";
+const NOT_PREPARED = "This is not the transaction Atlas prepared. Start again.";
 
 const actors = Object.fromEntries(ACTOR_NAMES.map((name) => [name, Wallet.generate()])) as Actors;
 const ledger = new FakeLedger(NETWORK_ID);

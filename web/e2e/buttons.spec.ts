@@ -377,7 +377,7 @@ function navControls(page: Page, viewer?: Viewer): Control[] {
 }
 
 function accountCardControls(user: AccountView): Control[] {
-  return user.address === undefined ? [] : [['summary "your XRPL account, managed by Bari"', opensDetails(ADDRESS)]];
+  return user.address === undefined ? [] : [['summary "your XRPL account, managed by Atlas"', opensDetails(ADDRESS)]];
 }
 
 function roleSwitchLinks(page: Page, role: UserRole): Control[] {
@@ -553,7 +553,7 @@ test("a loan's transaction page, signed out", async ({ page }) => {
 test("a lender signs up, adds test RLUSD, deposits, withdraws and follows every link", async ({ page }) => {
   test.setTimeout(10 * MINUTE_MS);
   const viewer: Viewer = { role: "lender", email: `buttons-lender-${Date.now()}@e2e.example`, password: PASSWORD };
-  await coverSignup(page, viewer, "Tick this box to lend through Bari", async () => {
+  await coverSignup(page, viewer, "Tick this box to lend through Atlas", async () => {
     await page.getByLabel("Full name").fill("Ada Lovelace");
     await page.getByLabel("Country of residence").selectOption({ label: "Italy" });
     await page.getByLabel("I understand my capital is at risk.").check();

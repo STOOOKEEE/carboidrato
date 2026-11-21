@@ -30,7 +30,7 @@ const SOURCE_NOTICES = {
 
 const SUPPLIER_VALUES: Record<Exclude<SupplierState["status"], "found" | "none">, string> = {
   looking: "Looking up…",
-  unknown: "No Bari account yet",
+  unknown: "No Atlas account yet",
   failed: "Not found",
 };
 
@@ -87,7 +87,7 @@ function SupplierNotice({ supplier }: { supplier: SupplierState }) {
         </Details>
       );
     case "unknown":
-      return <Notice kind="error">This supplier has no Bari account yet. Ask them to sign up as a business.</Notice>;
+      return <Notice kind="error">This supplier has no Atlas account yet. Ask them to sign up as a business.</Notice>;
     case "failed":
       return <Notice kind="error">Could not look up the supplier: {supplier.message}</Notice>;
     default:

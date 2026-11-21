@@ -38,7 +38,7 @@ function Outcome({ funding, onGetPaid, onRetry }: Omit<OfferCardProps, "precheck
         </>
       );
     case "refused":
-      return <Notice kind="error">Bari did not lend: {funding.reason}</Notice>;
+      return <Notice kind="error">Atlas did not lend: {funding.reason}</Notice>;
     case "funded":
       return (
         <div className="funded" data-testid="business-funded">
@@ -63,7 +63,7 @@ export function OfferCard({ precheck, funding, custody, onGetPaid, onRetry }: Of
           <h2>Already financed</h2>
         </header>
         <p className="muted">
-          The ledger already holds this invoice's fingerprint: Bari never finances the same invoice twice.
+          The ledger already holds this invoice's fingerprint: Atlas never finances the same invoice twice.
         </p>
         <Facts facts={[{ label: "Registered on the ledger", value: <TxLink hash={funding.txHash} /> }]} />
       </section>
@@ -92,7 +92,7 @@ export function OfferCard({ precheck, funding, custody, onGetPaid, onRetry }: Of
         ]}
       />
       <p className="muted">
-        Bari only learns that your invoice covers at least {formatUsd(offer.provenThresholdUsd)}. The exact amount stays private.
+        Atlas only learns that your invoice covers at least {formatUsd(offer.provenThresholdUsd)}. The exact amount stays private.
       </p>
       {steps.length > 0 && <FundingSteps steps={steps} />}
       <Outcome funding={funding} onGetPaid={onGetPaid} onRetry={onRetry} />

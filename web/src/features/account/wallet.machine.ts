@@ -92,9 +92,9 @@ export function failureHelp(failure: WalletFailure): FailureHelp {
       return {
         message:
           failure.walletNetwork === undefined
-            ? "Your wallet is not on Bari's network."
-            : `Your wallet is on ${failure.walletNetwork}, not on Bari's network.`,
-        fix: `Add Bari's network and select it: ${addNetworkSteps(failure.wsUrl)}`,
+            ? "Your wallet is not on Atlas's network."
+            : `Your wallet is on ${failure.walletNetwork}, not on Atlas's network.`,
+        fix: `Add Atlas's network and select it: ${addNetworkSteps(failure.wsUrl)}`,
       };
     case "rejected":
       return { message: "The request was declined in Otsu.", fix: "Connect again and approve the request in the Otsu window." };

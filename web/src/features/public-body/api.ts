@@ -14,7 +14,7 @@ export async function findSupplier(vat: string): Promise<BusinessLookup | undefi
   if (response.status === HTTP_NOT_FOUND) return undefined;
   const payload = parseJsonOrUndefined(await response.text()) as Partial<BusinessLookup & { error: string }> | undefined;
   if (!response.ok || payload === undefined) {
-    throw new Error(payload?.error ?? `Bari API unavailable (HTTP ${response.status}). Try again in a moment.`);
+    throw new Error(payload?.error ?? `Atlas API unavailable (HTTP ${response.status}). Try again in a moment.`);
   }
   return payload as BusinessLookup;
 }

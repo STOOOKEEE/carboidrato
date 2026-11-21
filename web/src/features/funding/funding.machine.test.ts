@@ -157,7 +157,7 @@ describe("funding machine", () => {
   });
 
   describe("signingCertificate", () => {
-    test("SIGNED sends the signed blob to Bari", () => {
+    test("SIGNED sends the signed blob to Atlas", () => {
       assert.deepEqual(transition(signingCertificate, { type: "SIGNED", txBlob: "B10B" }), submittingCertificate);
     });
 
@@ -191,7 +191,7 @@ describe("funding machine", () => {
   });
 
   describe("certified", () => {
-    test("UNDERWRITE asks Bari for the loan", () => {
+    test("UNDERWRITE asks Atlas for the loan", () => {
       assert.deepEqual(transition(certified, { type: "UNDERWRITE" }), underwriting);
     });
 
@@ -221,7 +221,7 @@ describe("funding machine", () => {
       });
     });
 
-    test("SIGN_LOAN: Bari's checks passed, a wallet business signs the LoanSet in Otsu", () => {
+    test("SIGN_LOAN: Atlas's checks passed, a wallet business signs the LoanSet in Otsu", () => {
       assert.deepEqual(transition(underwriting, { type: "SIGN_LOAN", tx: loanSetTx, checks: passed }), signingLoan);
     });
 
@@ -231,7 +231,7 @@ describe("funding machine", () => {
   });
 
   describe("signingLoan", () => {
-    test("SIGNED sends the signed LoanSet to Bari for its counter-signature", () => {
+    test("SIGNED sends the signed LoanSet to Atlas for its counter-signature", () => {
       assert.deepEqual(transition(signingLoan, { type: "SIGNED", txBlob: "L0B" }), submittingLoan);
     });
 
@@ -297,7 +297,7 @@ describe("funding machine", () => {
     });
   });
 
-  test("busy from the proof until Bari answers, signatures in Otsu included", () => {
+  test("busy from the proof until Atlas answers, signatures in Otsu included", () => {
     const busy = [
       proving,
       proved,

@@ -11,6 +11,6 @@ export const fetchAudit = () => request<FundAudit>("/api/audit");
 export async function fetchVerificationKey(): Promise<unknown> {
   const artifacts = await request<Record<string, string>>("/api/zk");
   const url = artifacts[VERIFICATION_KEY_FILE];
-  if (url === undefined) throw new Error("Bari's server does not publish the verification key.");
+  if (url === undefined) throw new Error("Atlas's server does not publish the verification key.");
   return request<unknown>(url);
 }

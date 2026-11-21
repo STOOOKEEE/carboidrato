@@ -142,8 +142,8 @@ describe("lecture d'une FatturaPA", () => {
   });
 
   test("le refus nomme la devise lue et la seule devise financée", () => {
-    assert.equal(currencyRefusal("GBP"), "This invoice is in GBP. Bari finances invoices in US dollars (USD) only.");
-    assert.equal(currencyRefusal(undefined), "This invoice has no currency. Bari finances invoices in US dollars (USD) only.");
+    assert.equal(currencyRefusal("GBP"), "This invoice is in GBP. Atlas finances invoices in US dollars (USD) only.");
+    assert.equal(currencyRefusal(undefined), "This invoice has no currency. Atlas finances invoices in US dollars (USD) only.");
   });
 
   test("un autre fichier n'est pas une FatturaPA", () => {

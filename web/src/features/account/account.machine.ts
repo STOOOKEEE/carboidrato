@@ -63,7 +63,7 @@ function walletProfile(role: WalletRole, draft: SignupDraft): { errors: FieldErr
       const errors: FieldErrors = {
         ...(name === "" ? { name: "Enter your full name" } : {}),
         ...(COUNTRY_PATTERN.test(draft.country) ? {} : { country: "Choose your country of residence" }),
-        ...(draft.riskAcknowledged ? {} : { riskAcknowledged: "Tick this box to lend through Bari" }),
+        ...(draft.riskAcknowledged ? {} : { riskAcknowledged: "Tick this box to lend through Atlas" }),
       };
       return { errors, value: { role, profile: { name, country: draft.country, riskAcknowledged: true as const } } };
     }
@@ -149,14 +149,14 @@ export interface VerificationStep {
 const STEPS: Record<UserRole, { label: string; matches: (txLabel: string) => boolean }[]> = {
   lender: [
     { label: "XRPL account opened", matches: (tx) => tx.startsWith("Payment") },
-    { label: "KYC_INVESTOR credential issued by Bari", matches: (tx) => tx.startsWith("CredentialCreate") },
+    { label: "KYC_INVESTOR credential issued by Atlas", matches: (tx) => tx.startsWith("CredentialCreate") },
     { label: "Credential accepted by your account", matches: (tx) => tx.startsWith("CredentialAccept") },
     { label: "Dollar stablecoin (RLUSD) enabled", matches: (tx) => tx.startsWith("TrustSet RLUSD") },
     { label: "Fund shares enabled", matches: (tx) => tx.startsWith("MPTokenAuthorize Vault shares") },
   ],
   business: [
     { label: "XRPL account opened", matches: (tx) => tx.startsWith("Payment") },
-    { label: "KYB_PME credential issued by Bari", matches: (tx) => tx.startsWith("CredentialCreate") },
+    { label: "KYB_PME credential issued by Atlas", matches: (tx) => tx.startsWith("CredentialCreate") },
     { label: "Credential accepted by your account", matches: (tx) => tx.startsWith("CredentialAccept") },
     { label: "Dollar stablecoin (RLUSD) enabled", matches: (tx) => tx.startsWith("TrustSet RLUSD") },
   ],

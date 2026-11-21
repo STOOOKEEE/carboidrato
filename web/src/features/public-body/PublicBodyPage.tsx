@@ -90,7 +90,7 @@ export function PublicBodyPage({ user }: { user: AccountView }) {
       <div className="section-head">
         <span className="kicker">Declare invoice</span>
         <h1>Confirm your suppliers' invoices.</h1>
-        <p className="lead">Signed in your browser. Bari never receives this invoice.</p>
+        <p className="lead">Signed in your browser. Atlas never receives this invoice.</p>
       </div>
       {state.status === "signed" ? (
         <SignedCard file={state.file} fileName={state.fileName} supplier={state.supplier} onAnother={() => dispatch({ type: "RESET" })} />

@@ -24,15 +24,15 @@ import { VerificationSteps } from "./VerificationSteps";
 const HEADINGS: Record<UserRole, { title: string; lead: string }> = {
   lender: {
     title: "Open your lender account.",
-    lead: "Bari opens an XRP Ledger account for you and issues your KYC_INVESTOR credential: it is what lets you into the fund's vault.",
+    lead: "Atlas opens an XRP Ledger account for you and issues your KYC_INVESTOR credential: it is what lets you into the fund's vault.",
   },
   business: {
     title: "Open your business account.",
-    lead: "Bari opens an XRP Ledger account for your company and issues its KYB_PME credential, checked before every advance.",
+    lead: "Atlas opens an XRP Ledger account for your company and issues its KYB_PME credential, checked before every advance.",
   },
   public_body: {
     title: "Confirm invoices for your suppliers.",
-    lead: "Choose your administration in Bari's registry of verified public bodies. Confirming an invoice costs you nothing.",
+    lead: "Choose your administration in Atlas's registry of verified public bodies. Confirming an invoice costs you nothing.",
   },
 };
 
@@ -99,8 +99,8 @@ export function SignupPage({ role }: { role: UserRole }) {
         {role === "public_body" ? (
           <p className="muted">
             {done
-              ? `${user === undefined ? "Your administration" : accountName(user)} is in Bari's verified registry: no credential needed.`
-              : "Checking your administration in Bari's verified registry."}
+              ? `${user === undefined ? "Your administration" : accountName(user)} is in Atlas's verified registry: no credential needed.`
+              : "Checking your administration in Atlas's verified registry."}
           </p>
         ) : (
           <>
@@ -150,7 +150,7 @@ export function SignupPage({ role }: { role: UserRole }) {
               <option value="">{publicBodies.bodies === undefined ? "Loading the registry…" : "Choose…"}</option>
               {publicBodies.bodies?.map((body) => (
                 <option key={body.ipaCode} value={body.ipaCode} disabled={!body.available}>
-                  {body.available ? body.name : `${body.name} (already on Bari)`}
+                  {body.available ? body.name : `${body.name} (already on Atlas)`}
                 </option>
               ))}
             </select>
@@ -164,7 +164,7 @@ export function SignupPage({ role }: { role: UserRole }) {
         </Button>
         {state.status === "failed" && <Notice kind="error">{state.message}</Notice>}
         <p className="muted small">
-          Already on Bari?{" "}
+          Already on Atlas?{" "}
           <a className="link" href={SIGNIN_ROUTE}>
             Sign in
           </a>

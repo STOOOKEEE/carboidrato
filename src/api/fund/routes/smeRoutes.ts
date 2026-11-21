@@ -76,8 +76,8 @@ const DUPLICATE_MESSAGE = "Invoice already registered: the ledger refuses double
 const CERTIFICATE_STEPS = [
   "Register the invoice fingerprint",
   "Create the invoice token with its proof",
-  "Bari accepts the invoice token (signed by Bari)",
-  "Hand the invoice token to Bari",
+  "Atlas accepts the invoice token (signed by Atlas)",
+  "Hand the invoice token to Atlas",
 ];
 
 type Business = Extract<UserRecord, { role: "business" }>;
@@ -262,7 +262,7 @@ function walletBusiness(context: ApiContext, ports: WalletTxPorts) {
       // La transaction interne de Bari porte sa séquence d'alors : si Bari a signé autre chose depuis, rien ne passerait.
       const bariTx = prepared.inner.find(({ tx }) => tx.Account === bari.address);
       if (bariTx?.tx.Sequence !== (await ports.accountState(bari.address)).sequence) {
-        throw new HttpError(HTTP_CONFLICT, "Bari's part of this request is out of date. Start again.");
+        throw new HttpError(HTTP_CONFLICT, "Atlas's part of this request is out of date. Start again.");
       }
       const batchHash = hashes.hashSignedTx(txBlob);
       const { result: issued, transactions } = await context.operations.run("sme.certificate", async () => {
@@ -292,7 +292,7 @@ function walletBusiness(context: ApiContext, ports: WalletTxPorts) {
       const loanSet = await prepareLoanSet(ports, proposal);
       loans.set(user.id, { tx: loanSet, proposal, tokenId });
       const { principal, originationFee } = proposal.terms;
-      const label = `Borrow ${formatRlusd(principal, 2)} (fee ${formatRlusd(originationFee, 2)}), co-signed by Bari`;
+      const label = `Borrow ${formatRlusd(principal, 2)} (fee ${formatRlusd(originationFee, 2)}), co-signed by Atlas`;
       return { ...signatureRequest(loanSet, [label]), checks: proposal.checks };
     },
 

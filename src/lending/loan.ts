@@ -56,7 +56,7 @@ export interface LoanProposal {
 /** Bari refuse de co-signer : tous les contrôles, le premier en échec donnant la raison. */
 export class LoanRefused extends Error {
   constructor(readonly checks: LoanCheck[]) {
-    super(`Bari refuses to co-sign: ${refusalReason(checks) ?? "a check failed"}`);
+    super(`Atlas refuses to co-sign: ${refusalReason(checks) ?? "a check failed"}`);
   }
 }
 

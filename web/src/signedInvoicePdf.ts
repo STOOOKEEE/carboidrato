@@ -42,8 +42,8 @@ export async function signedInvoicePdf(file: AttestedInvoiceFile, supplier: Pick
   const { invoice, attestation } = file;
   const document = await PDFDocument.create();
   document.setTitle(`Signed invoice ${invoice.number}`);
-  document.setSubject(`Confirmed by ${invoice.debtorName} on Bari`);
-  document.setProducer("Bari");
+  document.setSubject(`Confirmed by ${invoice.debtorName} on Atlas`);
+  document.setProducer("Atlas");
   // Le dictionnaire d'informations existe dès le titre posé.
   document.context.lookup(document.context.trailerInfo.Info, PDFDict).set(ATTESTATION_KEY, PDFHexString.fromText(JSON.stringify(file)));
 
@@ -67,8 +67,8 @@ export async function signedInvoicePdf(file: AttestedInvoiceFile, supplier: Pick
     fonts,
   );
   const notes = [
-    `Confirmed by ${invoice.debtorName} on Bari. This file carries its signature.`,
-    "Drop it in your Bari space to get paid now: it is checked in your browser and never uploaded.",
+    `Confirmed by ${invoice.debtorName} on Atlas. This file carries its signature.`,
+    "Drop it in your Atlas space to get paid now: it is checked in your browser and never uploaded.",
   ];
   notes.forEach((note, index) => {
     page.drawText(winAnsi(note), { x: MARGIN, y: bottom - LINE_GAP * (index + 1), size: TEXT_SIZE, font: fonts.regular });

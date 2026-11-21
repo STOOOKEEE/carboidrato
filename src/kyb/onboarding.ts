@@ -90,7 +90,7 @@ export function makeProvisioner(deps: OnboardingDeps): ProvisionAccount {
   return async (account): Promise<ManagedAccount | undefined> => {
     if (account.role === "public_body") return undefined;
     const tokens = deps.fund();
-    if (tokens === undefined) throw new Error("No fund is open on Bari yet: sign up again once it opens");
+    if (tokens === undefined) throw new Error("No fund is open on Atlas yet: sign up again once it opens");
 
     const wallet = Wallet.generate();
     if (wallet.seed === undefined) throw new Error("Wallet généré sans seed");
