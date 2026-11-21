@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { after, afterEach, before, describe, mock, test } from "node:test";
 import type { FastifyInstance } from "fastify";
 import { decode, encode, Wallet, type AccountSet } from "xrpl";
+import { SIGNING_WINDOW_LEDGERS, type WalletTxPorts } from "../../../xrpl/preparedTx.js";
 import {
   WALLET_SIGNIN_MEMO_TYPE,
   type AccountView,
@@ -24,6 +25,18 @@ const HTTP_FORBIDDEN = 403;
 const HTTP_CONFLICT = 409;
 const CHALLENGE_TTL_MS = 5 * 60_000;
 const NETWORK_ID = 1000;
+const NEXT_SEQUENCE = 7;
+const LEDGER_INDEX = 900;
+const FEE = "12";
+
+/** Lectures du nœud de Bari (séquence, dernier ledger) et frais : ce que l'AccountSet du défi embarque. */
+const walletPorts: WalletTxPorts = {
+  accountState: async () => ({ sequence: NEXT_SEQUENCE, ledgerIndex: LEDGER_INDEX }),
+  autofill: async (tx) => ({ ...tx, Fee: FEE }),
+  submitSigned: async () => {
+    throw new Error("la connexion ne soumet rien");
+  },
+};
 
 const lenderProfile = { name: "Wanda Verdi", country: "IT", riskAcknowledged: true };
 const businessProfile = { company: "Wallet Costruzioni S.r.l.", vatNumber: "IT55555555555" };
@@ -37,7 +50,7 @@ before(async () => {
       activated.push(address);
     },
   });
-  app = await buildApp(fakeApiConfig, context);
+  app = await buildApp(fakeApiConfig, context, undefined, walletPorts);
   app.get("/test/lender-only", { preHandler: requireRole(context, "lender") }, async () => ({ ok: true }));
   await app.ready();
 });
@@ -117,6 +130,21 @@ describe("POST /api/auth/wallet/challenge", () => {
     await Promise.all([challenge(wallet.address), challenge(wallet.address)]);
     await challenge(wallet.address);
     assert.equal(activated.filter((address) => address === wallet.address).length, 1);
+  });
+
+  test("AccountSet complet (séquence, frais, dernier ledger) : Otsu le signe sans rien lire sur son propre réseau", async () => {
+    const wallet = Wallet.generate();
+    const { nonce, transaction } = await challenge(wallet.address);
+    assert.deepEqual(transaction, {
+      TransactionType: "AccountSet",
+      Account: wallet.address,
+      Memos: [{ Memo: { MemoType: WALLET_SIGNIN_MEMO_TYPE, MemoData: nonce } }],
+      Sequence: NEXT_SEQUENCE,
+      LastLedgerSequence: LEDGER_INDEX + SIGNING_WINDOW_LEDGERS,
+      Fee: FEE,
+    });
+    const response = await verify(wallet.sign(transaction).tx_blob);
+    assert.equal(response.statusCode, HTTP_OK);
   });
 
   test("adresse invalide → 400, rien n'est activé", async () => {

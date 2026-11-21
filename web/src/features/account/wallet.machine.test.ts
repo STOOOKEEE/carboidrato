@@ -4,12 +4,22 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { WALLET_SIGNIN_MEMO_TYPE, type AccountView, type WalletVerifyResponse } from "../../../../src/api/contract";
 import type { OtsuProvider } from "../../wallet/otsu";
-import { challengeTransaction, failureHelp, signInWithWallet, type WalletDeps, type WalletStep } from "./wallet.machine";
+import { failureHelp, signInWithWallet, type WalletDeps, type WalletStep } from "./wallet.machine";
 
 const ADDRESS = "rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY";
 const NONCE = "AB".repeat(32);
 const NOW = Date.parse("2026-11-21T10:00:00Z");
 const EXPIRES_AT = "2026-11-21T10:05:00Z";
+/** AccountSet du défi tel que l'API le prépare : complet, Otsu le signe tel quel. */
+const CHALLENGE_TX = {
+  TransactionType: "AccountSet" as const,
+  Account: ADDRESS,
+  Memos: [{ Memo: { MemoType: WALLET_SIGNIN_MEMO_TYPE, MemoData: NONCE } }],
+  Sequence: 7,
+  LastLedgerSequence: 1_000,
+  Fee: "12",
+};
+const CHALLENGE = { nonce: NONCE, expiresAt: EXPIRES_AT, transaction: CHALLENGE_TX };
 const network = { networkId: 1000, wsUrl: "wss://node.example" };
 const user: AccountView = {
   custody: "wallet",
@@ -39,7 +49,7 @@ function deps(overrides: Partial<WalletDeps> = {}): WalletDeps {
   return {
     provider: fakeOtsu(),
     fetchNetwork: async () => network,
-    challenge: async () => ({ nonce: NONCE, expiresAt: EXPIRES_AT }),
+    challenge: async () => CHALLENGE,
     verify: async () => ({ status: "signedIn", user }),
     now: () => NOW,
     ...overrides,
@@ -67,7 +77,7 @@ describe("signInWithWallet", () => {
     );
     assert.deepEqual(outcome, { kind: "signedIn", user });
     assert.deepEqual(steps, ["connecting", "preparing", "signing", "verifying"]);
-    assert.deepEqual(provider.signed, [challengeTransaction(ADDRESS, NONCE)]);
+    assert.deepEqual(provider.signed, [CHALLENGE_TX]);
     assert.deepEqual(verified, ["BLOB"]);
   });
 
@@ -91,7 +101,7 @@ describe("signInWithWallet", () => {
         provider: fakeOtsu({ getNetwork: async () => ({ network: "testnet" }) }),
         challenge: async () => {
           challenged = true;
-          return { nonce: NONCE, expiresAt: EXPIRES_AT };
+          return CHALLENGE;
         },
       }),
       () => undefined,
@@ -136,13 +146,5 @@ describe("failureHelp", () => {
     assert.match(failureHelp({ kind: "rejected" }).fix, /approve/i);
     assert.match(failureHelp({ kind: "expired" }).fix, /again/i);
     assert.equal(failureHelp({ kind: "error", message: "Boom" }).message, "Boom");
-  });
-});
-
-test("challengeTransaction : AccountSet du wallet, nonce en MemoData sous le MemoType de Bari", () => {
-  assert.deepEqual(challengeTransaction(ADDRESS, NONCE), {
-    TransactionType: "AccountSet",
-    Account: ADDRESS,
-    Memos: [{ Memo: { MemoType: WALLET_SIGNIN_MEMO_TYPE, MemoData: NONCE } }],
   });
 });
