@@ -12,6 +12,7 @@ import { registerEventRoutes } from "./routes/eventRoutes.js";
 import { registerFundRoutes } from "./routes/fundRoutes.js";
 import { clientLenderPorts, registerLenderRoutes, type LenderPorts } from "./routes/lenderRoutes.js";
 import { registerLoanRoutes } from "./routes/loanRoutes.js";
+import { clientOnboardingPorts, registerOnboardingRoutes, type OnboardingPorts } from "./routes/onboardingRoutes.js";
 import { registerPublicBodyRoutes } from "./routes/publicBodyRoutes.js";
 import { registerSmeRoutes } from "./routes/smeRoutes.js";
 import { registerTxRoutes } from "./routes/txRoutes.js";
@@ -26,11 +27,15 @@ function serializeJson(payload: unknown): string {
   return JSON.stringify(payload, (_key, value: unknown) => (typeof value === "bigint" ? value.toString() : value));
 }
 
-/** `ports` : soumissions signées (ordres des prêteurs, remboursements), remplacées par des faux dans les tests de routes. */
+/**
+ * `ports` : soumissions signées (ordres des prêteurs, remboursements) ; `onboardingPorts` : transaction que signe le
+ * wallet d'un utilisateur. Les deux sont remplacés par des faux dans les tests de routes.
+ */
 export async function buildApp(
   config: ApiConfig,
   context: ApiContext,
   ports: LenderPorts = clientLenderPorts(context.client),
+  onboardingPorts: OnboardingPorts = clientOnboardingPorts(context.client),
 ): Promise<FastifyInstance> {
   // Un champ inattendu (ex. une donnée du témoin) est refusé en 400, pas retiré en silence.
   const app = Fastify({ bodyLimit: BODY_LIMIT_BYTES, ajv: { customOptions: { removeAdditional: false } } });
@@ -40,6 +45,7 @@ export async function buildApp(
 
   registerAuthRoutes(app, context);
   registerWalletAuthRoutes(app, context);
+  registerOnboardingRoutes(app, context, ports.submit, onboardingPorts);
   registerFundRoutes(app, context);
   registerPublicBodyRoutes(app, context);
   registerLenderRoutes(app, context, ports);

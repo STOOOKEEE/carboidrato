@@ -8,6 +8,9 @@ import type {
   KybStatus,
   NetworkInfo,
   OfferSchedule,
+  OnboardingPrepareResponse,
+  OnboardingSubmitRequest,
+  OnboardingSubmitResponse,
   ProofParams,
   PublicBodyOption,
   PublicDebtor,
@@ -75,6 +78,11 @@ export const verifyWallet = (txBlob: string) =>
   postJson<WalletVerifyResponse>("/api/auth/wallet/verify", { tx_blob: txBlob } satisfies WalletVerifyRequest);
 
 export const registerWallet = (body: WalletRegisterRequest) => postJson<WalletRegisterResponse>("/api/auth/wallet/register", body);
+
+export const prepareOnboarding = () => postJson<OnboardingPrepareResponse>("/api/onboarding/prepare", {});
+
+export const submitOnboarding = (txBlob: string) =>
+  postJson<OnboardingSubmitResponse>("/api/onboarding/submit", { tx_blob: txBlob } satisfies OnboardingSubmitRequest);
 
 export async function signOutSession(): Promise<void> {
   const response = await fetch("/api/auth/signout", { method: "POST" });

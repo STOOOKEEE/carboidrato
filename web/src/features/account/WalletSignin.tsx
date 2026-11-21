@@ -1,7 +1,15 @@
-// Connexion par wallet Otsu : connexion, signature du défi, puis session, ou KYC léger d'un wallet inconnu.
+// Connexion par wallet Otsu : connexion, signature du défi, KYC léger d'un wallet inconnu, puis ouverture du compte
+// (credential de Bari, transaction signée dans Otsu) avant d'entrer dans son espace.
 import { useReducer, useState, type SubmitEvent } from "react";
-import type { WalletRole } from "../../../../src/api/contract";
-import { fetchNetwork, registerWallet, requestWalletChallenge, verifyWallet } from "../../api";
+import type { AccountView, WalletRole } from "../../../../src/api/contract";
+import {
+  fetchNetwork,
+  prepareOnboarding,
+  registerWallet,
+  requestWalletChallenge,
+  submitOnboarding,
+  verifyWallet,
+} from "../../api";
 import { sessionStarted } from "../../session";
 import { Button } from "../../ui/Button";
 import { Field } from "../../ui/Field";
@@ -15,19 +23,29 @@ import {
   type DraftField,
   type SignupDraft,
 } from "./account.machine";
+import { ONBOARDING_COPY, onboardingHelp, onboardingSteps, openWalletAccount, type OnboardingState } from "./onboarding.machine";
 import { ProfileFields } from "./ProfileFields";
 import { ROLE_COPY } from "./roles";
-import { failureHelp, signInWithWallet, STEP_LABELS, type WalletFailure, type WalletStep } from "./wallet.machine";
+import { VerificationSteps } from "./VerificationSteps";
+import { failureHelp, signInWithWallet, STEP_LABELS, type FailureHelp, type WalletFailure, type WalletStep } from "./wallet.machine";
 
 type Phase =
   | { status: "idle" }
   | { status: "busy"; step: WalletStep }
   | { status: "failed"; failure: WalletFailure }
-  | { status: "register"; address: string; token: string };
+  | { status: "register"; address: string; token: string }
+  | { status: "onboarding"; user: AccountView; state: OnboardingState };
 
 const WALLET_ROLES: WalletRole[] = ["lender", "business"];
 
-function Registration({ address, token, role }: { address: string; token: string; role?: WalletRole }) {
+interface RegistrationProps {
+  address: string;
+  token: string;
+  role?: WalletRole;
+  onRegistered: (user: AccountView) => void;
+}
+
+function Registration({ address, token, role, onRegistered }: RegistrationProps) {
   const [chosenRole, setChosenRole] = useState<WalletRole>(role ?? "lender");
   const [draft, setDraft] = useState<SignupDraft>(EMPTY_DRAFT);
   const [state, dispatch] = useReducer(formTransition, initialFormState);
@@ -48,7 +66,7 @@ function Registration({ address, token, role }: { address: string; token: string
     registerWallet(validation.request)
       .then((response) => {
         dispatch({ type: "SUCCEEDED", transactions: [] });
-        sessionStarted(response.user);
+        onRegistered(response.user);
       })
       .catch((cause: unknown) => dispatch({ type: "FAILED", message: cause instanceof Error ? cause.message : String(cause) }));
   };
@@ -80,8 +98,7 @@ function Registration({ address, token, role }: { address: string; token: string
   );
 }
 
-function Failure({ failure }: { failure: WalletFailure }) {
-  const help = failureHelp(failure);
+function Failure({ help }: { help: FailureHelp }) {
   return (
     <div role="alert" className="field">
       <p className="error">{help.message}</p>
@@ -95,10 +112,53 @@ function Failure({ failure }: { failure: WalletFailure }) {
   );
 }
 
+interface OnboardingProps {
+  state: OnboardingState;
+  onRetry: () => void;
+  onContinue: () => void;
+}
+
+function Onboarding({ state, onRetry, onContinue }: OnboardingProps) {
+  const copy = ONBOARDING_COPY[state.status];
+  return (
+    <section className="form step" aria-live="polite" data-testid="wallet-onboarding">
+      <h2>{copy.title}</h2>
+      {copy.detail !== "" && <p className="muted">{copy.detail}</p>}
+      <VerificationSteps steps={onboardingSteps(state)} />
+      {state.status === "failed" && (
+        <>
+          <Failure help={onboardingHelp(state.failure)} />
+          <Button primary onClick={onRetry}>
+            Try again
+          </Button>
+        </>
+      )}
+      {state.status === "done" && (
+        <Button primary onClick={onContinue}>
+          Open my space
+        </Button>
+      )}
+    </section>
+  );
+}
+
 export function WalletSignin({ role }: { role?: WalletRole }) {
   const [phase, setPhase] = useState<Phase>({ status: "idle" });
 
-  if (phase.status === "register") return <Registration address={phase.address} token={phase.token} role={role} />;
+  // Le compte s'ouvre avant d'entrer dans l'espace ; un compte déjà prêt y entre directement.
+  const openAccount = (user: AccountView) => {
+    const show = (state: OnboardingState) => setPhase({ status: "onboarding", user, state });
+    const deps = { provider: otsuProvider(), prepare: prepareOnboarding, submit: submitOnboarding };
+    void openWalletAccount(deps, show).then((state) => (state.status === "ready" ? sessionStarted(user) : show(state)));
+  };
+
+  if (phase.status === "register") {
+    return <Registration address={phase.address} token={phase.token} role={role} onRegistered={openAccount} />;
+  }
+  if (phase.status === "onboarding") {
+    const { user } = phase;
+    return <Onboarding state={phase.state} onRetry={() => openAccount(user)} onContinue={() => sessionStarted(user)} />;
+  }
 
   const connect = () => {
     setPhase({ status: "busy", step: "connecting" });
@@ -106,7 +166,7 @@ export function WalletSignin({ role }: { role?: WalletRole }) {
     void signInWithWallet(deps, (step) => setPhase({ status: "busy", step })).then((outcome) => {
       switch (outcome.kind) {
         case "signedIn":
-          sessionStarted(outcome.user);
+          openAccount(outcome.user);
           return;
         case "register":
           setPhase({ status: "register", address: outcome.address, token: outcome.token });
@@ -124,7 +184,7 @@ export function WalletSignin({ role }: { role?: WalletRole }) {
       <Button primary onClick={connect} disabled={busy} reason={busy ? STEP_LABELS[phase.step] : ""}>
         Connect Otsu wallet
       </Button>
-      {phase.status === "failed" && <Failure failure={phase.failure} />}
+      {phase.status === "failed" && <Failure help={failureHelp(phase.failure)} />}
     </div>
   );
 }

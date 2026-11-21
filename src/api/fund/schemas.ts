@@ -232,6 +232,18 @@ export const walletRegisterSchema = {
   },
 } as const;
 
+/** Un Batch signé de trois transactions internes tient en moins de 2 Ko. */
+const MAX_ONBOARDING_BLOB_HEX = 16_384;
+
+export const onboardingSubmitSchema = {
+  body: {
+    type: "object",
+    additionalProperties: false,
+    required: ["tx_blob"],
+    properties: { tx_blob: { type: "string", pattern: "^([0-9A-Fa-f]{2})+$", maxLength: MAX_ONBOARDING_BLOB_HEX } },
+  },
+} as const;
+
 export interface VatParams {
   vat: string;
 }

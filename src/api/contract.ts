@@ -244,6 +244,37 @@ export interface WalletRegisterResponse {
   user: AccountView;
 }
 
+/** Transaction d'ouverture d'un compte wallet, émise par Bari ou signée par l'utilisateur, avec son libellé. */
+export interface OnboardingTx {
+  label: string;
+  hash: string;
+}
+
+/**
+ * Transaction préparée par Bari, à signer telle quelle dans Otsu puis à renvoyer à Bari : `tx` est entièrement remplie
+ * (séquence, frais, échéance ≈ 5 min) ; `labels` dit ce qu'elle fait, étape par étape ; `transactions`, ce que Bari
+ * vient déjà de soumettre lui-même.
+ */
+export interface PreparedSignature {
+  status: "sign";
+  tx: Record<string, unknown>;
+  labels: string[];
+  transactions: OnboardingTx[];
+}
+
+/** `POST /api/onboarding/prepare` : `ready`, le compte a déjà tout ce qu'il faut ; sinon une transaction à signer. */
+export type OnboardingPrepareResponse = { status: "ready"; transactions: OnboardingTx[] } | PreparedSignature;
+
+export interface OnboardingSubmitRequest {
+  /** La transaction préparée, signée par le wallet. */
+  tx_blob: string;
+}
+
+export interface OnboardingSubmitResponse {
+  /** Transactions validées : celles d'un Batch, puis le Batch lui-même. */
+  transactions: OnboardingTx[];
+}
+
 /** Réseau XRPL de l'API (`GET /api/network`), pour vérifier celui du wallet. */
 export interface NetworkInfo {
   /** Absent si le nœud ne l'annonce pas. */
