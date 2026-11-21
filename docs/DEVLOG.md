@@ -409,3 +409,14 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 **Pourquoi :** Bari ne garde aucune seed pour un utilisateur wallet ; il prépare, l'utilisateur signe, Bari vérifie qu'on lui renvoie bien ce qu'il a préparé avant de soumettre.
 
 **Vérifié :** tests rouges puis verts (forme de la transaction par rôle, blob modifié → 400, compte géré → 409, sans session → 401, organisme public → 403) ; `npm test` 470/470 ; AlphaNet : `wallet-signin.spec.ts` 4/4, Batch signé par l'utilisateur en tesSUCCESS, credential accepté et ligne RLUSD lus sur le ledger.
+
+## 2026-11-21 · Prêteurs et entreprises non-custodiaux
+
+**Quoi :**
+- Prêteur connecté par Otsu : dépôt et retrait préparés par Bari avec les mêmes contrôles et devis, signés dans le wallet, soumis par `POST /api/lender/submit`. En période de prêt, un `Batch` tfAllOrNothing de deux comptes (RLUSD de l'utilisateur ↔ parts de Bari) : Bari signe ses `BatchSigners` d'abord, l'utilisateur signe le Batch en dernier.
+- Entreprise connectée par Otsu : le certificat est un `Batch` dont elle est le compte externe (registre `N`, MPT facture, paiement du MPT à Bari), avec le `MPTokenAuthorize` de Bari en `BatchSigners` ; le `LoanSet` est signé dans le wallet sans soumission, puis Bari refait ses contrôles, le contre-signe (`signLoanSetByCounterparty`) et le soumet. Le remboursement d'un emprunteur wallet est aussi un `LoanPay` signé dans le wallet.
+- Les comptes email restent gérés par Bari, sans changement.
+
+**Pourquoi :** l'utilisateur signe chaque transaction de son compte ; Bari n'ajoute que ses propres signatures.
+
+**Vérifié :** tests rouges puis verts (Batch co-signé par Bari, blob modifié → 400, rien de préparé → 409, parcours géré inchangé, 403 pour les autres rôles) ; `npm test` 532/532 ; `prepareTransaction` de la bibliothèque d'Otsu laisse un Batch co-signé et un `LoanSet` identiques octet pour octet ; AlphaNet : `lend.spec.ts` 2/2 et `business.spec.ts` 2/2 avec le faux Otsu (dépôt et retrait en tesSUCCESS, 8 955 RLUSD reçus, « Already financed », prêt remboursé).
