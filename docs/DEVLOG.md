@@ -305,3 +305,13 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 **Pourquoi :** chaque utilisateur a un vrai compte vérifié sur le ledger : le vault privé n'accepte que les porteurs de `KYC_INVESTOR`, et Bari ne prête qu'aux porteurs de `KYB_PME`.
 
 **Vérifié :** `onboarding.test.ts` (transactions attendues par rôle) et `publicBodyRoutes.test.ts` rouges puis verts ; `npm test` 131/131 ; AlphaNet : inscription d'un prêteur (5 transactions) et d'une entreprise (4 transactions), toutes `tesSUCCESS` ; `account_objects` : credentials acceptés, expiration au 2027-11-21, MPToken EURc et parts.
+
+## 2026-11-21 · Espaces prêteur et entreprise (API)
+
+**Quoi :**
+- Prêteur (`src/fund/sharePrice.ts`, `src/lending/lenderTrades.ts`, `routes/lenderRoutes.ts`) : prix de la part = (`AssetsTotal` − `LossUnrealized`) / parts en circulation, rendement variable des prêts en cours, prix de revient suivi par prêteur. `GET /api/lender/position`, `POST /api/lender/faucet` (10 000 EURc de test), `POST /api/lender/deposit|withdraw` : `VaultDeposit`/`VaultWithdraw` natifs pendant la souscription et le rachat ; pendant la période de prêt, un `Batch` atomique de deux `Payment` (parts ↔ EURc) signé par Bari et par le compte géré du prêteur, sortie à −0,5 %, dans la limite du stock de parts et de la réserve de Bari. `POST /api/investors/deposit|redeem` supprimées.
+- Entreprise (`loanTerms.ts`, `loanChecks.ts`, `routes/smeRoutes.ts`) : paliers publics 5 000 à 100 000 € ; avance = 90 % du palier prouvé, frais 0,5 %. Certificat et prêt agissent pour le compte géré de la session. Les contrôles de Bari (KYB, preuve, avance, unicité, concentration, échéance) reviennent un par un avec leur raison, en 422 au premier échec. `GET /api/business/invoices` : factures du compte. Port `Ledger` : `closeTime()`.
+
+**Pourquoi :** les prêteurs entrent et sortent à tout moment malgré le vault fermé, et une entreprise ne peut financer que ses propres factures, avec un refus qui dit pourquoi.
+
+**Vérifié :** tests rouges puis verts ; `npm test` 190/190. AlphaNet, fonds durable : un prêteur inscrit reçoit 10 000 EURc de test, entre pour 5 000 EURc (`Batch` `tesSUCCESS`, 4 994,51 parts au prix de 1,001098), puis sort de 2 000 parts (`Batch` `tesSUCCESS`, 1 992,18 EURc reçus) ; au-delà de son solde → 422 ; session entreprise → 403 ; sans session → 401.
