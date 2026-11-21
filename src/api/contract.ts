@@ -177,10 +177,15 @@ export interface SigninRequest {
   password: string;
 }
 
+/** `managed` : compte email géré par Bari ; `wallet` : l'utilisateur signe avec son propre wallet (Otsu). */
+export type AccountCustody = "managed" | "wallet";
+
 /** Compte de la session (`GET /api/me`) : jamais de seed ni de haché. */
 export type AccountView = {
-  email: string;
-  /** Compte XRPL géré par Bari (absent pour un organisme public). */
+  /** Absent pour un compte ouvert par wallet. */
+  email?: string;
+  custody: AccountCustody;
+  /** Compte XRPL : géré par Bari, ou wallet de l'utilisateur (absent pour un organisme public). */
   address?: string;
   verification: VerificationLevel;
 } & (
@@ -197,6 +202,54 @@ export interface SignupResponse {
 
 export interface SigninResponse {
   user: AccountView;
+}
+
+/** Connexion par wallet : `MemoType` (hex de « bari/signin ») du mémo qui porte le nonce du défi. */
+export const WALLET_SIGNIN_MEMO_TYPE = "626172692F7369676E696E";
+
+/** Rôles ouverts à la connexion par wallet : un organisme public n'a pas de compte XRPL. */
+export type WalletRole = "lender" | "business";
+
+export interface WalletChallengeRequest {
+  /** Adresse classique du wallet (r…). */
+  address: string;
+}
+
+/**
+ * Défi à signer : un `AccountSet` du wallet, jamais soumis, avec un mémo `{ MemoType: WALLET_SIGNIN_MEMO_TYPE,
+ * MemoData: nonce }` (le nonce est déjà en hex). Usage unique.
+ */
+export interface WalletChallengeResponse {
+  nonce: string;
+  /** Expiration ISO du défi. */
+  expiresAt: string;
+}
+
+export interface WalletVerifyRequest {
+  /** Transaction signée renvoyée par le wallet. */
+  tx_blob: string;
+}
+
+/** Wallet connu : session ouverte ; wallet inconnu : jeton d'inscription signé et court, à joindre au KYC léger. */
+export type WalletVerifyResponse =
+  | { status: "signedIn"; user: AccountView }
+  | { status: "register"; address: string; token: string };
+
+export type WalletRegisterRequest = { token: string } & (
+  | { role: "lender"; profile: { name: string; country: string; riskAcknowledged: true } }
+  | { role: "business"; profile: { company: string; vatNumber: string } }
+);
+
+export interface WalletRegisterResponse {
+  user: AccountView;
+}
+
+/** Réseau XRPL de l'API (`GET /api/network`), pour vérifier celui du wallet. */
+export interface NetworkInfo {
+  /** Absent si le nœud ne l'annonce pas. */
+  networkId?: number;
+  /** URL WebSocket publique du nœud. */
+  wsUrl: string;
 }
 
 /** Organisme du registre vérifié (`GET /api/public-bodies`), proposé à l'inscription ; un seul compte par organisme. */

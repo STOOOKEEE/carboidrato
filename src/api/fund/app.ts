@@ -15,6 +15,7 @@ import { registerLoanRoutes } from "./routes/loanRoutes.js";
 import { registerPublicBodyRoutes } from "./routes/publicBodyRoutes.js";
 import { registerSmeRoutes } from "./routes/smeRoutes.js";
 import { registerTxRoutes } from "./routes/txRoutes.js";
+import { registerWalletAuthRoutes } from "./routes/walletAuthRoutes.js";
 import { registerZkRoutes } from "./routes/zkRoutes.js";
 
 /** Une facture attestée ou une preuve font quelques Ko. */
@@ -38,6 +39,7 @@ export async function buildApp(
   app.setErrorHandler(makeErrorHandler((hash) => context.events.transactionUrl(hash)));
 
   registerAuthRoutes(app, context);
+  registerWalletAuthRoutes(app, context);
   registerFundRoutes(app, context);
   registerPublicBodyRoutes(app, context);
   registerLenderRoutes(app, context, ports);

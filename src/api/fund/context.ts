@@ -2,6 +2,7 @@
 
 import type { Client } from "xrpl";
 import type { Actors } from "../../accounts/actors.js";
+import type { ActivateAddress } from "../../accounts/funding.js";
 import type { ProvisionAccount, UserStore } from "../../accounts/userStore.js";
 import type { NetworkConfig } from "../../config/network.js";
 import type { Ledger } from "../../xrpl/ledger.js";
@@ -28,6 +29,8 @@ export interface ApiContext {
   users: UserStore;
   /** Ouvre le compte XRPL géré d'un nouvel utilisateur. */
   provisionAccount: ProvisionAccount;
+  /** Active le wallet d'un utilisateur qui se connecte par wallet, s'il n'existe pas encore sur le ledger. */
+  activateWallet: ActivateAddress;
 }
 
 export function requireFund(context: ApiContext): FundState {

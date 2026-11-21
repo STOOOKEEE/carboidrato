@@ -3,7 +3,7 @@
 
 import { Client, unixTimeToRippleTime } from "xrpl";
 import { ensureActors } from "../../accounts/actors.js";
-import { makeFunder } from "../../accounts/funding.js";
+import { makeAddressActivator, makeFunder } from "../../accounts/funding.js";
 import { UserStore } from "../../accounts/userStore.js";
 import { loadNetworkConfig } from "../../config/network.js";
 import { makeProvisioner } from "../../kyb/onboarding.js";
@@ -38,6 +38,7 @@ async function main(): Promise<void> {
     events,
     operations: new OperationQueue(events),
     users: new UserStore(config.usersFile),
+    activateWallet: makeAddressActivator(client, network),
     provisionAccount: makeProvisioner({
       submit: clientSubmitter(client),
       fundAccount: makeFunder(client, network),

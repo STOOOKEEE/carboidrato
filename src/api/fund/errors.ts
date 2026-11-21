@@ -30,6 +30,7 @@ const DUPLICATE_MESSAGES: Record<DuplicateField, string> = {
   email: "An account already exists for this email. Sign in instead.",
   vatNumber: "A business with this VAT number is already registered.",
   publicBody: "This public body already has an account.",
+  address: "This wallet already has a Bari account. Connect it to sign in.",
 };
 
 /** Erreurs de programmation : leur message n'est pas destiné au client. */

@@ -1,7 +1,7 @@
 // Menu du compte connecté : email, rôle, niveau de vérification affiché tel quel, accès à l'espace, déconnexion.
 import { useEffect, useRef, useState } from "react";
 import type { AccountView } from "../../../src/api/contract";
-import { accountName, ROLE_COPY } from "../features/account/roles";
+import { accountHandle, accountName, ROLE_COPY } from "../features/account/roles";
 import { LANDING_ROUTE, spaceRoute } from "../routes";
 import { signOut } from "../session";
 import { Button } from "../ui/Button";
@@ -29,8 +29,8 @@ export function AccountMenu({ user }: { user: AccountView }) {
 
   return (
     <details className="account-menu" data-testid="account-menu" ref={menu}>
-      <summary className="button button-ghost" title={user.email}>
-        <span className="account-menu-email">{user.email}</span>
+      <summary className="button button-ghost" title={user.email ?? user.address}>
+        <span className="account-menu-email">{accountHandle(user)}</span>
       </summary>
       <div className="account-menu-panel">
         <p className="account-menu-name">{accountName(user)}</p>

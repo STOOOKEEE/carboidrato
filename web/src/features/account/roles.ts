@@ -28,3 +28,13 @@ export function accountName(user: AccountView): string {
       return user.profile.name;
   }
 }
+
+const ADDRESS_HEAD = 6;
+const ADDRESS_TAIL = 5;
+
+/** Identifiant du compte dans le menu : son email, ou l'adresse tronquée du wallet d'un compte ouvert par wallet. */
+export function accountHandle(user: AccountView): string {
+  if (user.email !== undefined) return user.email;
+  const address = user.address ?? "";
+  return `${address.slice(0, ADDRESS_HEAD)}…${address.slice(-ADDRESS_TAIL)}`;
+}

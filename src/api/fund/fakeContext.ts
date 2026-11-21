@@ -41,6 +41,7 @@ export function fakeContext(overrides: Partial<ApiContext> = {}): ApiContext {
     provisionAccount: async () => undefined,
     events,
     operations: new OperationQueue(events),
+    activateWallet: async () => undefined,
     ...overrides,
   };
 }

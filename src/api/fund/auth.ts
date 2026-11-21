@@ -1,4 +1,5 @@
-// Sessions par cookie signé HMAC (httpOnly, SameSite=Lax, 7 jours) et garde de rôle des routes de chaque espace.
+// Sessions par cookie signé HMAC (httpOnly, SameSite=Lax, 7 jours), jeton d'inscription d'un wallet et garde de rôle
+// des routes de chaque espace.
 
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { FastifyReply, FastifyRequest } from "fastify";
@@ -7,6 +8,9 @@ import { HttpError } from "./errors.js";
 
 export const SESSION_COOKIE = "bari_session";
 export const SESSION_TTL_S = 7 * 86_400;
+/** Le temps de remplir le KYC léger après la signature du défi. */
+export const WALLET_REGISTRATION_TTL_S = 15 * 60;
+const WALLET_REGISTRATION_TAG = "wallet";
 const MS_PER_SECOND = 1_000;
 const HTTP_UNAUTHORIZED = 401;
 const HTTP_FORBIDDEN = 403;
@@ -17,21 +21,43 @@ function signature(secret: Buffer, payload: string): Buffer {
   return createHmac("sha256", secret).update(payload).digest();
 }
 
-/** Jeton `<id>.<expiration en s>.<HMAC>` : sans état côté serveur, falsifiable seulement avec le secret. */
-export function issueSession(secret: Buffer, userId: string, nowMs = Date.now()): string {
-  const payload = `${userId}.${Math.floor(nowMs / MS_PER_SECOND) + SESSION_TTL_S}`;
+/** Jeton `<champs>.<expiration en s>.<HMAC>` : sans état côté serveur, falsifiable seulement avec le secret. */
+function seal(secret: Buffer, fields: string[], ttlS: number, nowMs: number): string {
+  const payload = [...fields, Math.floor(nowMs / MS_PER_SECOND) + ttlS].join(".");
   return `${payload}.${signature(secret, payload).toString("base64url")}`;
 }
 
-/** Identifiant de l'utilisateur d'un jeton valide et non expiré. */
-export function readSession(secret: Buffer, token: string, nowMs = Date.now()): string | undefined {
+/** Champs d'un jeton valide et non expiré. */
+function unseal(secret: Buffer, token: string, nowMs: number): string[] | undefined {
   const parts = token.split(".");
-  if (parts.length !== 3) return undefined;
-  const [userId, expiresAt, mac] = parts;
-  const expected = signature(secret, `${userId}.${expiresAt}`);
+  if (parts.length < 3) return undefined;
+  const mac = parts.pop() ?? "";
+  const expected = signature(secret, parts.join("."));
   const received = Buffer.from(mac, "base64url");
   if (received.length !== expected.length || !timingSafeEqual(received, expected)) return undefined;
-  return Number(expiresAt) * MS_PER_SECOND > nowMs ? userId : undefined;
+  const expiresAt = Number(parts.pop());
+  return expiresAt * MS_PER_SECOND > nowMs ? parts : undefined;
+}
+
+export function issueSession(secret: Buffer, userId: string, nowMs = Date.now()): string {
+  return seal(secret, [userId], SESSION_TTL_S, nowMs);
+}
+
+/** Identifiant de l'utilisateur d'un jeton de session valide et non expiré. */
+export function readSession(secret: Buffer, token: string, nowMs = Date.now()): string | undefined {
+  const fields = unseal(secret, token, nowMs);
+  return fields?.length === 1 ? fields[0] : undefined;
+}
+
+/** Preuve qu'un wallet inconnu vient de signer le défi : elle autorise l'inscription de cette adresse, et rien d'autre. */
+export function issueWalletRegistration(secret: Buffer, address: string, nowMs = Date.now()): string {
+  return seal(secret, [WALLET_REGISTRATION_TAG, address], WALLET_REGISTRATION_TTL_S, nowMs);
+}
+
+/** Adresse d'un jeton d'inscription valide et non expiré. */
+export function readWalletRegistration(secret: Buffer, token: string, nowMs = Date.now()): string | undefined {
+  const fields = unseal(secret, token, nowMs);
+  return fields?.length === 2 && fields[0] === WALLET_REGISTRATION_TAG ? fields[1] : undefined;
 }
 
 export function sessionCookie(token: string): string {

@@ -1,4 +1,5 @@
 // Connexion : page `#/signin`, ou porte d'un espace visité sans session (le rôle attendu oriente vers l'inscription).
+// Wallet Otsu en action principale, email en repli ; un organisme public n'a pas de wallet : email seulement.
 import { useReducer, useState, type SubmitEvent } from "react";
 import type { UserRole } from "../../../../src/api/contract";
 import { signIn } from "../../api";
@@ -9,6 +10,7 @@ import { Field } from "../../ui/Field";
 import { Notice } from "../../ui/Notice";
 import { formTransition, initialFormState, validateSignin } from "./account.machine";
 import { ROLE_COPY } from "./roles";
+import { WalletSignin } from "./WalletSignin";
 
 const SPACE_TITLES: Record<UserRole, string> = {
   lender: "Sign in to lend.",
@@ -48,6 +50,7 @@ export function SigninPage({ role }: { role?: UserRole }) {
   };
 
   const signupRoles: UserRole[] = role === undefined ? ["lender", "business", "public_body"] : [role];
+  const walletOffered = role !== "public_body";
 
   return (
     <main className="app">
@@ -56,34 +59,44 @@ export function SigninPage({ role }: { role?: UserRole }) {
         <h1>{role === undefined ? "Welcome back." : SPACE_TITLES[role]}</h1>
         <p className="lead">One account, one role: you land straight in your space.</p>
       </div>
-      <form className="form" onSubmit={submit} noValidate>
-        <Field label="Email" error={errors.email}>
-          <input type="email" autoComplete="email" value={draft.email} onChange={(event) => update("email", event.target.value)} />
-        </Field>
-        <Field label="Password" error={errors.password}>
-          <input
-            type="password"
-            autoComplete="current-password"
-            value={draft.password}
-            onChange={(event) => update("password", event.target.value)}
-          />
-        </Field>
-        <Button type="submit" primary disabled={submitting} reason="Signing in…">
-          Sign in
-        </Button>
-        {state.status === "failed" && <Notice kind="error">{state.message}</Notice>}
-        <p className="muted small">
-          New to Bari?{" "}
-          {signupRoles.map((signupRole, index) => (
-            <span key={signupRole}>
-              {index > 0 && " · "}
-              <a className="link" href={signupRoute(signupRole)}>
-                {SIGNUP_LINKS[signupRole]}
-              </a>
-            </span>
-          ))}
-        </p>
-      </form>
+      <div className="signin-options">
+        {walletOffered && <WalletSignin role={role} />}
+        <form className="form" onSubmit={submit} noValidate>
+          {walletOffered && <h2 className="kicker">Continue with email</h2>}
+          <Field label="Email" error={errors.email}>
+            <input type="email" autoComplete="email" value={draft.email} onChange={(event) => update("email", event.target.value)} />
+          </Field>
+          <Field label="Password" error={errors.password}>
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={draft.password}
+              onChange={(event) => update("password", event.target.value)}
+            />
+          </Field>
+          <Button
+            type="submit"
+            primary={!walletOffered}
+            variant={walletOffered ? "ghost" : "solid"}
+            disabled={submitting}
+            reason="Signing in…"
+          >
+            Sign in
+          </Button>
+          {state.status === "failed" && <Notice kind="error">{state.message}</Notice>}
+          <p className="muted small">
+            New to Bari?{" "}
+            {signupRoles.map((signupRole, index) => (
+              <span key={signupRole}>
+                {index > 0 && " · "}
+                <a className="link" href={signupRoute(signupRole)}>
+                  {SIGNUP_LINKS[signupRole]}
+                </a>
+              </span>
+            ))}
+          </p>
+        </form>
+      </div>
     </main>
   );
 }

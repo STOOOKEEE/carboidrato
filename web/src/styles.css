@@ -762,6 +762,17 @@ h2 {
   margin-top: 8px;
 }
 
+.signin-options {
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+}
+
+.signin-options h2.kicker {
+  margin: 0;
+  font-weight: 400;
+}
+
 @media (max-width: 860px) {
   .door {
     grid-template-columns: 1fr;
