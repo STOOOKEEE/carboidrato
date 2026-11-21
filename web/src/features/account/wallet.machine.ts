@@ -10,6 +10,7 @@ import {
 } from "../../../../src/api/contract";
 import { addNetworkSteps, checkNetwork, OTSU_REPO_URL } from "../../wallet/network";
 import type { OtsuProvider } from "../../wallet/otsu";
+import { REJECTED } from "../../wallet/sign";
 
 export type WalletStep = "connecting" | "preparing" | "signing" | "verifying";
 
@@ -41,8 +42,6 @@ export const STEP_LABELS: Record<WalletStep, string> = {
   verifying: "Checking your signature…",
 };
 
-/** Codes d'Otsu (`ErrorCodes`) quand l'utilisateur refuse ou laisse expirer la fenêtre de signature. */
-const REJECTED = /SIGNING_REJECTED|USER_REJECTED|SIGNING_TIMEOUT|rejected/i;
 /** Autofill d'Otsu sur un nœud qui ne connaît pas le compte (activé par Bari sur son réseau). */
 const ACCOUNT_NOT_FOUND = /actNotFound|Account not found/i;
 

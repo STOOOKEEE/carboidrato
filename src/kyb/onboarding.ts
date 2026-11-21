@@ -1,12 +1,25 @@
-// Ouverture du compte XRPL géré d'un nouvel utilisateur, par rôle : compte financé, credential KYC ou KYB émis par
-// Bari pour un an et accepté, ligne de confiance RLUSD (et parts du Vault pour un prêteur). Un organisme public n'a pas
+// Ouverture du compte XRPL d'un nouvel utilisateur, par rôle : credential KYC ou KYB émis par Bari pour un an et
+// accepté, ligne de confiance RLUSD (et parts du Vault pour un prêteur). Compte géré : Bari le finance et signe tout.
+// Wallet de l'utilisateur : Bari émet le credential, l'utilisateur signe le reste lui-même. Un organisme public n'a pas
 // de compte XRPL.
 
-import { Wallet, type MPTokenAuthorize, type TrustSet } from "xrpl";
+import {
+  BatchFlags,
+  GlobalFlags,
+  Wallet,
+  type Batch,
+  type CredentialAccept,
+  type CredentialCreate,
+  type LedgerEntry,
+  type MPTokenAuthorize,
+  type SubmittableTransaction,
+  type TrustSet,
+} from "xrpl";
 import type { FundAccount } from "../accounts/funding.js";
 import type { AccountProfile, ManagedAccount, ProvisionAccount } from "../accounts/userStore.js";
 import { sha256Hex, textToHex } from "../lib/encoding.js";
 import type { Ledger } from "../xrpl/ledger.js";
+import { isCredentialAccepted } from "../xrpl/ledgerEntries.js";
 import { trustLine, type Stablecoin } from "../xrpl/stablecoin.js";
 import type { SubmitTx } from "../xrpl/submit.js";
 import { CREDENTIAL_TYPES, CREDENTIAL_VALIDITY_S, issueCredential } from "./kycCredentials.js";
@@ -27,8 +40,13 @@ export interface OnboardingDeps {
   now: () => number;
 }
 
-type ManagedProfile = Exclude<AccountProfile, { role: "public_body" }>;
+export type ManagedProfile = Exclude<AccountProfile, { role: "public_body" }>;
 type ManagedRole = ManagedProfile["role"];
+
+export const ROLE_CREDENTIALS: Record<ManagedRole, string> = {
+  lender: CREDENTIAL_TYPES.kycInvestor,
+  business: CREDENTIAL_TYPES.kybSme,
+};
 
 function shareAuthorization(tokens: FundTokens, holder: string): MPTokenAuthorize {
   return { TransactionType: "MPTokenAuthorize", Account: holder, MPTokenIssuanceID: tokens.shareMptId };
@@ -81,7 +99,7 @@ export function makeProvisioner(deps: OnboardingDeps): ProvisionAccount {
       issuer: deps.kycIssuer,
       subject: wallet,
       subjectName: account.role,
-      type: account.role === "lender" ? CREDENTIAL_TYPES.kycInvestor : CREDENTIAL_TYPES.kybSme,
+      type: ROLE_CREDENTIALS[account.role],
       uriHex: dossierUri(wallet.address, account),
       expiration: deps.now() + CREDENTIAL_VALIDITY_S,
     });
@@ -89,4 +107,90 @@ export function makeProvisioner(deps: OnboardingDeps): ProvisionAccount {
     if (account.role === "lender") await deps.submit(shareAuthorization(tokens, wallet.address), wallet, "MPTokenAuthorize Vault shares (lender)");
     return { address: wallet.address, seed: wallet.seed };
   };
+}
+
+/** CredentialCreate de Bari pour le wallet d'un utilisateur : un an, URI = haché du dossier déclaré. */
+export function credentialOffer(issuer: string, holder: string, account: ManagedProfile, now: number): CredentialCreate {
+  return {
+    TransactionType: "CredentialCreate",
+    Account: issuer,
+    Subject: holder,
+    CredentialType: textToHex(ROLE_CREDENTIALS[account.role]),
+    URI: dossierUri(holder, account),
+    Expiration: now + CREDENTIAL_VALIDITY_S,
+  };
+}
+
+/** Transaction que l'utilisateur signe dans son wallet, avec son libellé à l'écran. */
+export interface UserStep {
+  tx: SubmittableTransaction;
+  label: string;
+}
+
+const ACCEPT_LABELS: Record<ManagedRole, string> = {
+  lender: "Accept your KYC credential",
+  business: "Accept your KYB credential",
+};
+
+const HOLDING_LABELS: Record<(TrustSet | MPTokenAuthorize)["TransactionType"], string> = {
+  TrustSet: "Open your RLUSD trust line",
+  MPTokenAuthorize: "Authorize vault shares",
+};
+
+/**
+ * Ce qu'il reste à signer au wallet : l'acceptation du credential de Bari (absent = tout juste émis), puis les jetons
+ * manquants du fonds.
+ */
+export function userSteps(
+  issuer: string,
+  holder: string,
+  role: ManagedRole,
+  credential: LedgerEntry.Credential | undefined,
+  missing: readonly (TrustSet | MPTokenAuthorize)[],
+): UserStep[] {
+  const accept: CredentialAccept = {
+    TransactionType: "CredentialAccept",
+    Account: holder,
+    Issuer: issuer,
+    CredentialType: textToHex(ROLE_CREDENTIALS[role]),
+  };
+  const accepted = credential !== undefined && isCredentialAccepted(credential);
+  return [
+    ...(accepted ? [] : [{ tx: accept, label: ACCEPT_LABELS[role] }]),
+    ...missing.map((tx) => ({ tx, label: HOLDING_LABELS[tx.TransactionType] })),
+  ];
+}
+
+/**
+ * Une seule signature pour tout : la transaction seule, ou un Batch tfAllOrNothing du seul compte (il faut au moins
+ * deux transactions internes), sans BatchSigners. Les séquences internes suivent celle du Batch.
+ */
+export function userTransaction(
+  holder: string,
+  txs: readonly SubmittableTransaction[],
+  sequence: number,
+  lastLedgerSequence: number,
+): SubmittableTransaction {
+  if (txs.length === 0) throw new Error("Aucune transaction à signer");
+  if (txs.length === 1) return { ...txs[0], Sequence: sequence, LastLedgerSequence: lastLedgerSequence };
+  const batch: Batch = {
+    TransactionType: "Batch",
+    Account: holder,
+    Flags: BatchFlags.tfAllOrNothing,
+    Sequence: sequence,
+    LastLedgerSequence: lastLedgerSequence,
+    RawTransactions: txs.map((tx, index) => {
+      if (tx.Flags !== undefined && typeof tx.Flags !== "number") throw new Error(`${tx.TransactionType} : Flags numériques attendus`);
+      return {
+        RawTransaction: {
+          ...tx,
+          Flags: (tx.Flags ?? 0) | GlobalFlags.tfInnerBatchTxn,
+          Fee: "0",
+          SigningPubKey: "",
+          Sequence: sequence + 1 + index,
+        },
+      };
+    }),
+  };
+  return batch;
 }
