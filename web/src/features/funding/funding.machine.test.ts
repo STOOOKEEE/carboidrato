@@ -2,8 +2,10 @@
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
+import type { LoanCheck } from "../../../../src/api/contract";
 import {
   initialFundingState,
+  isFundingBusy,
   transition,
   type FundingCertificate,
   type FundingEvent,
@@ -22,27 +24,46 @@ const proof: FundingProof = {
   },
   publicSignals: ["11", "12"],
 };
-const certificate: FundingCertificate = { txHash: "C3RT", mptIssuanceId: "0000ABCD", nullifier: "0x2a" };
-const loan: FundingLoan = { txHash: "L0AN", loanId: "LOANID", principalEur: 9000 };
+const passed: LoanCheck[] = [{ id: "kyb", label: "Business KYB verified", ok: true }];
+const failedChecks: LoanCheck[] = [
+  { id: "kyb", label: "Business KYB verified", ok: true },
+  { id: "concentration", label: "Debtor exposure within 20 % of the fund", ok: false, reason: "Exposure above 20 %" },
+];
+const certificate: FundingCertificate = { txHash: "C3RT", tokenId: "0000ABCD", nullifier: "2A" };
+const loan: FundingLoan = {
+  txHash: "L0AN",
+  loanId: "LOANID",
+  principalEur: 9_000,
+  feeEur: 45,
+  netAdvanceEur: 8_955,
+  dueDate: "2027-02-19T00:00:00.000Z",
+  checks: passed,
+};
 
-const proving: FundingState = { status: "proving", startedAt: 1_000 };
-const proved: FundingState = { status: "proved", proof, durationMs: 2_500 };
-const certifying: FundingState = { status: "certifying", proof, durationMs: 2_500 };
-const certified: FundingState = { status: "certified", proof, certificate };
-const underwriting: FundingState = { status: "underwriting", proof, certificate };
-const funded: FundingState = { status: "funded", certificate, loan };
-const refused: FundingState = { status: "refused", reason: "debtor not allowed" };
+const proving: FundingState = { status: "proving" };
+const proved: FundingState = { status: "proved", proof, durationMs: 1_200 };
+const certifying: FundingState = { status: "certifying", proof, durationMs: 1_200 };
+const certified: FundingState = { status: "certified", durationMs: 1_200, certificate };
+const underwriting: FundingState = { status: "underwriting", durationMs: 1_200, certificate };
+const funded: FundingState = { status: "funded", durationMs: 1_200, certificate, loan };
+const refused: FundingState = {
+  status: "refused",
+  durationMs: 1_200,
+  certificate,
+  reason: "Exposure above 20 %",
+  checks: failedChecks,
+};
 const duplicate: FundingState = { status: "duplicate", txHash: "D0UBLE" };
 const failedFromProved: FundingState = { status: "error", message: "ledger timeout", retry: proved };
 
 const ALL_EVENTS: FundingEvent[] = [
-  { type: "PROVE", startedAt: 1_000 },
-  { type: "PROVED", proof, finishedAt: 3_500 },
+  { type: "PROVE" },
+  { type: "PROVED", proof, durationMs: 1_200 },
   { type: "CERTIFY" },
   { type: "CERTIFIED", certificate },
   { type: "UNDERWRITE" },
   { type: "FUNDED", loan },
-  { type: "REFUSED", reason: "debtor not allowed" },
+  { type: "REFUSED", reason: "Exposure above 20 %", checks: failedChecks },
   { type: "DUPLICATE", txHash: "D0UBLE" },
   { type: "FAILED", message: "boom" },
   { type: "RETRY" },
@@ -61,11 +82,11 @@ describe("funding machine", () => {
   });
 
   describe("invoiceReady", () => {
-    test("PROVE starts proving at the given time", () => {
-      assert.deepEqual(transition(initialFundingState, { type: "PROVE", startedAt: 1_000 }), proving);
+    test("PROVE starts proving", () => {
+      assert.deepEqual(transition(initialFundingState, { type: "PROVE" }), proving);
     });
 
-    test("DUPLICATE when the invoice is already financed", () => {
+    test("DUPLICATE when the registry already holds the invoice", () => {
       assert.deepEqual(transition(initialFundingState, { type: "DUPLICATE", txHash: "D0UBLE" }), duplicate);
     });
 
@@ -75,8 +96,8 @@ describe("funding machine", () => {
   });
 
   describe("proving", () => {
-    test("PROVED keeps the proof and its duration", () => {
-      assert.deepEqual(transition(proving, { type: "PROVED", proof, finishedAt: 3_500 }), proved);
+    test("PROVED keeps the proof and the time the browser took", () => {
+      assert.deepEqual(transition(proving, { type: "PROVED", proof, durationMs: 1_200 }), proved);
     });
 
     test("FAILED goes to error, retrying from invoiceReady", () => {
@@ -103,7 +124,7 @@ describe("funding machine", () => {
   });
 
   describe("certifying", () => {
-    test("CERTIFIED records the certificate", () => {
+    test("CERTIFIED records the certificate and keeps the proof duration", () => {
       assert.deepEqual(transition(certifying, { type: "CERTIFIED", certificate }), certified);
     });
 
@@ -135,8 +156,11 @@ describe("funding machine", () => {
       assert.deepEqual(transition(underwriting, { type: "FUNDED", loan }), funded);
     });
 
-    test("REFUSED keeps the reason", () => {
-      assert.deepEqual(transition(underwriting, { type: "REFUSED", reason: "debtor not allowed" }), refused);
+    test("REFUSED keeps the reason, every check and the certificate", () => {
+      assert.deepEqual(
+        transition(underwriting, { type: "REFUSED", reason: "Exposure above 20 %", checks: failedChecks }),
+        refused,
+      );
     });
 
     test("FAILED goes to error, retrying from certified", () => {
@@ -181,5 +205,12 @@ describe("funding machine", () => {
     test("ignores every other event", () => {
       assertIgnores(failedFromProved, ["RETRY", "RESET"]);
     });
+  });
+
+  test("busy from the proof until Bari answers", () => {
+    const busy = [proving, proved, certifying, certified, underwriting].map(isFundingBusy);
+    const idle = [initialFundingState, funded, refused, duplicate, failedFromProved].map(isFundingBusy);
+    assert.deepEqual(busy, [true, true, true, true, true]);
+    assert.deepEqual(idle, [false, false, false, false, false]);
   });
 });
