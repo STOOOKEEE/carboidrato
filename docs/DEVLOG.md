@@ -330,3 +330,16 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 **Vérifié :** tests rouges puis verts ; `npm test` 229/229 ; AlphaNet : `account.spec.ts` 3/3 (prêteur et entreprise inscrits, déconnexion, reconnexion, garde), `prove.spec.ts` 2/2 ; `api:smoke` réussi (preuve au palier de 20 000 € en 705 ms, prêt de 18 000 €, rejeu → 409, `LoanPay` signé par le compte de l'entreprise).
 
 À savoir : Chrome renvoie une `Promise` de `window.scrollTo` ; un effet React qui la renvoie casse la page (« destroy is not a function »).
+
+## 2026-11-21 · Espaces prêteur, organisme public et entreprise dans le front
+
+**Quoi :**
+- Prêteur `#/lend` (`features/lend/`) : position (valeur, parts, gain, rendement variable), carte du fonds, « Add test euros », « Deposit » et « Withdraw » avec l'aperçu (voie native ou immédiate, frais de sortie, plafond du stock et de la réserve de Bari), historique des mouvements avec liens `#/tx/<hash>`. Montants convertis en unités par `bigint` (`lend.machine.ts`).
+- Organisme public `#/public` (`features/public-body/`) : FatturaPA lue dans la page par un petit lecteur XML pur (`xml.ts`, `fatturaPA.ts`), fournisseur retrouvé par sa TVA, attestation signée dans le navigateur (`attest.ts` : EdDSA-Poseidon avec `poseidon-lite` et `@noble/hashes`, uuid HMAC par WebCrypto), téléchargement du `.bari.json`. Parité avec `src/zk` testée sur un fixture signé par le back avec des clés de test (`npm run fixtures`). `npm run samples` écrit les FatturaPA FT-2026-0815, -0816 et -0817 ; les anciens exemples `.bari.json` disparaissent.
+- Entreprise `#/business` (`features/business/`) : dépôt du fichier signé, contrôles dans le navigateur, offre au palier prouvé, « Get paid now » qui enchaîne preuve, certificat, contrôles de Bari et prêt, chaque étape en direct avec son lien ; « Already financed » avec le lien de l'enregistrement ; « My invoices ». Machine de page pure autour de la machine de financement.
+- `npm run demo:fund` remet la mairie à 30 000 EURc à chaque lancement : le remboursement d'un prêt e2e passe par un paiement de la mairie.
+- Partagés : `ui/DropZone.tsx`, `e2e/capture.ts` (captures desktop et mobile si `CAPTURE_DIR`).
+
+**Pourquoi :** les trois acteurs du parcours agissent depuis leur propre espace, et la facture ne quitte jamais le navigateur de l'organisme ni celui du fournisseur.
+
+**Vérifié :** tests rouges puis verts ; `npm test` 344/344 ; AlphaNet : `lend.spec.ts` (10 000 EURc de test, dépôt de 5 000, sortie immédiate), `public-body.spec.ts` (aucune requête ne porte le montant ni le numéro), `business.spec.ts` (8 955 € reçus, preuve décodée au lien du certificat, « Already financed », prêt remboursé), `prove.spec.ts`, `account.spec.ts`.
