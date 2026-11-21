@@ -1,13 +1,7 @@
 // Connexion par wallet Otsu, pure : connexion, contrôle du réseau, défi signé (jamais soumis), vérification par l'API,
 // et pour chaque erreur la solution à afficher.
 
-import {
-  WALLET_SIGNIN_MEMO_TYPE,
-  type AccountView,
-  type NetworkInfo,
-  type WalletChallengeResponse,
-  type WalletVerifyResponse,
-} from "../../../../src/api/contract";
+import type { AccountView, NetworkInfo, WalletChallengeResponse, WalletVerifyResponse } from "../../../../src/api/contract";
 import { addNetworkSteps, checkNetwork, OTSU_REPO_URL } from "../../wallet/network";
 import type { OtsuProvider } from "../../wallet/otsu";
 import { REJECTED } from "../../wallet/sign";
@@ -49,15 +43,6 @@ const messageOf = (cause: unknown) => (cause instanceof Error ? cause.message : 
 
 const failed = (failure: WalletFailure): WalletOutcome => ({ kind: "failed", failure });
 
-/** L'AccountSet que signe le wallet : il ne change rien au compte et Bari ne le soumet jamais. */
-export function challengeTransaction(address: string, nonce: string): Record<string, unknown> {
-  return {
-    TransactionType: "AccountSet",
-    Account: address,
-    Memos: [{ Memo: { MemoType: WALLET_SIGNIN_MEMO_TYPE, MemoData: nonce } }],
-  };
-}
-
 export async function signInWithWallet(deps: WalletDeps, onStep: (step: WalletStep) => void): Promise<WalletOutcome> {
   const { provider } = deps;
   if (provider === undefined) return failed({ kind: "missing" });
@@ -74,7 +59,8 @@ export async function signInWithWallet(deps: WalletDeps, onStep: (step: WalletSt
     onStep("preparing");
     challenge = await deps.challenge(address);
     onStep("signing");
-    const { tx_blob: txBlob } = await provider.signTransaction(challengeTransaction(address, challenge.nonce));
+    // Le défi arrive complet (séquence, frais, dernier ledger) : Otsu le signe sans interroger son propre réseau.
+    const { tx_blob: txBlob } = await provider.signTransaction({ ...challenge.transaction });
     onStep("verifying");
     const verified = await deps.verify(txBlob);
     if (verified.status === "signedIn") return { kind: "signedIn", user: verified.user };

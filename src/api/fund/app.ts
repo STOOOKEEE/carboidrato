@@ -45,7 +45,7 @@ export async function buildApp(
   app.setErrorHandler(makeErrorHandler((hash) => context.events.transactionUrl(hash)));
 
   registerAuthRoutes(app, context);
-  registerWalletAuthRoutes(app, context);
+  registerWalletAuthRoutes(app, context, walletPorts);
   registerOnboardingRoutes(app, context, ports.submit, walletPorts);
   registerFundRoutes(app, context);
   registerPublicBodyRoutes(app, context);

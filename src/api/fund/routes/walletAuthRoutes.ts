@@ -2,13 +2,15 @@
 
 import { randomBytes } from "node:crypto";
 import type { FastifyInstance } from "fastify";
-import { decode, deriveAddress, isValidClassicAddress, verifySignature } from "xrpl";
+import { decode, deriveAddress, isValidClassicAddress, verifySignature, type AccountSet } from "xrpl";
 import type { AccountProfile, WalletRole } from "../../../accounts/userStore.js";
+import { SIGNING_WINDOW_LEDGERS, type WalletTxPorts } from "../../../xrpl/preparedTx.js";
 import {
   WALLET_SIGNIN_MEMO_TYPE,
   type NetworkInfo,
   type WalletChallengeRequest,
   type WalletChallengeResponse,
+  type WalletChallengeTransaction,
   type WalletRegisterRequest,
   type WalletRegisterResponse,
   type WalletVerifyRequest,
@@ -61,7 +63,11 @@ function signedChallenge(txBlob: string): SignedChallenge | undefined {
   }
 }
 
-export function registerWalletAuthRoutes(app: FastifyInstance, context: WalletAuthContext): void {
+export function registerWalletAuthRoutes(
+  app: FastifyInstance,
+  context: WalletAuthContext,
+  walletPorts: Pick<WalletTxPorts, "accountState" | "autofill">,
+): void {
   const challenges = new Map<string, Challenge>();
   // Une activation par adresse, même pour deux défis simultanés ; oubliée si elle échoue, pour être retentée.
   const activations = new Map<string, Promise<void>>();
@@ -94,9 +100,17 @@ export function registerWalletAuthRoutes(app: FastifyInstance, context: WalletAu
       const now = Date.now();
       for (const [nonce, challenge] of challenges) if (challenge.expiresAtMs <= now) challenges.delete(nonce);
       const nonce = randomBytes(NONCE_BYTES).toString("hex").toUpperCase();
+      const { sequence, ledgerIndex } = await walletPorts.accountState(address);
+      const transaction = await walletPorts.autofill<AccountSet>({
+        TransactionType: "AccountSet",
+        Account: address,
+        Memos: [{ Memo: { MemoType: WALLET_SIGNIN_MEMO_TYPE, MemoData: nonce } }],
+        Sequence: sequence,
+        LastLedgerSequence: ledgerIndex + SIGNING_WINDOW_LEDGERS,
+      });
       const expiresAtMs = now + CHALLENGE_TTL_MS;
       challenges.set(nonce, { address, expiresAtMs });
-      return { nonce, expiresAt: new Date(expiresAtMs).toISOString() };
+      return { nonce, expiresAt: new Date(expiresAtMs).toISOString(), transaction: transaction as WalletChallengeTransaction };
     },
   );
 

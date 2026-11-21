@@ -216,13 +216,25 @@ export interface WalletChallengeRequest {
 }
 
 /**
- * Défi à signer : un `AccountSet` du wallet, jamais soumis, avec un mémo `{ MemoType: WALLET_SIGNIN_MEMO_TYPE,
- * MemoData: nonce }` (le nonce est déjà en hex). Usage unique.
+ * `AccountSet` du défi, jamais soumis, complété par Bari sur son réseau (séquence, frais, dernier ledger) : le wallet le
+ * signe tel quel, sans rien lire sur le réseau qu'il croit courant (Otsu redémarre sur testnet après une mise en veille).
  */
+export interface WalletChallengeTransaction {
+  TransactionType: "AccountSet";
+  Account: string;
+  Memos: { Memo: { MemoType: string; MemoData: string } }[];
+  Sequence: number;
+  LastLedgerSequence: number;
+  Fee: string;
+  NetworkID?: number;
+}
+
+/** Défi à signer, à usage unique : le nonce (déjà en hex) est le `MemoData` du mémo `WALLET_SIGNIN_MEMO_TYPE`. */
 export interface WalletChallengeResponse {
   nonce: string;
   /** Expiration ISO du défi. */
   expiresAt: string;
+  transaction: WalletChallengeTransaction;
 }
 
 export interface WalletVerifyRequest {
