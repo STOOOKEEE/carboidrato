@@ -77,6 +77,16 @@ describe("UserStore", () => {
     assert.equal(store.findBusinessByVat("it01234567890")?.id, created.id);
   });
 
+  test("entreprise retrouvée par l'adresse de son compte géré ; un prêteur ne l'est pas", async () => {
+    const store = new UserStore(freshFile());
+    const created = await store.create(business, managed);
+    const lenderWallet = Wallet.generate();
+    await store.create(lender, { address: lenderWallet.address, seed: lenderWallet.seed ?? "" });
+    assert.equal(store.findBusinessByAccount(managed.address)?.id, created.id);
+    assert.equal(store.findBusinessByAccount(lenderWallet.address), undefined);
+    assert.equal(store.findBusinessByAccount(Wallet.generate().address), undefined);
+  });
+
   test("un seul compte par organisme public", async () => {
     const store = new UserStore(freshFile());
     const created = await store.create(publicBody, undefined);

@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import type { AttestedInvoiceFile, PublicDebtor } from "../../../../src/api/contract";
-import { buildCircuitInput, debtorTree, invoiceNullifier, merklePathOf } from "./witness";
+import { buildCircuitInput, debtorTree, invoiceNullifier, merklePathOf, provenThreshold } from "./witness";
 
 interface WitnessFixture {
   debtors: PublicDebtor[];
@@ -20,6 +20,9 @@ interface WitnessFixture {
 const fixture = JSON.parse(
   readFileSync(new URL("./fixtures/witness.json", import.meta.url), "utf8"),
 ) as WitnessFixture;
+
+/** Paliers publics de l'offre, en centimes, tels que servis par `GET /api/proof/params`. */
+const TIERS_CENTS = ["500000", "1000000", "2000000", "5000000", "10000000"];
 
 describe("témoin construit dans le navigateur", () => {
   test("la racine et chaque chemin de Merkle sont ceux de src/zk", () => {
@@ -62,5 +65,24 @@ describe("témoin construit dans le navigateur", () => {
 
   test("l'empreinte N calculée dans le navigateur est celle du back", () => {
     assert.equal(invoiceNullifier(fixture.file.attestation.uuid), fixture.nullifier);
+  });
+});
+
+describe("palier prouvé choisi dans le navigateur", () => {
+  const cases: [string, string, bigint | undefined][] = [
+    ["10 340 €", "1034000", 1_000_000n],
+    ["4 999 €", "499900", undefined],
+    ["5 000 €", "500000", 500_000n],
+    ["100 000 €", "10000000", 10_000_000n],
+    ["250 000 €", "25000000", 10_000_000n],
+  ];
+  for (const [label, amountCents, expected] of cases) {
+    test(`une facture de ${label} est prouvée au plus grand palier qui ne la dépasse pas`, () => {
+      assert.equal(provenThreshold(amountCents, TIERS_CENTS), expected);
+    });
+  }
+
+  test("l'ordre des paliers reçus ne change pas le choix", () => {
+    assert.equal(provenThreshold("2345000", [...TIERS_CENTS].reverse()), 2_000_000n);
   });
 });
