@@ -459,7 +459,6 @@ test("the landing, signed out", async ({ page }) => {
     ['link "Open Transparency →"', goesTo(page, "#/transparency", TRANSPARENCY_TITLE)],
     ['link "Verify every loan"', goesTo(page, "#/transparency", TRANSPARENCY_TITLE)],
     ['link "Explore"', scrollsTo(page, "#doors")],
-    ['link "Scroll to discover"', scrollsTo(page, "#doors")],
     ...navControls(page),
   ]).cover();
 });
