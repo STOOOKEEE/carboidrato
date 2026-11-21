@@ -13,8 +13,8 @@ Lenders and businesses sign in either with the Otsu wallet (they keep their keys
 1. **Landing** (`#/`): what Bari does, three doors ("Lend", "I'm a public body", "I'm owed an invoice") and a link to Transparency.
 2. **Lender** (`#/lend`): sign-up with a light KYC (the `KYC_INVESTOR` credential is issued), "Add test RLUSD", then a 5,000 RLUSD deposit; the fund's shares arrive as an MPT and the dashboard shows the position value and the variable yield.
 3. **Tokenize invoice**, the business space (`#/business`): sign-up with a light KYB (company name, VAT number; the `KYB_PME` credential is issued). The space asks the business to have its client confirm the invoice on Bari.
-4. **Declare invoice**, the public body space (`#/public`): the Comune di Bari signs in and drops the FatturaPA of invoice FT-2026-0815 ($10,340, due in 90 days). The fields are read in the browser, the supplier is found by its VAT number, and "Confirm and sign" signs the invoice in the browser and downloads the signed file to send to the supplier.
-5. **Tokenize invoice**: the business drops the signed file; the check runs in the browser and the offer appears: 9,000 RLUSD now, proven threshold $10,000, the exact amount stays private.
+4. **Declare invoice**, the public body space (`#/public`): the Comune di Bari signs in and drops the FatturaPA of invoice FT-2026-0815 ($10,340, due in 90 days). The fields are read in the browser, the supplier is found by its VAT number, and "Confirm and sign" signs the invoice in the browser and downloads a signed PDF to send to the supplier: a readable invoice page that carries the signed attestation in its metadata.
+5. **Tokenize invoice**: the business drops the signed PDF; its browser reads the attestation out of it, the check runs there and the offer appears: 9,000 RLUSD now, proven threshold $10,000, the exact amount stays private.
 6. **"Get paid now"**: the proof is computed in the browser (about a second), then the certificate (an atomic `Batch`: nullifier `N` recorded, invoice MPT issued with the proof, handed to Bari), Bari's checks, and the co-signed `LoanSet`: 8,955 RLUSD received. Each step links to its transaction detail.
 7. Dropping the same file again shows "Already financed", with a link to the ledger record of `N`.
 8. **Transparency** (`#/transparency`): every proof behind the fund is verified again in the visitor's browser, along with the uniqueness of each `N`, the exposure per debtor pseudonym `P`, the share value and the utilisation rate. This page is what makes the invoice tokens people can trust rather than take on faith.
@@ -50,7 +50,7 @@ A wallet that is not yet on the ledger is activated by Bari when it signs in ([`
 
 ```mermaid
 flowchart LR
-  PB["Public body browser<br/>reads FatturaPA, signs (EdDSA)"] -->|signed .bari.json| SME["Business browser<br/>Groth16 proof, signs in Otsu"]
+  PB["Public body browser<br/>reads FatturaPA, signs (EdDSA)"] -->|signed PDF| SME["Business browser<br/>Groth16 proof, signs in Otsu"]
   SME -->|proof + public signals| API["Bari API<br/>checks proof, KYB, N, concentration"]
   API --> BATCH["Batch certificate<br/>credential N + invoice MPT<br/>(proof in MPTokenMetadata)"]
   BATCH --> LOAN["LoanSet co-signed<br/>LoanBroker of the Single Asset Vault"]

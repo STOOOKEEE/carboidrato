@@ -1,6 +1,7 @@
-// Carte de la facture signée : fichier `.bari.json` à envoyer au fournisseur, téléchargé depuis la page.
+// Carte de la facture signée : PDF à envoyer au fournisseur, généré et téléchargé dans la page.
 import type { AttestedInvoiceFile, BusinessLookup } from "../../../../src/api/contract";
 import { formatDate, formatUsd } from "../../format";
+import { signedInvoicePdf } from "../../signedInvoicePdf";
 import { Button } from "../../ui/Button";
 import { Facts } from "../../ui/Facts";
 
@@ -9,9 +10,11 @@ const MS_PER_SECOND = 1_000;
 /** L'échéance signée est minuit UTC ; affichée à midi UTC, elle tombe le même jour dans tous les fuseaux. */
 const NOON_MS = 12 * 3_600_000;
 
-/** Enregistre le fichier signé par un lien de téléchargement éphémère : rien ne transite par le serveur. */
-export function saveSignedFile(file: AttestedInvoiceFile, fileName: string): void {
-  const url = URL.createObjectURL(new Blob([`${JSON.stringify(file, null, 2)}\n`], { type: "application/json" }));
+/** Enregistre le PDF signé par un lien de téléchargement éphémère : rien ne transite par le serveur. */
+export async function saveSignedPdf(file: AttestedInvoiceFile, supplier: BusinessLookup, fileName: string): Promise<void> {
+  // pdf-lib enregistre dans un ArrayBuffer neuf, jamais partagé : c'est ce qu'attend Blob.
+  const pdf = (await signedInvoicePdf(file, supplier)) as Uint8Array<ArrayBuffer>;
+  const url = URL.createObjectURL(new Blob([pdf], { type: "application/pdf" }));
   const link = document.createElement("a");
   link.href = url;
   link.download = fileName;
@@ -31,7 +34,7 @@ export function SignedCard({ file, fileName, supplier, onAnother }: SignedCardPr
   const { attestation } = file;
   return (
     <section className="step" data-testid="signed-invoice">
-      <h2>Signed. Send this file to your supplier</h2>
+      <h2>Signed. Send this PDF to your supplier</h2>
       <p className="muted">
         <span className="mono">{fileName}</span> is in your downloads. {supplier.company} drops it in their Bari space to
         get paid now: it carries your signature, and the invoice stays between you and them.
@@ -45,7 +48,7 @@ export function SignedCard({ file, fileName, supplier, onAnother }: SignedCardPr
         ]}
       />
       <div className="result-actions">
-        <Button primary onClick={() => saveSignedFile(file, fileName)}>
+        <Button primary onClick={() => void saveSignedPdf(file, supplier, fileName)}>
           Download again
         </Button>
         <Button variant="ghost" onClick={onAnother}>

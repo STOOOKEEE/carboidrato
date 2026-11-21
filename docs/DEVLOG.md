@@ -440,3 +440,14 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 **Pourquoi :** test manuel de Noé avec la vraie extension. Au réveil de son service worker, Otsu repart sur testnet le temps de recharger le réseau perso ; son autofill cherchait alors le compte sur testnet (« Account not found ») et l'app affichait « Your wallet is not on Bari's network ». Le faux Otsu des e2e, toujours connecté à l'AlphaNet, ne pouvait pas le voir.
 
 **Vérifié :** tests rouges puis verts (défi complet signé tel quel, côté route et côté front) ; `npm test` 537/537, typecheck et build verts ; AlphaNet : le défi d'un vrai compte porte sa séquence (9963), les frais et le dernier ledger.
+
+## 2026-11-21 · Direction sakura, espaces renommés, facture signée en PDF
+
+**Quoi :**
+- Fusion de la branche `Front` (Sanka-D) : direction artistique sakura, papier crème, branche de cerisier. Le test « tous les boutons » lit désormais les contrôles par leur nom accessible (texte écrit, sans la casse du style ni les ornements `aria-hidden`) et couvre les nouveaux liens de la landing.
+- Espaces renommés à la demande de Noé : « Declare invoice » pour les organismes publics, « Tokenize invoice » pour les entreprises (navigation, titres d'espace, README).
+- « Confirm and sign » télécharge `<numéro>.signed.pdf` : une page lisible (numéro, fournisseur, organisme, montant, échéance) et la facture attestée embarquée dans le dictionnaire d'informations du PDF (`/BariAttestation`). L'espace entreprise la relit dans la page (`web/src/signedInvoicePdf.ts`, pdf-lib) ; un `.bari.json` reste accepté.
+
+**Pourquoi :** l'organisme envoie à son fournisseur un PDF, comme d'habitude, et pas un fichier JSON ; la signature et la vérification restent les mêmes, toujours dans les navigateurs.
+
+**Vérifié :** tests rouges puis verts (PDF relu à l'identique, PDF sans signature ou illisible refusé, nom du fichier) ; `npm test` 541/541, typecheck et build verts.

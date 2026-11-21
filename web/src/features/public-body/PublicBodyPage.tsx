@@ -15,7 +15,7 @@ import {
   type InvoiceField,
 } from "./publicBody.machine";
 import { ReviewPanel } from "./ReviewPanel";
-import { saveSignedFile, SignedCard } from "./SignedCard";
+import { saveSignedPdf, SignedCard } from "./SignedCard";
 
 /** Pause après la dernière frappe dans le n° de TVA, avant de le rechercher. */
 const LOOKUP_DELAY_MS = 300;
@@ -76,10 +76,11 @@ export function PublicBodyPage({ user }: { user: AccountView }) {
     const validation = validateForm(state.form, state.description);
     dispatch({ type: "SIGN", validation: validation.ok ? { ok: true } : validation });
     if (!validation.ok || state.supplier.status !== "found") return;
-    signInvoice(validation.draft, state.supplier.business)
+    const supplier = state.supplier.business;
+    signInvoice(validation.draft, supplier)
       .then((file) => {
         dispatch({ type: "SIGNED", file });
-        saveSignedFile(file, downloadName(file.invoice.number));
+        return saveSignedPdf(file, supplier, downloadName(file.invoice.number));
       })
       .catch((cause: unknown) => dispatch({ type: "SIGN_FAILED", message: messageOf(cause) }));
   };

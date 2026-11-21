@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 import { ATTESTED_INVOICE_FORMAT, type AttestedInvoiceFile, type SignupResponse } from "../../src/api/contract";
 import { fatturaPaXml, PITCH_SUPPLIER, REGIONE_PUGLIA } from "../../src/demo/sampleInvoices";
+import { signedInvoiceText } from "../src/signedInvoicePdf";
 import { capture } from "./capture";
 import { signInPublicBody } from "./publicBodySession";
 
@@ -63,10 +64,10 @@ test("a public body reads a FatturaPA, finds the supplier and signs it in the br
 
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Confirm and sign" }).click();
-  await expect(page.getByRole("heading", { name: "Signed. Send this file to your supplier" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Signed. Send this PDF to your supplier" })).toBeVisible();
   const saved = await download;
-  expect(saved.suggestedFilename()).toBe(`${number}.bari.json`);
-  const file = JSON.parse(await readFile(await saved.path(), "utf8")) as AttestedInvoiceFile;
+  expect(saved.suggestedFilename()).toBe(`${number}.signed.pdf`);
+  const file = JSON.parse((await signedInvoiceText(await readFile(await saved.path()))) ?? "") as AttestedInvoiceFile;
   expect(file.format).toBe(ATTESTED_INVOICE_FORMAT);
   expect(file.invoice.number).toBe(number);
   expect(file.invoice.debtorName).toBe("Regione Puglia");

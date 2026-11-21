@@ -197,7 +197,7 @@ describe("signature", () => {
     assert.equal(signing.status, "signing");
     assert.equal(signBlocker(signing), "Signing in your browser…");
     const done = run([{ type: "SIGNED", file: signed }], signing);
-    assert.deepEqual(done, { status: "signed", file: signed, fileName: "FT-2026-0901.bari.json", supplier: SUPPLIER });
+    assert.deepEqual(done, { status: "signed", file: signed, fileName: "FT-2026-0901.signed.pdf", supplier: SUPPLIER });
   });
 
   test("un échec de signature revient aux champs avec sa cause", () => {
@@ -216,7 +216,7 @@ describe("signature", () => {
   });
 
   test("le nom du fichier téléchargé suit le numéro, sans caractère interdit", () => {
-    assert.equal(downloadName("FT-2026-0815"), "FT-2026-0815.bari.json");
-    assert.equal(downloadName(" FT 2026/0815 "), "FT-2026-0815.bari.json");
+    assert.equal(downloadName("FT-2026-0815"), "FT-2026-0815.signed.pdf");
+    assert.equal(downloadName(" FT 2026/0815 "), "FT-2026-0815.signed.pdf");
   });
 });
