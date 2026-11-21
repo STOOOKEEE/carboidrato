@@ -14,7 +14,7 @@ interface DitherCanvasProps {
 
 const DEFAULT_CELL = 7;
 const DOT_RATIO = 0.62;
-const TONE_VARIABLES = { light: "--fg", danger: "--danger" } as const;
+const TONE_VARIABLES = { light: "--dither", danger: "--danger" } as const;
 
 export function DitherCanvas({
   shape,

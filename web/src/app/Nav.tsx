@@ -2,6 +2,7 @@
 import { ROLE_COPY } from "../features/account/roles";
 import { LANDING_ROUTE, SIGNIN_ROUTE, spaceRoute, TRANSPARENCY_ROUTE } from "../routes";
 import { useSession } from "../session";
+import { Blossom } from "../ui/Blossom";
 import { AccountMenu } from "./AccountMenu";
 
 const LINKS = [
@@ -16,8 +17,11 @@ export function Nav() {
   return (
     <header className="nav">
       <a className="logo" href={LANDING_ROUTE}>
-        <span className="logo-mark" aria-hidden="true" />
+        <Blossom size={22} className="logo-mark" />
         bari
+        <span className="logo-dot" aria-hidden="true">
+          .
+        </span>
       </a>
       <nav className="nav-links" aria-label="Main">
         {LINKS.map((link) => (

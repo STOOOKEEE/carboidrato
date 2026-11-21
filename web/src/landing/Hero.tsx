@@ -1,30 +1,21 @@
-import { useEffect, useState } from "react";
-import { DitherCanvas } from "../dither/DitherCanvas";
-import type { ShapeName } from "../dither/shapes";
+import type { MouseEvent } from "react";
 import { FundFacts } from "./FundFacts";
+import { SakuraBranch } from "./SakuraBranch";
 
-/** Boucle du héros : la facture est scannée, puis devient du cash. */
-const HERO_LOOP: { shape: ShapeName; scanning: boolean; durationMs: number }[] = [
-  { shape: "invoice", scanning: false, durationMs: 2200 },
-  { shape: "invoice", scanning: true, durationMs: 2600 },
-  { shape: "dollar", scanning: false, durationMs: 3200 },
-];
+const DOORS_ID = "doors";
 
-function useLoop() {
-  const [index, setIndex] = useState(0);
-  useEffect(() => {
-    const timer = setTimeout(() => setIndex((current) => (current + 1) % HERO_LOOP.length), HERO_LOOP[index].durationMs);
-    return () => clearTimeout(timer);
-  }, [index]);
-  return HERO_LOOP[index];
+/** Défilement vers les portes sans toucher au hash (le routeur remonterait en haut de page). */
+function scrollToDoors(event: MouseEvent<HTMLAnchorElement>) {
+  event.preventDefault();
+  document.getElementById(DOORS_ID)?.scrollIntoView({ behavior: "smooth" });
 }
 
 export function Hero() {
-  const frame = useLoop();
   return (
     <section className="hero">
+      <SakuraBranch variant="hanging" className="hero-sakura" />
       <div className="hero-copy">
-        <span className="kicker">Invoice financing on XRPL</span>
+        <span className="kicker">Invoice financing on XRPL — 001</span>
         <h1>
           Your invoice is worth cash. <span className="underline">Today.</span>
         </h1>
@@ -33,9 +24,17 @@ export function Hero() {
           supplier gets 90% of it in seconds, and verified lenders fund it from a vault on the XRP Ledger. The invoice
           itself never leaves their two browsers.
         </p>
+        <a className="cta" href={`#${DOORS_ID}`} onClick={scrollToDoors}>
+          Explore <span aria-hidden="true">↗</span>
+        </a>
         <FundFacts />
       </div>
-      <DitherCanvas shape={frame.shape} scanning={frame.scanning} interactive cell={9} className="hero-canvas" />
+      <div className="hero-foot">
+        <a href={`#${DOORS_ID}`} onClick={scrollToDoors}>
+          Scroll to discover
+        </a>
+        <span>01 / 03</span>
+      </div>
     </section>
   );
 }
