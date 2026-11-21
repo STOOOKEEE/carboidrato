@@ -2,7 +2,9 @@
 
 import { defineConfig, devices } from "@playwright/test";
 
-const API_URL = "http://127.0.0.1:8788";
+/** API_FUND_PORT : l'API des e2e peut tourner à côté d'une API déjà lancée sur le port par défaut. */
+const API_PORT = process.env.API_FUND_PORT ?? "8788";
+const API_URL = `http://127.0.0.1:${API_PORT}`;
 const WEB_URL = "http://localhost:5173";
 /** Fonds de démo durable (≈ 2 min sur l'AlphaNet quand il faut le créer, sinon réutilisé), puis démarrage de l'API. */
 const API_STARTUP_MS = 10 * 60_000;
@@ -33,7 +35,7 @@ export default defineConfig({
     {
       command: "npm run web",
       url: WEB_URL,
-      env: { API_PORT: "8788" },
+      env: { API_PORT },
       reuseExistingServer,
     },
   ],
