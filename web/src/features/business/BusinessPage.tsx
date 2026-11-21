@@ -79,6 +79,7 @@ export function BusinessPage({ user }: { user: AccountView }) {
         <OfferCard
           precheck={state.precheck}
           funding={state.funding}
+          custody={user.custody}
           onGetPaid={() => dispatch({ type: "FUNDING", event: { type: "PROVE" } })}
           onRetry={() => dispatch({ type: "FUNDING", event: { type: "RETRY" } })}
         />

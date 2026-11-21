@@ -1,8 +1,17 @@
 // Appels de l'espace entreprise : certificat à partir de la preuve, prêt co-signé, factures du compte. Rien du témoin.
+// Entreprise wallet : signatures dans Otsu, puis blobs signés renvoyés à Bari.
 
-import type { AttestedInvoiceFile, BusinessInvoice, CertificateRequest, PrecheckResponse } from "../../../../src/api/contract";
+import type {
+  AttestedInvoiceFile,
+  BusinessInvoice,
+  CertificateRequest,
+  OnboardingSubmitRequest,
+  PrecheckResponse,
+} from "../../../../src/api/contract";
 import { lookupRegistration, request } from "../../api";
 import { parseJsonOrUndefined } from "../../json";
+import { otsuProvider } from "../../wallet/otsu";
+import { signWithOtsu } from "../../wallet/sign";
 import { proveInBrowser } from "../funding/sources";
 import { certificateOutcome, loanOutcome, type FundingServices } from "./business.effects";
 
@@ -29,6 +38,15 @@ export function fundingServices(file: AttestedInvoiceFile, precheck: PrecheckRes
     registration: () => lookupRegistration(precheck.nullifier, file.attestation.account),
     borrow: async (tokenId) => {
       const { status, payload } = await post("/api/sme/loan", { tokenId });
+      return loanOutcome(status, payload);
+    },
+    sign: (tx) => signWithOtsu(otsuProvider(), tx),
+    submitCertificate: async (txBlob) => {
+      const { status, payload } = await post("/api/sme/certificate/submit", { tx_blob: txBlob } satisfies OnboardingSubmitRequest);
+      return certificateOutcome(status, payload);
+    },
+    submitLoan: async (txBlob) => {
+      const { status, payload } = await post("/api/sme/loan/submit", { tx_blob: txBlob } satisfies OnboardingSubmitRequest);
       return loanOutcome(status, payload);
     },
   };

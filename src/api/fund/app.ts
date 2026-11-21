@@ -52,8 +52,8 @@ export async function buildApp(
   registerLenderRoutes(app, context, ports);
   registerDebtorRoutes(app);
   registerZkRoutes(app, context);
-  registerSmeRoutes(app, context);
-  registerLoanRoutes(app, context, ports.submit);
+  registerSmeRoutes(app, context, walletPorts);
+  registerLoanRoutes(app, context, ports.submit, walletPorts);
   registerAuditRoutes(app, context);
   registerEventRoutes(app, context);
   registerTxRoutes(app, context);

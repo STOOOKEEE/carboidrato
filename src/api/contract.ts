@@ -406,6 +406,13 @@ export interface LoanRefusal {
   transactions: SubmittedTx[];
 }
 
+/**
+ * Entreprise connectée par wallet : `POST /api/sme/certificate` (200) renvoie le Batch du certificat à signer dans Otsu
+ * (`PreparedSignature`), `POST /api/sme/loan` (200) le LoanSet, avec les contrôles de Bari qui l'ont accepté. Le blob
+ * signé part ensuite vers `…/submit` (`OnboardingSubmitRequest`), qui répond comme pour un compte géré.
+ */
+export type LoanSignature = PreparedSignature & { checks: LoanCheck[] };
+
 export type BusinessInvoiceStatus = "certified" | "active" | "repaid" | "defaulted";
 
 /** Facture du compte de la session (`GET /api/business/invoices`) ; champs du prêt présents une fois financée. */
