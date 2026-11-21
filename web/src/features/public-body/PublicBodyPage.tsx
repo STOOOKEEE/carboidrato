@@ -87,7 +87,7 @@ export function PublicBodyPage({ user }: { user: AccountView }) {
   return (
     <main className="app">
       <div className="section-head">
-        <span className="kicker">Public bodies</span>
+        <span className="kicker">Declare invoice</span>
         <h1>Confirm your suppliers' invoices.</h1>
         <p className="lead">Signed in your browser. Bari never receives this invoice.</p>
       </div>

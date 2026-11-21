@@ -59,7 +59,7 @@ export function BusinessPage({ user }: { user: AccountView }) {
   return (
     <main className="app business">
       <div className="section-head">
-        <span className="kicker">Business</span>
+        <span className="kicker">Tokenize invoice</span>
         <h1>Get paid now.</h1>
         <p className="lead">Your invoice never leaves this page. We only learn that it covers the advance.</p>
       </div>

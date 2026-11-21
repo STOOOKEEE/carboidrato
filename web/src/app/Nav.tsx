@@ -2,12 +2,13 @@
 import { ROLE_COPY } from "../features/account/roles";
 import { LANDING_ROUTE, SIGNIN_ROUTE, spaceRoute, TRANSPARENCY_ROUTE } from "../routes";
 import { useSession } from "../session";
+import { Blossom } from "../ui/Blossom";
 import { AccountMenu } from "./AccountMenu";
 
 const LINKS = [
   { href: spaceRoute("lender"), label: "Lend" },
   { href: spaceRoute("public_body"), label: ROLE_COPY.public_body.space },
-  { href: spaceRoute("business"), label: "Businesses" },
+  { href: spaceRoute("business"), label: ROLE_COPY.business.space },
   { href: TRANSPARENCY_ROUTE, label: "Transparency" },
 ];
 
@@ -16,8 +17,11 @@ export function Nav() {
   return (
     <header className="nav">
       <a className="logo" href={LANDING_ROUTE}>
-        <span className="logo-mark" aria-hidden="true" />
+        <Blossom size={22} className="logo-mark" />
         bari
+        <span className="logo-dot" aria-hidden="true">
+          .
+        </span>
       </a>
       <nav className="nav-links" aria-label="Main">
         {LINKS.map((link) => (

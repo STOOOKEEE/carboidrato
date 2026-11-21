@@ -1,17 +1,37 @@
-/* DA « dither » : fond noir, points blancs, soulignés bleus (cf. baleine de référence). */
+/* DA « sakura » : papier crème, encre presque noire, accent cramoisi, fleurs de cerisier roses.
+   Typo fine, petites étiquettes en capitales espacées (cf. référence Monogram). */
 
 :root {
-  --bg: #000;
-  --line: #2f2f2f;
-  --fg: #f2f2f2;
-  --muted: #9a9a9a;
-  --accent: #3d82f6;
-  --danger: #ff6b5e;
-  --ok: #f2f2f2;
-  --radius: 4px;
-  --font: "Montserrat", system-ui, sans-serif;
+  --bg: #fdfbfa;
+  --surface: #ffffff;
+  --line: #efe7e4;
+  --fg: #231e1f;
+  --muted: #77706c;
+  --accent: #a3121f;
+  --danger: #cf3f12;
+  --ok: #231e1f;
+  --sakura: #f7c3d4;
+  --sakura-deep: #e2588a;
+  --sakura-vivid: #c2185b;
+  --sakura-heart: #7d0f37;
+  --sakura-wash: #fdeaf1;
+  --petal-line: #8e1240;
+  --anther: #f2c230;
+  --stamen: #8e1240;
+  --wood: #2e1013;
+  --wood-light: #6b3532;
+  --dither: #e2588a;
+  /* Distance du bord du contenu au bord de la fenêtre : les branches sortent du cadre. */
+  --bleed: calc(max(0px, (100vw - 1200px) / 2) + 32px);
+  --radius: 6px;
+  --font: "Inter", system-ui, -apple-system, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, monospace;
-  color-scheme: dark;
+  color-scheme: light;
+}
+
+::selection {
+  background: var(--sakura);
+  color: var(--fg);
 }
 
 * {
@@ -22,12 +42,18 @@ html {
   scroll-behavior: smooth;
 }
 
+html,
+body {
+  overflow-x: clip;
+}
+
 body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font);
-  line-height: 1.5;
+  font-weight: 400;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -46,17 +72,21 @@ h1,
 h2,
 h3 {
   margin: 0;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.12;
 }
 
 h1 {
-  font-size: clamp(2.6rem, 5.5vw, 4.6rem);
+  font-size: clamp(2.4rem, 4.8vw, 4rem);
 }
 
 h2 {
-  font-size: clamp(1.8rem, 3.4vw, 2.8rem);
+  font-size: clamp(1.7rem, 3vw, 2.5rem);
+}
+
+h3 {
+  font-weight: 500;
 }
 
 .page {
@@ -74,71 +104,81 @@ h2 {
   font-size: 0.85rem;
 }
 
-/* Souligné bleu épais, qui se trace à l'apparition. */
+/* Surlignage rose pâle, comme un pétale posé sous le mot, qui se trace à l'apparition. */
 .underline {
-  background-image: linear-gradient(var(--accent), var(--accent));
+  background-image: linear-gradient(var(--sakura), var(--sakura));
   background-repeat: no-repeat;
-  background-position: 0 92%;
-  background-size: 100% 0.14em;
-  animation: underline-in 900ms 300ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
-}
-
-@keyframes underline-in {
-  from {
-    background-size: 0 0.14em;
-  }
+  background-position: 0 88%;
+  background-size: 100% 0.34em;
 }
 
 .kicker {
   display: inline-block;
-  font-family: var(--mono);
   font-size: 0.78rem;
+  font-weight: 400;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   color: var(--accent);
+}
+
+/* Lien d'action façon « EXPLORE ↗ » : capitales cramoisies, flèche qui s'envole au survol. */
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--accent);
+  font-size: 1.05rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.cta > span {
+  display: inline-block;
+  font-size: 0.9em;
+}
+
+.cta:hover {
+  text-decoration: underline;
+  text-underline-offset: 6px;
+  text-decoration-thickness: 1px;
 }
 
 /* Navigation */
 
 .nav {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px 0;
+  padding: 28px 0;
 }
 
 .logo {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-weight: 800;
-  font-size: 1.5rem;
-  letter-spacing: -0.04em;
+  font-weight: 500;
+  font-size: 1.35rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
-/* Petit carré tramé : 3×3 points, celui du centre en bleu. */
 .logo-mark {
-  width: 4px;
-  height: 4px;
-  margin: 0 12px 10px 0;
-  background: var(--fg);
-  color: var(--fg);
-  box-shadow:
-    6px 0,
-    12px 0,
-    0 6px,
-    6px 6px var(--accent),
-    12px 6px,
-    0 12px,
-    6px 12px,
-    12px 12px;
+  margin-right: 10px;
+}
+
+.logo-dot {
+  color: var(--accent);
 }
 
 .nav-links {
   display: flex;
   align-items: center;
   gap: 28px;
-  font-weight: 500;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .nav-links > a:not(.button):hover {
@@ -154,24 +194,22 @@ h2 {
   gap: 8px;
   padding: 12px 22px;
   border: 1px solid var(--fg);
-  border-radius: var(--radius);
+  border-radius: 999px;
   background: var(--fg);
   color: var(--bg);
   font: inherit;
-  font-weight: 600;
+  font-size: 0.82rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   white-space: nowrap;
   cursor: pointer;
-  transition:
-    transform 150ms,
-    background 150ms,
-    color 150ms;
 }
 
 .button:hover:not(:disabled) {
-  transform: translateY(-1px);
   background: var(--accent);
   border-color: var(--accent);
-  color: var(--fg);
+  color: var(--surface);
 }
 
 .button:disabled {
@@ -185,62 +223,174 @@ h2 {
   border-color: var(--line);
 }
 
+.button-ghost:hover:not(:disabled) {
+  background: var(--sakura-wash);
+  border-color: var(--sakura-deep);
+  color: var(--accent);
+}
+
 .link {
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 /* Héros */
 
 .hero {
+  position: relative;
   display: grid;
-  grid-template-columns: 1.1fr 1fr;
+  grid-template-rows: 1fr auto;
   align-items: center;
   gap: 48px;
-  min-height: calc(100vh - 96px);
-  padding-bottom: 48px;
+  min-height: calc(100vh - 100px);
+  padding-bottom: 28px;
 }
 
 .hero-copy {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  animation: rise 700ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  gap: 26px;
+  max-width: 38rem;
+}
+
+.hero-copy .cta {
+  align-self: flex-start;
 }
 
 .lead {
-  max-width: 34rem;
+  max-width: 33rem;
   margin: 0;
   color: var(--muted);
   font-size: 1.15rem;
+  font-weight: 400;
 }
 
 .hero-facts {
   display: flex;
-  gap: 32px;
-  margin: 16px 0 0;
-  padding: 0;
+  gap: 40px;
+  margin: 18px 0 0;
+  padding: 22px 0 0;
+  border-top: 1px solid var(--line);
   list-style: none;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .hero-facts strong {
   display: block;
+  margin-bottom: 2px;
   color: var(--fg);
   font-size: 1.6rem;
-  font-weight: 800;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
-.hero-canvas {
-  width: 100%;
-  aspect-ratio: 1;
+/* Branche qui retombe depuis le bord droit de la fenêtre. */
+.hero-sakura {
+  position: absolute;
+  top: 72px;
+  right: calc(-1 * var(--bleed));
+  width: min(52vw, 780px);
+  pointer-events: none;
 }
+
+.hero-foot {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.hero-foot a:hover {
+  color: var(--accent);
+}
+
+/* Fin de la landing : branche qui monte du coin bas gauche, texte à droite. */
+.outro {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 560px;
+  padding: 96px 0;
+}
+
+.outro-sakura {
+  position: absolute;
+  bottom: -33px;
+  left: calc(-1 * var(--bleed));
+  width: min(56vw, 760px);
+  pointer-events: none;
+}
+
+.outro-copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 30rem;
+}
+
+.outro-copy .cta {
+  align-self: flex-start;
+}
+
+/* Fleurs de cerisier : petite fleur du logo */
+
+.blossom-petal {
+  fill: var(--sakura);
+}
+
+.blossom-petal {
+  stroke: var(--petal-line);
+  stroke-width: 0.04;
+}
+
+.blossom-heart {
+  fill: var(--sakura-deep);
+}
+
+.blossom-stamen {
+  stroke: var(--stamen);
+  stroke-width: 0.025;
+  stroke-linecap: round;
+}
+
+.blossom-anther {
+  fill: var(--anther);
+}
+
+/* Branches de cerisier */
+
+.sakura {
+  display: block;
+  height: auto;
+  user-select: none;
+}
+
+/* La même branche, en miroir, entre par la gauche. */
+.sakura-rising {
+  transform: scaleX(-1);
+}
+
+
 
 /* Sections */
 
 .section {
-  padding: 96px 0;
+  padding: 112px 0;
   scroll-margin-top: 24px;
 }
 
@@ -258,15 +408,15 @@ h2 {
   grid-template-columns: minmax(280px, 1fr) 1.2fr;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--bg);
+  background: var(--surface);
   transition:
     border-color 200ms,
     box-shadow 200ms;
 }
 
 .checker.is-dragging {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 4px rgb(61 130 246 / 20%);
+  border-color: var(--sakura-deep);
+  box-shadow: 0 0 0 5px var(--sakura-wash);
 }
 
 .checker-visual {
@@ -298,7 +448,6 @@ h2 {
 .checker-caption {
   position: absolute;
   bottom: 18px;
-  font-family: var(--mono);
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -325,7 +474,7 @@ h2 {
 .amount {
   margin: -8px 0 0;
   font-size: clamp(2.4rem, 5vw, 3.6rem);
-  font-weight: 800;
+  font-weight: 300;
   letter-spacing: -0.03em;
   line-height: 1;
 }
@@ -345,8 +494,8 @@ h2 {
 }
 
 .steps li::before {
-  content: "▪ ";
-  color: var(--accent);
+  content: "✿ ";
+  color: var(--sakura-deep);
   animation: blink 900ms steps(2) infinite;
 }
 
@@ -375,7 +524,7 @@ h2 {
 }
 
 .check-label {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .check-detail {
@@ -427,7 +576,7 @@ h2 {
   padding: 28px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--bg);
+  background: var(--surface);
 }
 
 .step > .button {
@@ -435,7 +584,7 @@ h2 {
 }
 
 .step.done {
-  border-color: #3a3a3a;
+  border-color: var(--sakura);
 }
 
 .step-head {
@@ -472,8 +621,11 @@ h2 {
 }
 
 .field label {
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: 0.78rem;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
 }
 
 .form input:not([type="checkbox"]),
@@ -481,7 +633,7 @@ h2 {
   padding: 11px 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--bg);
+  background: var(--surface);
   color: var(--fg);
   font: inherit;
   font-weight: 400;
@@ -490,7 +642,8 @@ h2 {
 .form input:focus,
 .form select:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--sakura-deep);
+  box-shadow: 0 0 0 4px var(--sakura-wash);
 }
 
 .form [aria-invalid="true"] {
@@ -501,7 +654,7 @@ h2 {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -529,8 +682,13 @@ h2 {
   padding: 32px 0;
   border-top: 1px solid var(--line);
   color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.footer a:hover {
+  color: var(--accent);
 }
 
 /* Animations */
@@ -576,6 +734,32 @@ h2 {
   .hero {
     min-height: auto;
     padding-top: 24px;
+  }
+
+  .page {
+    --bleed: 20px;
+  }
+
+  .hero {
+    padding-top: 62vw;
+  }
+
+  .hero-sakura {
+    top: 0;
+    width: 88vw;
+  }
+
+  .hero-foot {
+    display: none;
+  }
+
+  .outro {
+    min-height: auto;
+    padding: 64px 0 52vw;
+  }
+
+  .outro-sakura {
+    width: 80vw;
   }
 
   .checker-visual {
@@ -679,8 +863,12 @@ h2 {
   grid-template-columns: 48px 1fr auto;
   align-items: center;
   gap: 24px;
-  padding: 32px 0;
+  padding: 36px 0;
   border-bottom: 1px solid var(--line);
+}
+
+.door:hover {
+  background: linear-gradient(90deg, transparent, var(--sakura-wash) 50%, transparent);
 }
 
 .door-copy {
@@ -692,6 +880,7 @@ h2 {
 
 .door-copy h3 {
   font-size: 1.6rem;
+  font-weight: 400;
 }
 
 .doors-transparency {
@@ -726,12 +915,15 @@ h2 {
   padding: 20px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--bg);
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgb(35 30 31 / 8%);
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .account-menu-name {
   margin: 0;
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .verify-steps {
@@ -779,7 +971,8 @@ h2 {
     gap: 12px;
   }
 
-  .door > .button {
+  .door > .button,
+  .door > .cta {
     justify-self: start;
   }
 
@@ -833,7 +1026,7 @@ h2 {
 .lend-balance {
   margin: 4px 0 0;
   font-size: 1.6rem;
-  font-weight: 800;
+  font-weight: 300;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
@@ -1142,16 +1335,17 @@ h2 {
 
 .exposure-track {
   display: block;
-  height: 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  height: 10px;
+  border-radius: 999px;
+  background: var(--sakura-wash);
   overflow: hidden;
 }
 
 .exposure-fill {
   display: block;
   height: 100%;
-  background: var(--fg);
+  border-radius: 999px;
+  background: var(--sakura-deep);
 }
 
 .exposure.breach .exposure-fill {
