@@ -143,7 +143,7 @@ describe("POST /api/auth/wallet/challenge", () => {
       LastLedgerSequence: LEDGER_INDEX + SIGNING_WINDOW_LEDGERS,
       Fee: FEE,
     });
-    const response = await verify(wallet.sign(transaction).tx_blob);
+    const response = await verify(wallet.sign({ ...transaction }).tx_blob);
     assert.equal(response.statusCode, HTTP_OK);
   });
 

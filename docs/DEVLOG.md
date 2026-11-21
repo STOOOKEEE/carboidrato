@@ -432,3 +432,11 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 **Pourquoi :** le pitch se fait avec Otsu ; la facture FT-2026-0815 porte la TVA du fournisseur du pitch, qui ne peut appartenir qu'à un compte.
 
 **Vérifié :** tests rouges puis verts (recherche par TVA d'une entreprise wallet ; fournisseur du pitch tenu par un wallet, compte email libéré, refus avec un prêt en cours) ; `npm test` 537/537 ; AlphaNet : `walkthrough.spec.ts`, `lend.spec.ts` et `business.spec.ts` verts ; `demo:fund` avec et sans `PITCH_BUSINESS=otsu` sur une copie de l'état.
+
+## 2026-11-21 · Connexion Otsu au réveil de l'extension
+
+**Quoi :** `POST /api/auth/wallet/challenge` renvoie l'`AccountSet` du défi complet (séquence lue sur le nœud de Bari, frais, `LastLedgerSequence`), et le front le fait signer tel quel. Otsu n'a plus rien à lire sur le réseau pour signer la connexion, comme pour les autres transactions préparées par Bari.
+
+**Pourquoi :** test manuel de Noé avec la vraie extension. Au réveil de son service worker, Otsu repart sur testnet le temps de recharger le réseau perso ; son autofill cherchait alors le compte sur testnet (« Account not found ») et l'app affichait « Your wallet is not on Bari's network ». Le faux Otsu des e2e, toujours connecté à l'AlphaNet, ne pouvait pas le voir.
+
+**Vérifié :** tests rouges puis verts (défi complet signé tel quel, côté route et côté front) ; `npm test` 537/537, typecheck et build verts ; AlphaNet : le défi d'un vrai compte porte sa séquence (9963), les frais et le dernier ledger.
