@@ -53,7 +53,7 @@ test("a public body reads a FatturaPA, finds the supplier and signs it in the br
   const sent: string[] = [];
   page.on("request", (outgoing) => sent.push(`${outgoing.url()} ${outgoing.postData() ?? ""}`));
   await page.goto("/#/public");
-  await expect(page.getByText("Signed in your browser. Bari never receives this invoice.")).toBeVisible();
+  await expect(page.getByText("Signed in your browser. Atlas never receives this invoice.")).toBeVisible();
   await page.getByTestId("drop-input").setInputFiles({ name: `${number}.xml`, mimeType: "application/xml", buffer: Buffer.from(xml) });
 
   await expect(page.getByText(company, { exact: true })).toBeVisible();

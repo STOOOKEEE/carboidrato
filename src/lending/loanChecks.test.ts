@@ -205,7 +205,7 @@ describe("contrôles avant co-signature", () => {
     const { fund, ledger } = await openFund({ heldByBari: false });
     const review = await reviewLoan(ledger, parties, fund, referenceOf(certificate));
     assert.deepEqual(failed(review.checks), ["proof"]);
-    assert.match(reasonOf(review.checks, "proof") ?? "", /Bari does not hold/);
+    assert.match(reasonOf(review.checks, "proof") ?? "", /Atlas does not hold/);
   });
 
   test("seuil prouvé sous le premier palier : refus de l'avance", async () => {

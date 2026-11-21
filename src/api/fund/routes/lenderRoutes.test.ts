@@ -556,7 +556,7 @@ describe("prêteur wallet (Otsu) : Bari prépare, le wallet signe, Bari soumet",
     const body = await prepared("deposit", 1_020n * RLUSD);
     const response = await submitBlob(signed({ ...body.tx, Fee: "1000" }));
     assert.equal(response.statusCode, HTTP_BAD_REQUEST);
-    assert.equal(response.json<{ error: string }>().error, "This is not the transaction Bari prepared. Start again.");
+    assert.equal(response.json<{ error: string }>().error, "This is not the transaction Atlas prepared. Start again.");
     assert.equal(walletSubmitted.length, 0);
     const managed = await submitBlob(signed(body.tx), sessions.lender);
     assert.equal(managed.statusCode, HTTP_CONFLICT);

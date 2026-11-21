@@ -153,12 +153,12 @@ describe("nextFundingEvent", () => {
   test("proving : une preuve impossible devient FAILED", async () => {
     const deps = services({
       prove: async () => {
-        throw new Error("The debtor is not on Bari's verified list");
+        throw new Error("The debtor is not on Atlas's verified list");
       },
     });
     assert.deepEqual(await nextFundingEvent({ status: "proving" }, deps), {
       type: "FAILED",
-      message: "The debtor is not on Bari's verified list",
+      message: "The debtor is not on Atlas's verified list",
     });
   });
 

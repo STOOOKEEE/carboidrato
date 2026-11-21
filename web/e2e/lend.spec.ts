@@ -23,7 +23,7 @@ test.afterEach(async () => {
   otsu = undefined;
 });
 
-test("a lender adds test RLUSD, deposits 5,000 and withdraws through Bari", async ({ page }) => {
+test("a lender adds test RLUSD, deposits 5,000 and withdraws through Atlas", async ({ page }) => {
   const balance = page.getByTestId("lend-balance");
   const history = page.getByTestId("lend-history");
 
@@ -63,7 +63,7 @@ test("a lender adds test RLUSD, deposits 5,000 and withdraws through Bari", asyn
     // Le plafond est le plus petit du solde et du stock de parts de Bari, qui varie avec les dépôts des autres prêteurs.
     await expect(form).toContainText(/Above your balance of 10,000\.00 RLUSD\. Enter at most [\d,]+\.\d\d RLUSD\./);
     await amount.fill("5000");
-    await expect(form).toContainText("Immediate, through Bari");
+    await expect(form).toContainText("Immediate, through Atlas");
     await expect(form).toContainText("You receive");
     await form.getByRole("button", { name: "Deposit", exact: true }).click();
     const done = page.getByTestId("lend-done-deposit");
@@ -78,7 +78,7 @@ test("a lender adds test RLUSD, deposits 5,000 and withdraws through Bari", asyn
     await capture(page, "lend");
   });
 
-  await test.step("withdraw every share now through Bari: RLUSD come back", async () => {
+  await test.step("withdraw every share now through Atlas: RLUSD come back", async () => {
     const form = page.getByTestId("lend-withdraw");
     await form.getByRole("button", { name: "All my shares" }).click();
     await expect(form).toContainText("(0.5%)");
@@ -126,7 +126,7 @@ test("a wallet lender signs a deposit and a withdrawal in Otsu", async ({ page }
   await test.step("deposit 100 RLUSD, signed in Otsu: shares arrive in the wallet", async () => {
     const form = page.getByTestId("lend-deposit");
     await form.getByLabel("Amount in RLUSD").fill("100");
-    await expect(form).toContainText("Immediate, through Bari");
+    await expect(form).toContainText("Immediate, through Atlas");
     await expect(form).toContainText("You receive");
     await form.getByRole("button", { name: "Deposit", exact: true }).click();
     const done = page.getByTestId("lend-done-deposit");

@@ -174,7 +174,7 @@ describe("POST /api/onboarding/prepare", () => {
     assert.equal(offer.CredentialType, textToHex("KYC_INVESTOR"));
     assert.equal(offer.Expiration, NOW_RIPPLE + ONE_YEAR_S);
     assert.ok(String(offer.URI).startsWith(textToHex("sha256:")));
-    assert.deepEqual(body.transactions, [{ label: "KYC_INVESTOR credential issued by Bari", hash: "C".repeat(63) + "1" }]);
+    assert.deepEqual(body.transactions, [{ label: "KYC_INVESTOR credential issued by Atlas", hash: "C".repeat(63) + "1" }]);
 
     const tx = body.tx as unknown as Batch;
     assert.equal(tx.TransactionType, "Batch");
@@ -293,7 +293,7 @@ describe("POST /api/onboarding/submit", () => {
     const { tx } = await prepared(cookie);
     const tampered = await submit(cookie, signed(wallet, { ...tx, Fee: "1000" }));
     assert.equal(tampered.statusCode, HTTP_BAD_REQUEST);
-    assert.match(tampered.json<{ error: string }>().error, /not the transaction Bari prepared/);
+    assert.match(tampered.json<{ error: string }>().error, /not the transaction Atlas prepared/);
     const genuine = decode(signed(wallet, tx));
     const signature = String(genuine.TxnSignature);
     const forged = encode({

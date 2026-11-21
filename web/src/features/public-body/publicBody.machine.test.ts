@@ -81,7 +81,7 @@ describe("fichier déposé", () => {
 
   test("une facture dans une autre devise est refusée, sans formulaire", () => {
     const state = run([{ type: "FILE_READ", fileName: "f.xml", reading: { ok: false, reason: "currency", currency: "JPY" } }]);
-    assert.deepEqual(state, { status: "empty", refusal: "This invoice is in JPY. Bari finances invoices in US dollars (USD) only." });
+    assert.deepEqual(state, { status: "empty", refusal: "This invoice is in JPY. Atlas finances invoices in US dollars (USD) only." });
   });
 });
 
@@ -98,7 +98,7 @@ describe("fournisseur retrouvé par son n° de TVA", () => {
     assert.equal(signBlocker(looking), "Looking up the supplier…");
     const unknown = run([{ type: "LOOKUP_DONE", vat: VAT, business: undefined }], looking);
     assert.deepEqual(review(unknown).supplier, { status: "unknown", vat: VAT });
-    assert.equal(signBlocker(unknown), "The supplier needs a Bari account first");
+    assert.equal(signBlocker(unknown), "The supplier needs an Atlas account first");
   });
 
   test("une recherche en échec donne sa cause", () => {

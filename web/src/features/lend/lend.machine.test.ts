@@ -146,7 +146,7 @@ describe("checkDeposit", () => {
     const capped = { ...position, entry: { route: "immediate" as const, max: "3000000000", bariCap: "3000000000" } };
     assert.deepEqual(checkDeposit(capped, "5000"), {
       ok: false,
-      error: "Bari can sell at most 3,000.00 RLUSD of fund shares right now. Enter at most 3,000.00 RLUSD.",
+      error: "Atlas can sell at most 3,000.00 RLUSD of fund shares right now. Enter at most 3,000.00 RLUSD.",
     });
   });
 
@@ -201,7 +201,7 @@ describe("checkWithdraw", () => {
     const capped = { ...holder, exit: { route: "immediate" as const, max: "2000000000", bariCap: "2000000000" } };
     assert.deepEqual(checkWithdraw(capped, "3000"), {
       ok: false,
-      error: "Bari's reserve buys back at most 2,000.00 shares right now. Enter at most 2,000.00, or exit for free at maturity.",
+      error: "Atlas's reserve buys back at most 2,000.00 shares right now. Enter at most 2,000.00, or exit for free at maturity.",
     });
   });
 });
@@ -306,7 +306,7 @@ describe("ordre d'un wallet : préparé par Bari, signé dans Otsu, soumis par B
     shares: "1000000000",
     transactions: [],
   };
-  const sign: LenderOrderResponse = { status: "sign", tx: { TransactionType: "Batch" }, labels: ["Pay 1,020.00 RLUSD to Bari"], transactions: [] };
+  const sign: LenderOrderResponse = { status: "sign", tx: { TransactionType: "Batch" }, labels: ["Pay 1,020.00 RLUSD to Atlas"], transactions: [] };
 
   test("compte géré : la réponse de Bari, sans signature", async () => {
     const events: LendEvent[] = [];

@@ -44,7 +44,7 @@ describe("états de la page", () => {
     });
     assert.deepEqual(txViewFromResponse(500, undefined), {
       status: "error",
-      message: "Bari API unavailable (HTTP 500).",
+      message: "Atlas API unavailable (HTTP 500).",
     });
   });
 });

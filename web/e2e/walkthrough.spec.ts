@@ -43,7 +43,7 @@ async function openWithOtsu(page: Page, credential: string, fillProfile: () => P
   await page.getByRole("button", { name: "Create my account" }).click();
   const onboarding = page.getByTestId("wallet-onboarding");
   await expect(onboarding.getByRole("heading", { name: "Your account is ready." })).toBeVisible({ timeout: ONBOARDING_TIMEOUT_MS });
-  await expect(onboarding.getByTestId("verification-steps")).toContainText(`${credential} credential issued by Bari`);
+  await expect(onboarding.getByTestId("verification-steps")).toContainText(`${credential} credential issued by Atlas`);
   await expect(onboarding.getByTestId("verification-steps")).toContainText("All steps signed at once (Batch)");
   await onboarding.getByRole("button", { name: "Open my space" }).click();
 }
@@ -107,7 +107,7 @@ test("the pitch walkthrough, end to end in the real product", async ({ browser }
         await business.getByLabel("VAT number").fill(vatNumber);
       });
       await expect(business).toHaveURL(/#\/business$/);
-      await expect(business.getByRole("heading", { name: "Ask your client to confirm your invoice on Bari." })).toBeVisible();
+      await expect(business.getByRole("heading", { name: "Ask your client to confirm your invoice on Atlas." })).toBeVisible();
       await expect(business.getByTestId("account-card")).toContainText(company);
       await capture(business, "walkthrough-03-business");
     });
@@ -202,7 +202,7 @@ test("the pitch walkthrough, end to end in the real product", async ({ browser }
       await capture(visitor, "walkthrough-08-transparency");
     });
 
-    await test.step("9. lender withdraws now through Bari, signed in Otsu: RLUSD come back", async () => {
+    await test.step("9. lender withdraws now through Atlas, signed in Otsu: RLUSD come back", async () => {
       const form = lender.getByTestId("lend-withdraw");
       await form.getByRole("button", { name: "All my shares" }).click();
       await form.getByRole("button", { name: "Withdraw", exact: true }).click();

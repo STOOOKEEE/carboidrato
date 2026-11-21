@@ -14,7 +14,7 @@ import {
 } from "./onboarding.machine";
 
 const ADDRESS = "rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY";
-const issued: OnboardingTx = { label: "KYC_INVESTOR credential issued by Bari", hash: "AA" };
+const issued: OnboardingTx = { label: "KYC_INVESTOR credential issued by Atlas", hash: "AA" };
 const tx = { TransactionType: "Batch", Account: ADDRESS, Sequence: 7 };
 const labels = ["Accept your KYC credential", "Open your RLUSD trust line"];
 const signedTxs: OnboardingTx[] = [

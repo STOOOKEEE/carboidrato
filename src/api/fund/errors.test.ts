@@ -45,6 +45,6 @@ describe("makeErrorHandler", () => {
   it("bogue : 500, message générique en anglais", () => {
     const { status, body } = handle(new TypeError("x is undefined"));
     assert.equal(status, 500);
-    assert.equal(body?.error, "Something went wrong on Bari's side. Try again.");
+    assert.equal(body?.error, "Something went wrong on Atlas's side. Try again.");
   });
 });
