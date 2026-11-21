@@ -1,13 +1,23 @@
-// Tests des effets de « Get paid now » : réponses de l'API lues en issues typées, étape suivante du financement.
+// Tests des effets de « Get paid now » : réponses de l'API lues en issues typées, étape suivante du financement,
+// signatures dans Otsu d'une entreprise wallet.
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import type { CertificateResponse, LoanRefusal, LoanResponse, RegistryLookup } from "../../../../src/api/contract";
+import type {
+  CertificateResponse,
+  LoanRefusal,
+  LoanResponse,
+  LoanSignature,
+  PreparedSignature,
+  RegistryLookup,
+} from "../../../../src/api/contract";
+import { WalletRejected } from "../../wallet/sign";
 import type { FundingLoan, FundingProof, FundingState } from "../funding/funding.machine";
 import {
   certificateOutcome,
   loanOutcome,
   nextFundingEvent,
+  OTSU_DECLINED,
   type CertificateOutcome,
   type FundingServices,
   type LoanOutcome,
@@ -117,6 +127,18 @@ function services(overrides: Partial<FundingServices> = {}): FundingServices & {
       calls.push(`borrow ${tokenId}`);
       return loanOutcome(201, loanResponse);
     },
+    sign: async (tx) => {
+      calls.push(`sign ${String(tx.TransactionType)}`);
+      return "S1GNED";
+    },
+    submitCertificate: async (txBlob) => {
+      calls.push(`submitCertificate ${txBlob}`);
+      return certificateOutcome(201, certificateResponse);
+    },
+    submitLoan: async (txBlob) => {
+      calls.push(`submitLoan ${txBlob}`);
+      return loanOutcome(201, loanResponse);
+    },
     ...overrides,
   };
 }
@@ -215,10 +237,89 @@ describe("nextFundingEvent", () => {
     for (const state of [
       { status: "invoiceReady" },
       { status: "duplicate", txHash: "D" },
-      { status: "error", message: "m", retry: { status: "invoiceReady" } },
+      { status: "error", message: "m", retry: { status: "invoiceReady" }, failedAt: "proving" },
     ] as FundingState[]) {
       assert.equal(await nextFundingEvent(state, deps), undefined);
     }
     assert.deepEqual(deps.calls, []);
+  });
+});
+
+describe("entreprise wallet : signatures dans Otsu", () => {
+  const batchTx = { TransactionType: "Batch", Account: "rWANDA" };
+  const loanSetTx = { TransactionType: "LoanSet", Account: "rWANDA" };
+  const certificateSignature: PreparedSignature = { status: "sign", tx: batchTx, labels: ["Register"], transactions: [] };
+  const loanSignature: LoanSignature = { status: "sign", tx: loanSetTx, labels: ["Borrow"], transactions: [], checks: loanResponse.checks };
+  const signingCertificate: FundingState = { status: "signingCertificate", proof, durationMs: 1, tx: batchTx };
+  const signingLoan: FundingState = { status: "signingLoan", durationMs: 1, certificate, checks: loanResponse.checks, tx: loanSetTx };
+
+  test("200 avec une transaction à signer : le Batch du certificat, puis le LoanSet et les contrôles de Bari", () => {
+    assert.deepEqual(certificateOutcome(200, certificateSignature), { kind: "sign", tx: batchTx });
+    assert.deepEqual(loanOutcome(200, loanSignature), { kind: "sign", tx: loanSetTx, checks: loanResponse.checks });
+  });
+
+  test("certifying puis underwriting : Bari renvoie la transaction à signer", async () => {
+    const deps = services({
+      certify: async () => certificateOutcome(200, certificateSignature),
+      borrow: async () => loanOutcome(200, loanSignature),
+    });
+    assert.deepEqual(await nextFundingEvent({ status: "certifying", proof, durationMs: 1 }, deps), {
+      type: "SIGN_CERTIFICATE",
+      tx: batchTx,
+    });
+    assert.deepEqual(await nextFundingEvent({ status: "underwriting", durationMs: 1, certificate }, deps), {
+      type: "SIGN_LOAN",
+      tx: loanSetTx,
+      checks: loanResponse.checks,
+    });
+  });
+
+  test("signing : Otsu signe la transaction telle quelle, sans la soumettre", async () => {
+    const deps = services();
+    assert.deepEqual(await nextFundingEvent(signingCertificate, deps), { type: "SIGNED", txBlob: "S1GNED" });
+    assert.deepEqual(await nextFundingEvent(signingLoan, deps), { type: "SIGNED", txBlob: "S1GNED" });
+    assert.deepEqual(deps.calls, ["sign Batch", "sign LoanSet"]);
+  });
+
+  test("signing : refus dans Otsu → FAILED qui dit comment continuer", async () => {
+    const deps = services({
+      sign: async () => {
+        throw new WalletRejected();
+      },
+    });
+    assert.deepEqual(await nextFundingEvent(signingLoan, deps), { type: "FAILED", message: OTSU_DECLINED });
+    assert.match(OTSU_DECLINED, /declined in Otsu.*Try again/);
+    const missing = services({
+      sign: async () => {
+        throw new Error("Otsu wallet is not available in this browser.");
+      },
+    });
+    assert.deepEqual(await nextFundingEvent(signingCertificate, missing), {
+      type: "FAILED",
+      message: "Otsu wallet is not available in this browser.",
+    });
+  });
+
+  test("submitting : le blob signé repart vers Bari, réponses lues comme pour un compte géré", async () => {
+    const deps = services();
+    assert.deepEqual(await nextFundingEvent({ status: "submittingCertificate", proof, durationMs: 1, txBlob: "B10B" }, deps), {
+      type: "CERTIFIED",
+      certificate,
+    });
+    const submittingLoan: FundingState = { status: "submittingLoan", durationMs: 1, certificate, checks: [], txBlob: "L0B" };
+    assert.deepEqual(await nextFundingEvent(submittingLoan, deps), { type: "FUNDED", loan: fundedLoan });
+    assert.deepEqual(deps.calls, ["submitCertificate B10B", "submitLoan L0B"]);
+
+    const duplicate = services({ submitCertificate: async () => ({ kind: "duplicate", rejectedBy: "REJECTED" }) });
+    assert.deepEqual(await nextFundingEvent({ status: "submittingCertificate", proof, durationMs: 1, txBlob: "B10B" }, duplicate), {
+      type: "DUPLICATE",
+      txHash: "REGISTRATION",
+    });
+    const refused = services({ submitLoan: async () => loanOutcome(422, refusal) });
+    assert.deepEqual(await nextFundingEvent(submittingLoan, refused), {
+      type: "REFUSED",
+      reason: "Exposure above 20 %",
+      checks: refusal.checks,
+    });
   });
 });

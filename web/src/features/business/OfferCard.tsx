@@ -1,5 +1,6 @@
 // Offre de la facture contrôlée et « Get paid now » ; « Already financed » si le registre détient déjà son empreinte.
-import type { PrecheckResponse } from "../../../../src/api/contract";
+// Entreprise wallet : les étapes de signature dans Otsu s'ajoutent à celles de Bari.
+import type { AccountCustody, PrecheckResponse } from "../../../../src/api/contract";
 import { formatDate, formatUsd, formatPercent, formatRlusd } from "../../format";
 import { Button } from "../../ui/Button";
 import { Facts } from "../../ui/Facts";
@@ -13,11 +14,13 @@ import { FundingSteps } from "./FundingSteps";
 interface OfferCardProps {
   precheck: PrecheckResponse;
   funding: FundingState;
+  /** Qui signe pour l'entreprise : Bari (compte géré) ou l'entreprise dans Otsu (wallet). */
+  custody: AccountCustody;
   onGetPaid: () => void;
   onRetry: () => void;
 }
 
-function Outcome({ funding, onGetPaid, onRetry }: Omit<OfferCardProps, "precheck">) {
+function Outcome({ funding, onGetPaid, onRetry }: Omit<OfferCardProps, "precheck" | "custody">) {
   switch (funding.status) {
     case "invoiceReady":
       return (
@@ -51,7 +54,7 @@ function Outcome({ funding, onGetPaid, onRetry }: Omit<OfferCardProps, "precheck
   }
 }
 
-export function OfferCard({ precheck, funding, onGetPaid, onRetry }: OfferCardProps) {
+export function OfferCard({ precheck, funding, custody, onGetPaid, onRetry }: OfferCardProps) {
   if (funding.status === "duplicate") {
     return (
       <section className="step duplicate" data-testid="business-duplicate">
@@ -75,7 +78,7 @@ export function OfferCard({ precheck, funding, onGetPaid, onRetry }: OfferCardPr
       </StepCard>
     );
   }
-  const steps = fundingSteps(funding);
+  const steps = fundingSteps(funding, custody);
   return (
     <StepCard index={2} title="Your offer" done={funding.status === "funded"}>
       <Facts

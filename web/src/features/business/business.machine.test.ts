@@ -198,11 +198,11 @@ describe("invoiceChecks et getPaidBlocker", () => {
 });
 
 describe("fundingSteps", () => {
-  const states = (funding: FundingState) => fundingSteps(funding).map((step) => step.state);
+  const states = (funding: FundingState) => fundingSteps(funding, "managed").map((step) => step.state);
 
-  test("quatre étapes : preuve, certificat, contrôles de Bari, prêt", () => {
+  test("compte géré, quatre étapes : preuve, certificat, contrôles de Bari, prêt", () => {
     assert.deepEqual(
-      fundingSteps({ status: "proving" }).map((step) => step.id),
+      fundingSteps({ status: "proving" }, "managed").map((step) => step.id),
       ["proof", "certificate", "checks", "loan"],
     );
     assert.deepEqual(states({ status: "proving" }), ["current", "pending", "pending", "pending"]);
@@ -210,35 +210,101 @@ describe("fundingSteps", () => {
 
   test("chaque étape terminée montre sa durée ou sa transaction", () => {
     assert.deepEqual(states({ status: "certifying", proof, durationMs: 1_234 }), ["done", "current", "pending", "pending"]);
-    const underwriting = fundingSteps({ status: "underwriting", durationMs: 1_234, certificate });
+    const underwriting = fundingSteps({ status: "underwriting", durationMs: 1_234, certificate }, "managed");
     assert.deepEqual(underwriting.map((step) => step.state), ["done", "done", "current", "pending"]);
     assert.equal(underwriting[0].detail, "in 1.2 s");
     assert.equal(underwriting[1].hash, "C3RT");
   });
 
   test("financé : les contrôles de Bari et le LoanSet", () => {
-    const steps = fundingSteps({ status: "funded", durationMs: 900, certificate, loan });
+    const steps = fundingSteps({ status: "funded", durationMs: 900, certificate, loan }, "managed");
     assert.deepEqual(steps.map((step) => step.state), ["done", "done", "done", "done"]);
     assert.deepEqual(steps[2].checks, loan.checks);
     assert.equal(steps[3].hash, "L0AN");
   });
 
   test("refusé : l'étape des contrôles échoue avec chacun d'eux", () => {
-    const steps = fundingSteps({ status: "refused", durationMs: 900, certificate, reason: "Exposure above 20 %", checks });
+    const steps = fundingSteps({ status: "refused", durationMs: 900, certificate, reason: "Exposure above 20 %", checks }, "managed");
     assert.deepEqual(steps.map((step) => step.state), ["done", "done", "failed", "pending"]);
     assert.deepEqual(steps[2].checks, checks);
     assert.equal(steps[2].detail, "Exposure above 20 %");
   });
 
-  test("erreur : l'étape suivant le dernier point stable échoue avec le message", () => {
-    const steps = fundingSteps({ status: "error", message: "ledger timeout", retry: { status: "proved", proof, durationMs: 900 } });
+  test("erreur : l'étape qui a échoué porte le message", () => {
+    const retry = { status: "proved", proof, durationMs: 900 } as const;
+    const steps = fundingSteps({ status: "error", message: "ledger timeout", retry, failedAt: "certifying" }, "managed");
     assert.deepEqual(steps.map((step) => step.state), ["done", "failed", "pending", "pending"]);
     assert.equal(steps[1].detail, "ledger timeout");
   });
 
   test("aucune étape avant « Get paid now » ni pour une facture déjà financée", () => {
-    assert.deepEqual(fundingSteps({ status: "invoiceReady" }), []);
-    assert.deepEqual(fundingSteps({ status: "duplicate", txHash: "D" }), []);
+    assert.deepEqual(fundingSteps({ status: "invoiceReady" }, "wallet"), []);
+    assert.deepEqual(fundingSteps({ status: "duplicate", txHash: "D" }, "wallet"), []);
+  });
+
+  describe("entreprise wallet : signatures dans Otsu", () => {
+    const walletStates = (funding: FundingState) => fundingSteps(funding, "wallet").map((step) => step.state);
+    const tx = { TransactionType: "Batch" };
+
+    test("six étapes : le certificat puis le prêt se signent dans Otsu", () => {
+      assert.deepEqual(
+        fundingSteps({ status: "proving" }, "wallet").map((step) => step.label),
+        [
+          "Proof computed in your browser",
+          "Sign the certificate in Otsu",
+          "Invoice certificate on the ledger",
+          "Bari's checks",
+          "Sign the loan in Otsu",
+          "Loan signed, money sent",
+        ],
+      );
+    });
+
+    test("en attente de signature : l'étape dit d'approuver dans Otsu", () => {
+      const signing = fundingSteps({ status: "signingCertificate", proof, durationMs: 900, tx }, "wallet");
+      assert.deepEqual(signing.map((step) => step.state), ["done", "current", "pending", "pending", "pending", "pending"]);
+      assert.equal(signing[1].detail, "Approve the request in the Otsu window");
+      const signingLoan = fundingSteps({ status: "signingLoan", durationMs: 900, certificate, checks, tx }, "wallet");
+      assert.deepEqual(signingLoan.map((step) => step.state), ["done", "done", "done", "done", "current", "pending"]);
+      assert.equal(signingLoan[2].hash, "C3RT");
+      assert.deepEqual(signingLoan[3].checks, checks);
+      assert.equal(signingLoan[4].detail, "Approve the request in the Otsu window");
+    });
+
+    test("blob signé envoyé : le certificat puis le prêt sont en cours sur le ledger", () => {
+      assert.deepEqual(walletStates({ status: "submittingCertificate", proof, durationMs: 900, txBlob: "B" }), [
+        "done",
+        "done",
+        "current",
+        "pending",
+        "pending",
+        "pending",
+      ]);
+      assert.deepEqual(walletStates({ status: "submittingLoan", durationMs: 900, certificate, checks, txBlob: "L" }), [
+        "done",
+        "done",
+        "done",
+        "done",
+        "done",
+        "current",
+      ]);
+    });
+
+    test("financé : chaque transaction a son lien", () => {
+      const steps = fundingSteps({ status: "funded", durationMs: 900, certificate, loan }, "wallet");
+      assert.ok(steps.every((step) => step.state === "done"));
+      assert.deepEqual(steps.flatMap((step) => (step.hash === undefined ? [] : [step.hash])), ["C3RT", "L0AN"]);
+    });
+
+    test("refus dans Otsu : l'étape de signature échoue avec le message", () => {
+      const declined = "The request was declined in Otsu. Click Try again, then approve it in the Otsu window.";
+      const steps = fundingSteps(
+        { status: "error", message: declined, retry: { status: "certified", durationMs: 900, certificate }, failedAt: "signingLoan" },
+        "wallet",
+      );
+      assert.deepEqual(steps.map((step) => step.state), ["done", "done", "done", "done", "failed", "pending"]);
+      assert.equal(steps[4].detail, declined);
+    });
   });
 
   test("formatDuration", () => {

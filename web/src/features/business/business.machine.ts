@@ -1,12 +1,20 @@
 // Machine d'état pure de l'espace entreprise : fichier signé, pré-contrôle et offre, financement, factures du compte.
 
-import type { AttestedInvoiceFile, BusinessInvoice, CheckId, LoanCheck, PrecheckResponse } from "../../../../src/api/contract";
+import type {
+  AccountCustody,
+  AttestedInvoiceFile,
+  BusinessInvoice,
+  CheckId,
+  LoanCheck,
+  PrecheckResponse,
+} from "../../../../src/api/contract";
 import { formatRlusd } from "../../format";
 import { parseJsonOrUndefined } from "../../json";
 import {
   initialFundingState,
   isFundingBusy,
   transition,
+  type ActiveState,
   type FundingEvent,
   type FundingLoan,
   type FundingState,
@@ -133,8 +141,10 @@ export function businessTransition(state: BusinessState, event: BusinessEvent): 
 
 export type FundingStepState = "done" | "current" | "failed" | "pending";
 
+type StepId = "proof" | "signCertificate" | "certificate" | "checks" | "signLoan" | "loan";
+
 export interface FundingStep {
-  id: "proof" | "certificate" | "checks" | "loan";
+  id: StepId;
   label: string;
   state: FundingStepState;
   detail?: string;
@@ -142,77 +152,115 @@ export interface FundingStep {
   checks?: LoanCheck[];
 }
 
-const STEP_LABELS: Record<FundingStep["id"], string> = {
+const STEP_LABELS: Record<StepId, string> = {
   proof: "Proof computed in your browser",
+  signCertificate: "Sign the certificate in Otsu",
   certificate: "Invoice certificate on the ledger",
   checks: "Bari's checks",
+  signLoan: "Sign the loan in Otsu",
   loan: "Loan signed, money sent",
 };
-const STEP_IDS = Object.keys(STEP_LABELS) as FundingStep["id"][];
+/** Compte géré : Bari signe tout ; wallet : l'entreprise signe en plus le certificat puis le prêt dans Otsu. */
+const STEPS: Record<AccountCustody, readonly StepId[]> = {
+  managed: ["proof", "certificate", "checks", "loan"],
+  wallet: ["proof", "signCertificate", "certificate", "checks", "signLoan", "loan"],
+};
+const OTSU_PROMPT = "Approve the request in the Otsu window";
 const MS_PER_SECOND = 1_000;
 
 export const formatDuration = (ms: number) => `${(ms / MS_PER_SECOND).toFixed(1)} s`;
 
-/** Où en est le financement : étapes terminées, étape en cours ou en échec (avec la raison), et ce qui est connu. */
-interface Progress {
-  done: number;
-  active?: { state: "current" | "failed"; detail?: string };
+/** Étape de chaque état en cours ; avant la signature du certificat, un wallet attend que Bari le prépare. */
+function activeStep(status: ActiveState["status"], custody: AccountCustody): StepId {
+  switch (status) {
+    case "proving":
+      return "proof";
+    case "proved":
+    case "certifying":
+      return custody === "wallet" ? "signCertificate" : "certificate";
+    case "signingCertificate":
+      return "signCertificate";
+    case "submittingCertificate":
+      return "certificate";
+    case "certified":
+    case "underwriting":
+      return "checks";
+    case "signingLoan":
+      return "signLoan";
+    case "submittingLoan":
+      return "loan";
+  }
+}
+
+/** Ce qui est déjà connu : durée de la preuve, certificat, contrôles de Bari, prêt. */
+interface Known {
   durationMs?: number;
   certificateTx?: string;
   checks?: LoanCheck[];
   loan?: FundingLoan;
 }
 
-function progressOf(funding: FundingState): Progress | undefined {
+function knownOf(funding: FundingState): Known {
   switch (funding.status) {
     case "invoiceReady":
     case "duplicate":
-      return undefined;
     case "proving":
-      return { done: 0, active: { state: "current" } };
+      return {};
     case "proved":
     case "certifying":
-      return { done: 1, active: { state: "current" }, durationMs: funding.durationMs };
+    case "signingCertificate":
+    case "submittingCertificate":
+      return { durationMs: funding.durationMs };
     case "certified":
     case "underwriting":
-      return { done: 2, active: { state: "current" }, durationMs: funding.durationMs, certificateTx: funding.certificate.txHash };
-    case "funded":
-      return {
-        done: 4,
-        durationMs: funding.durationMs,
-        certificateTx: funding.certificate.txHash,
-        checks: funding.loan.checks,
-        loan: funding.loan,
-      };
+      return { durationMs: funding.durationMs, certificateTx: funding.certificate.txHash };
+    case "signingLoan":
+    case "submittingLoan":
     case "refused":
-      return {
-        done: 2,
-        active: { state: "failed", detail: funding.reason },
-        durationMs: funding.durationMs,
-        certificateTx: funding.certificate.txHash,
-        checks: funding.checks,
-      };
-    case "error": {
-      const before = progressOf(funding.retry);
-      return { ...before, done: before?.done ?? 0, active: { state: "failed", detail: funding.message } };
-    }
+      return { durationMs: funding.durationMs, certificateTx: funding.certificate.txHash, checks: funding.checks };
+    case "funded":
+      return { durationMs: funding.durationMs, certificateTx: funding.certificate.txHash, checks: funding.loan.checks, loan: funding.loan };
+    case "error":
+      return knownOf(funding.retry);
   }
 }
 
-/** Les quatre étapes de « Get paid now », chacune avec sa durée, sa transaction ou les contrôles de Bari. */
-export function fundingSteps(funding: FundingState): FundingStep[] {
-  const progress = progressOf(funding);
-  if (progress === undefined) return [];
-  const { durationMs, certificateTx, checks, loan, active } = progress;
-  const known: Record<FundingStep["id"], Partial<FundingStep>> = {
+/** Étape en cours ou en échec, avec sa consigne ou sa raison ; undefined quand tout est fait. */
+function activeOf(
+  funding: Exclude<FundingState, { status: "invoiceReady" | "duplicate" }>,
+  custody: AccountCustody,
+): { id: StepId; state: "current" | "failed"; detail?: string } | undefined {
+  switch (funding.status) {
+    case "funded":
+      return undefined;
+    case "refused":
+      return { id: "checks", state: "failed", detail: funding.reason };
+    case "error":
+      return { id: activeStep(funding.failedAt, custody), state: "failed", detail: funding.message };
+    case "signingCertificate":
+    case "signingLoan":
+      return { id: activeStep(funding.status, custody), state: "current", detail: OTSU_PROMPT };
+    default:
+      return { id: activeStep(funding.status, custody), state: "current" };
+  }
+}
+
+/** Les étapes de « Get paid now », chacune avec sa durée, sa transaction ou les contrôles de Bari. */
+export function fundingSteps(funding: FundingState, custody: AccountCustody): FundingStep[] {
+  if (funding.status === "invoiceReady" || funding.status === "duplicate") return [];
+  const { durationMs, certificateTx, checks, loan } = knownOf(funding);
+  const active = activeOf(funding, custody);
+  const ids = STEPS[custody];
+  const activeIndex = active === undefined ? ids.length : ids.indexOf(active.id);
+  const known: Partial<Record<StepId, Partial<FundingStep>>> = {
     proof: durationMs === undefined ? {} : { detail: `in ${formatDuration(durationMs)}` },
     certificate: certificateTx === undefined ? {} : { hash: certificateTx },
     checks: checks === undefined ? {} : { checks },
     loan: loan === undefined ? {} : { hash: loan.txHash, detail: `${formatRlusd(loan.netAdvanceRlusd)} received` },
   };
-  return STEP_IDS.map((id, index) => {
-    const current = index === progress.done ? active : undefined;
-    const state: FundingStepState = index < progress.done ? "done" : (current?.state ?? "pending");
+  return ids.map((id, index) => {
+    const current = index === activeIndex ? active : undefined;
+    const state: FundingStepState = index < activeIndex ? "done" : (current?.state ?? "pending");
     return { id, label: STEP_LABELS[id], state, ...known[id], ...(current?.detail === undefined ? {} : { detail: current.detail }) };
   });
 }

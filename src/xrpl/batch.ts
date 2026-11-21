@@ -15,7 +15,7 @@ import {
   type Wallet,
 } from "xrpl";
 import { log } from "../lib/logger.js";
-import { rippledErrorCode } from "./rippledError.js";
+import { xrplLedger, type Ledger } from "./ledger.js";
 import { submitSignedBlob, UnexpectedTxResult, type TxOutcome } from "./submit.js";
 
 const SUCCESS = "tesSUCCESS";
@@ -42,6 +42,9 @@ export interface InnerOutcome {
   meta: TransactionMetadata;
 }
 
+/** Prochaine séquence d'un compte sur le nœud. */
+export type SequenceLookup = (account: string) => Promise<number>;
+
 /**
  * Attribue les séquences d'un Batch : le Batch externe consomme la prochaine séquence du soumetteur,
  * puis chaque transaction interne prend la suivante de son compte, dans l'ordre d'appel.
@@ -50,7 +53,7 @@ export class BatchSequencer {
   private readonly nextByAccount = new Map<string, number>();
 
   private constructor(
-    private readonly client: Client,
+    private readonly lookup: SequenceLookup,
     readonly outerSequence: number,
     submitter: string,
   ) {
@@ -58,11 +61,17 @@ export class BatchSequencer {
   }
 
   static async open(client: Client, submitter: string): Promise<BatchSequencer> {
-    return new BatchSequencer(client, await currentSequence(client, submitter), submitter);
+    const lookup: SequenceLookup = (account) => currentSequence(client, account);
+    return new BatchSequencer(lookup, await lookup(submitter), submitter);
+  }
+
+  /** Séquence du soumetteur déjà lue (`outerSequence`) ; celles des autres comptes par `lookup`. */
+  static from(lookup: SequenceLookup, submitter: string, outerSequence: number): BatchSequencer {
+    return new BatchSequencer(lookup, outerSequence, submitter);
   }
 
   async next(account: string): Promise<number> {
-    const sequence = this.nextByAccount.get(account) ?? (await currentSequence(this.client, account));
+    const sequence = this.nextByAccount.get(account) ?? (await this.lookup(account));
     this.nextByAccount.set(account, sequence + 1);
     return sequence;
   }
@@ -90,6 +99,11 @@ export function allOrNothingBatch(account: string, inner: readonly SubmittableTr
   };
 }
 
+/** Hashes des transactions internes d'un Batch complété : connus avant sa soumission. */
+export function innerHashesOf(batch: Batch): string[] {
+  return batch.RawTransactions.map(({ RawTransaction }) => hashes.hashSignedTx(RawTransaction));
+}
+
 /** Construit, co-signe, signe et soumet le Batch ; lève une erreur si le Batch externe n'est pas tesSUCCESS. */
 export async function submitAllOrNothingBatch(
   client: Client,
@@ -110,18 +124,14 @@ export async function submitAllOrNothingBatch(
   signMultiBatch(cosigner, prepared);
   const { tx_blob, hash } = submitter.sign(prepared);
   const outcome = await submitSignedBlob(client, tx_blob, hash, label);
-  const innerHashes = prepared.RawTransactions.map(({ RawTransaction }) => hashes.hashSignedTx(RawTransaction));
-  return { outcome, innerHashes };
+  return { outcome, innerHashes: innerHashesOf(prepared) };
 }
 
-async function findValidatedTx(client: Client, hash: string): Promise<InnerOutcome | undefined> {
-  const response = await client.request({ command: "tx", transaction: hash }).catch((error: unknown) => {
-    if (rippledErrorCode(error) === "txnNotFound") return undefined;
-    throw error;
-  });
-  if (response === undefined) return undefined;
-  const meta = response.result.meta;
-  if (!response.result.validated || meta === undefined || typeof meta === "string") {
+async function findValidatedTx(ledger: Ledger, hash: string): Promise<InnerOutcome | undefined> {
+  const found = await ledger.transaction(hash);
+  if (found === undefined) return undefined;
+  const meta = found.meta;
+  if (!found.validated || meta === undefined || typeof meta === "string") {
     throw new Error(`Transaction interne ${hash} présente mais non validée`);
   }
   return { hash, result: meta.TransactionResult, meta };
@@ -132,11 +142,11 @@ async function findValidatedTx(client: Client, hash: string): Promise<InnerOutco
  * Renvoie leurs résultats si toutes ont réussi, undefined si aucune n'a été appliquée ; tout autre cas est incohérent.
  */
 export async function readAllOrNothingOutcome(
-  client: Client,
+  ledger: Ledger,
   submission: BatchSubmission,
   inner: readonly InnerTransaction[],
 ): Promise<InnerOutcome[] | undefined> {
-  const found = await Promise.all(submission.innerHashes.map((hash) => findValidatedTx(client, hash)));
+  const found = await Promise.all(submission.innerHashes.map((hash) => findValidatedTx(ledger, hash)));
   found.forEach((entry, index) => {
     log.tx(`  ↳ ${inner[index].label}`, submission.innerHashes[index], entry?.result ?? "absente du ledger");
   });
@@ -169,7 +179,7 @@ export function clientBatchSubmitter(client: Client): SubmitBatch {
       inner.push({ tx: { ...tx, Sequence: await sequencer.next(tx.Account) }, label: innerLabel });
     }
     const submission = await submitAllOrNothingBatch(client, submitter, cosigner, sequencer, inner, label);
-    if ((await readAllOrNothingOutcome(client, submission, inner)) === undefined) {
+    if ((await readAllOrNothingOutcome(xrplLedger(client), submission, inner)) === undefined) {
       throw new UnexpectedTxResult(label, "aucune transaction interne appliquée", submission.outcome.hash);
     }
     return submission.outcome;
