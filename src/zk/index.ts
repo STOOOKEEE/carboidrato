@@ -6,6 +6,7 @@ export {
   attestInvoice,
   computeAttestedMessage,
   computeInvoiceUuid,
+  debtorFromKeys,
   deriveDebtor,
   invoiceNullifier,
   verifyAttestation,

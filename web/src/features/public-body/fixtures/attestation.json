@@ -1,0 +1,48 @@
+{
+  "keys": {
+    "name": "Regione Puglia",
+    "ipaCode": "r_puglia",
+    "eddsaPrivateKey": "0101010101010101010101010101010101010101010101010101010101010101",
+    "hmacKey": "0202020202020202020202020202020202020202020202020202020202020202",
+    "publicKey": {
+      "ax": "15944627324083773346390189001500210680939402028015651549526524193195473201952",
+      "ay": "17251889856797524237981285661279357764562574766148660962999867467495459148286"
+    }
+  },
+  "supplierAccount": "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe",
+  "invoice": {
+    "number": "ft 2026-0901",
+    "issueDate": "2026-11-20",
+    "amountCents": "2379000",
+    "dueDate": "2027-01-19",
+    "description": "Manutenzione strade provinciali"
+  },
+  "networkId": 1000,
+  "registry": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
+  "file": {
+    "format": "bari.attested-invoice.v1",
+    "invoice": {
+      "number": "ft 2026-0901",
+      "debtorName": "Regione Puglia",
+      "description": "Manutenzione strade provinciali",
+      "issueDate": "2026-11-20T00:00:00.000Z"
+    },
+    "attestation": {
+      "account": "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe",
+      "amountCents": "2379000",
+      "dueDate": "1800316800",
+      "networkId": 1000,
+      "registry": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
+      "uuid": "00BF499098243AD60C2ECA0A1340C1FA260E2D385995DD238BB1BC78712F7E91",
+      "debtorPublicKey": {
+        "ax": "15944627324083773346390189001500210680939402028015651549526524193195473201952",
+        "ay": "17251889856797524237981285661279357764562574766148660962999867467495459148286"
+      },
+      "signature": {
+        "r8x": "15670063297927107162102937083096216556017070283453626216871098055736668560950",
+        "r8y": "655589136748755091290138922519374079389594617561188322790084597138410451507",
+        "s": "323033207621135247067806536028137917491223214513080676681742578981211873725"
+      }
+    }
+  }
+}

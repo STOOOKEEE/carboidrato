@@ -61,18 +61,17 @@ function hmac(key: string | Buffer, data: string): Buffer {
   return createHmac("sha256", key).update(data).digest();
 }
 
-/** Débiteur de démo, dérivé de façon déterministe de DEMO_DEBTOR_SECRET et de son nom. */
-export async function deriveDebtor(name: string): Promise<DebtorIdentity> {
-  const master = hmac(DEMO_DEBTOR_SECRET, name);
-  const eddsaPrivateKey = hmac(master, EDDSA_KEY_LABEL);
+/** Débiteur à partir de ses clés brutes : la clé publique EdDSA est recalculée. */
+export async function debtorFromKeys(name: string, eddsaPrivateKey: Buffer, hmacKey: Buffer): Promise<DebtorIdentity> {
   const eddsa = await getEddsa();
   const [ax, ay] = eddsa.prv2pub(eddsaPrivateKey);
-  return {
-    name,
-    hmacKey: hmac(master, HMAC_KEY_LABEL),
-    eddsaPrivateKey,
-    publicKey: { ax: eddsa.F.toObject(ax), ay: eddsa.F.toObject(ay) },
-  };
+  return { name, hmacKey, eddsaPrivateKey, publicKey: { ax: eddsa.F.toObject(ax), ay: eddsa.F.toObject(ay) } };
+}
+
+/** Débiteur de démo, dérivé de façon déterministe de DEMO_DEBTOR_SECRET et de son nom. */
+export function deriveDebtor(name: string): Promise<DebtorIdentity> {
+  const master = hmac(DEMO_DEBTOR_SECRET, name);
+  return debtorFromKeys(name, hmac(master, EDDSA_KEY_LABEL), hmac(master, HMAC_KEY_LABEL));
 }
 
 /** uuid = HMAC-SHA256(secret du débiteur, n° officiel), réduit à ses 31 premiers octets (< module BN254). */

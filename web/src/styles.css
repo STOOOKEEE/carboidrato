@@ -1034,3 +1034,32 @@ h2 {
     grid-column: 2;
   }
 }
+
+/* Espace organisme public */
+
+.public-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  max-width: none;
+}
+
+.public-panel > * {
+  margin: 0;
+}
+
+.public-panel h2 {
+  font-size: 1.5rem;
+}
+
+.public-panel .field,
+.public-panel .offer-table,
+.public-panel .details {
+  align-self: stretch;
+}
+
+.public-file,
+.public-address {
+  overflow-wrap: anywhere;
+}
