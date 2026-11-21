@@ -356,3 +356,15 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 **Vérifié :** tests rouges puis verts ; `npm test` 370/370 ; AlphaNet : `transparency.spec.ts` (« 7/7 proofs verified in your browser », puis une seconde vérification), `demo:fund` relancé deux fois (comptes réutilisés, factures non enregistrées), connexion des trois comptes → 200.
 
 À savoir : `demo:fund` écrit le fichier des utilisateurs ; le lancer avant l'API, comme le fait la config Playwright.
+
+## 2026-11-21 · Parcours complet en e2e, tous les boutons, README
+
+**Quoi :**
+- `web/e2e/walkthrough.spec.ts` : le parcours du pitch en un test, une étape par moment (landing, prêteur inscrit qui dépose 5 000 EURc, entreprise inscrite, organisme qui signe une FatturaPA dans la page, offre 9 000 €, 8 955 € reçus, preuve décodée au lien du certificat, « Already financed », Transparency k/k, retrait immédiat). Comptes, TVA et numéro de facture uniques, Regione Puglia comme débiteur, prêt remboursé à la fin.
+- `web/e2e/buttons.spec.ts` : chaque écran déclare ses boutons et liens attendus avec leur effet (navigation, réponse 2xx, téléchargement, ouverture d'un détail) ; un contrôle visible absent de la liste fait échouer le test. Sur chaque écran : aucun texte « demo », aucun bouton désactivé sans raison affichée.
+- `ui/DropZone.tsx` : pendant le traitement, le bouton désactivé porte sa raison (« Working… ») en titre, comme `Button`.
+- `README.md` : pitch, parcours, ce que garantit la preuve, fonctionnalités XRPL avec leurs fichiers, lancement local, limites connues, déclaration IA.
+
+**Pourquoi :** le parcours du pitch et chaque bouton de l'interface sont rejoués sur le réseau avant la démo ; le README explique le projet au jury.
+
+**Vérifié :** AlphaNet : `walkthrough.spec.ts` 1/1 (1,3 min), `buttons.spec.ts` 7/7 (1,9 min), puis la suite e2e complète ; `npm test`, typecheck et build verts.
