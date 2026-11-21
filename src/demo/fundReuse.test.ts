@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import type { FundState } from "../api/fund/stateStore.js";
-import { isReusable } from "./fundReuse.js";
+import { isReusable, MAIRIE_REPAYMENTS_AHEAD, mairieTopUp } from "./fundReuse.js";
 
 const DAY_S = 86_400;
 const SUBSCRIPTION_DATE = 1_000_000;
@@ -57,5 +57,23 @@ describe("réutilisation du fonds de démo", () => {
 
   test("un fonds en phase de rachat n'est pas réutilisé", () => {
     assert.equal(isReusable(fundState(), REDEMPTION_DATE), false);
+  });
+});
+
+describe("réserve de la mairie pour les remboursements", () => {
+  const REPAYMENT = 10_000_000_000n;
+  const FLOOR = REPAYMENT * BigInt(MAIRIE_REPAYMENTS_AHEAD);
+
+  test("une mairie vide est remontée au plancher", () => {
+    assert.equal(mairieTopUp(0n, REPAYMENT), FLOOR);
+  });
+
+  test("seul le manque est envoyé", () => {
+    assert.equal(mairieTopUp(REPAYMENT, REPAYMENT), FLOOR - REPAYMENT);
+  });
+
+  test("rien n'est envoyé au plancher ou au-dessus", () => {
+    assert.equal(mairieTopUp(FLOOR, REPAYMENT), 0n);
+    assert.equal(mairieTopUp(FLOOR + 1n, REPAYMENT), 0n);
   });
 });
