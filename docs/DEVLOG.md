@@ -472,3 +472,25 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 **Pourquoi :** nouvelle direction artistique de l'équipe pour le pitch, et le nom la suit. Les noms internes restent : les changer casserait l'état du fonds sur l'AlphaNet, les factures déjà signées et le calcul de `N`.
 
 **Vérifié :** `checks.sh` complet sur la DA (22 e2e verts) ; après le renommage, `npm test` 544/544, typecheck, build, les 22 e2e (15 dans le passage complet, `buttons.spec.ts` relancé seul après la correction du nom du lien du logo) et les contrôles de fin de `checks.sh`, gitleaks compris. Les e2e prennent environ trois fois plus longtemps (21 min contre 7,4) : sans écran, Chromium dessine le fond WebGL sans carte graphique.
+
+## 2026-11-21 · Déploiement sur hermes (alphanet)
+
+**Quoi :** `infra/app/deploy.sh` (depuis le Mac) copie une révision du dépôt sur hermes et lance `infra/app/run.sh`. Ce script fait `npm ci` et `web:build`, avec en option `INIT_FUND=1` pour lancer `demo:fund`. Il relance ensuite l'API (`bari-api`, 127.0.0.1:8798) et le front (`bari-web`, `vite preview`, 127.0.0.1:4180, qui relaie `/api`) dans des conteneurs `node:22`, puis expose le front par un quick tunnel Cloudflare (`bari-web-public`).
+
+**Pourquoi :** rendre l'application accessible au jury et à l'équipe, sans ouvrir de port sur hermes.
+
+**Cheminement :**
+- L'API reçoit l'URL publique du nœud dans `XRPL_WS`, parce que `/api/network` renvoie cette même URL aux navigateurs (configuration d'Otsu).
+- L'état (wallets, fonds, comptes, `app.env`) est dans `~/dev/bari-app/state` (700). `.hack/` (identifiants du pitch) est conservé entre deux déploiements.
+- Le tunnel n'est recréé que s'il n'existe pas, pour que l'URL reste stable d'un redéploiement à l'autre.
+- Les ports 8788 et 4173 sont déjà pris sur hermes par tilt-house.
+
+**Vérifié :**
+- Landing en 200 ; `/api/network` renvoie l'URL wss publique du nœud ; Transparence vérifie 2/2 preuves dans le navigateur.
+- L'API n'est pas joignable par l'IP de hermes : seuls 127.0.0.1:8798 et :4180 écoutent.
+
+**Bugs & fix :**
+- `demo:fund` échouait (ENOENT sur `.hack/pitch-accounts.md`, dossier gitignoré absent de l'archive) : `run.sh` le crée.
+- Les comptes du pitch créés pendant ces échecs étaient sans mot de passe : fichier des comptes supprimé puis recréé (le secret de session est régénéré au passage).
+
+**Limite :** l'application dépend du nœud alphanet (genesis neuf à chaque redémarrage) et de son tunnel public. Si l'un des deux redémarre, il faut relancer `INIT_FUND=1 bash infra/app/deploy.sh`.
