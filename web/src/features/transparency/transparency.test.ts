@@ -66,7 +66,7 @@ function loan(sequence: number, nullifier: string, pseudonym: string, overrides:
   };
 }
 
-/** 100 500 € d'actif ; P1 : un prêt en cours (9 000 €) et un remboursé ; P2 : 4 500 € en cours. */
+/** 100 500 RLUSD d'actif ; P1 : un prêt en cours (9 000 RLUSD) et un remboursé ; P2 : 4 500 RLUSD en cours. */
 function auditOf(loans: AuditLoan[], fundAssets = 100_500n * EUR): FundAudit {
   return {
     vaultId: hex64("E1"),
@@ -214,7 +214,7 @@ describe("agrégats du fonds", () => {
         ["proofs", "2/3"],
         ["debtors", "2"],
         ["exposure", "8.95%"],
-        ["price", "€1.0050"],
+        ["price", "1.0050 RLUSD"],
         ["lent", "13.43%"],
       ],
     );
@@ -240,9 +240,9 @@ describe("tableau des prêts", () => {
         hash,
       })),
       [
-        { sequence: 1, status: "Active", principal: "€9,000.00", due: "18 Feb 2027", debtor: "B1B1…B1B1", fingerprint: "A1A1…A1A1", proof: "Verified", proofState: "ok", hash: hex64("D1") },
-        { sequence: 2, status: "Repaid", principal: "€9,000.00", due: "—", debtor: "B1B1…B1B1", fingerprint: "A2A2…A2A2", proof: "Invalid proof", proofState: "bad", hash: hex64("D2") },
-        { sequence: 3, status: "Active", principal: "€4,500.00", due: "18 Feb 2027", debtor: "B2B2…B2B2", fingerprint: "A3A3…A3A3", proof: "Does not match this loan", proofState: "bad", hash: hex64("D3") },
+        { sequence: 1, status: "Active", principal: "9,000.00 RLUSD", due: "18 Feb 2027", debtor: "B1B1…B1B1", fingerprint: "A1A1…A1A1", proof: "Verified", proofState: "ok", hash: hex64("D1") },
+        { sequence: 2, status: "Repaid", principal: "9,000.00 RLUSD", due: "—", debtor: "B1B1…B1B1", fingerprint: "A2A2…A2A2", proof: "Invalid proof", proofState: "bad", hash: hex64("D2") },
+        { sequence: 3, status: "Active", principal: "4,500.00 RLUSD", due: "18 Feb 2027", debtor: "B2B2…B2B2", fingerprint: "A3A3…A3A3", proof: "Does not match this loan", proofState: "bad", hash: hex64("D3") },
       ],
     );
     const defaulted = auditOf([loan(1, N1, P1, { reference: undefined, status: "defaulted" })]);

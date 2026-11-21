@@ -12,6 +12,7 @@ import { decodeCertificateMetadata } from "../../../invoice/certificateMetadata.
 import { DEMO_DEBTOR } from "../../../invoice/debtors.js";
 import { INVOICE_TOKEN_SUPPLY } from "../../../invoice/invoiceToken.js";
 import { FakeLedger } from "../../../xrpl/fakeLedger.js";
+import { RLUSD_CURRENCY } from "../../../xrpl/stablecoin.js";
 import { PUBLIC_SIGNAL_ORDER, releaseZkResources } from "../../../zk/index.js";
 import type { BusinessInvoice, LoanRefusal, OfferSchedule } from "../../contract.js";
 import { buildApp } from "../app.js";
@@ -87,7 +88,7 @@ function putMarcoInvoiceOnLedger(): void {
     MPTokenMetadata: certificate.metadataHex,
   } as LedgerEntry.MPTokenIssuance);
   ledger.putMptBalance(INVOICE_TOKEN_ID, actors.bari.address, INVOICE_TOKEN_SUPPLY);
-  ledger.putVault({ index: fund.cohort.vaultId, AssetsTotal: "100000000000" } as LedgerEntry.Vault);
+  ledger.putVault({ index: fund.cohort.vaultId, AssetsTotal: "100000" } as LedgerEntry.Vault);
 }
 
 before(async () => {
@@ -117,7 +118,7 @@ before(async () => {
   });
 
   fund = {
-    assetId: "00000002".padEnd(48, "E"),
+    stablecoin: { currency: RLUSD_CURRENCY, issuer: actors.stable_issuer.address },
     domainId: "D".repeat(64),
     cohort: { vaultId: "1".repeat(64), shareMptId: "00000005".padEnd(48, "F"), subscriptionDate: 0, redemptionDate: REDEMPTION_DATE },
     brokerId: "A".repeat(64),

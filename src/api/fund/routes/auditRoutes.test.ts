@@ -12,6 +12,7 @@ import { decodeCertificateMetadata } from "../../../invoice/certificateMetadata.
 import { DEMO_DEBTOR } from "../../../invoice/debtors.js";
 import { INVOICE_TOKEN_SUPPLY } from "../../../invoice/invoiceToken.js";
 import { FakeLedger } from "../../../xrpl/fakeLedger.js";
+import { RLUSD_CURRENCY } from "../../../xrpl/stablecoin.js";
 import { PUBLIC_SIGNAL_ORDER, releaseZkResources } from "../../../zk/index.js";
 import { PROOF_PUBLIC_SIGNALS, type FundAudit } from "../../contract.js";
 import { buildApp } from "../app.js";
@@ -27,9 +28,12 @@ const SHARE_ID = "0B".repeat(24);
 const INVOICE_TOKEN_ID = "0A".repeat(24);
 const LOAN_ID = "1A".repeat(32);
 const LOAN_SET_HASH = "2A".repeat(32);
-const PRINCIPAL = "9000000000";
-/** 100 500 € d'actif pour 100 000 parts : 1,005 € la part. */
-const ASSETS_TOTAL = "100500000000";
+/** Principal du prêt : valeur RLUSD du ledger, et en unités dans la réponse. */
+const PRINCIPAL = "9000";
+const PRINCIPAL_UNITS = "9000000000";
+/** 100 500 RLUSD d'actif pour 100 000 parts affichées : 1,005 RLUSD la part. */
+const ASSETS_TOTAL = "100500";
+const ASSETS_TOTAL_UNITS = "100500000000";
 const SHARES_OUTSTANDING = "100000000000";
 const DUE_DATE_ISO = "2027-02-18T00:00:00.000Z";
 
@@ -39,7 +43,7 @@ let certificate: InvoiceCertificate;
 
 function fundOf(registry: string, debtorsRoot: string): Fund {
   return {
-    assetId: "0E".repeat(24),
+    stablecoin: { currency: RLUSD_CURRENCY, issuer: Wallet.generate().address },
     domainId: "0F".repeat(32),
     brokerId: BROKER_ID,
     cohort: { vaultId: VAULT_ID, shareMptId: SHARE_ID, subscriptionDate: 0, redemptionDate: 10_000 },
@@ -56,7 +60,7 @@ function ledgerWithLoan(fund: Fund, bari: string): FakeLedger {
     Owner: bari,
     Data: encodeFundManifest(fund.manifest),
     AssetsTotal: ASSETS_TOTAL,
-    AssetsAvailable: "91500000000",
+    AssetsAvailable: "91500",
     LossUnrealized: "0",
   } as LedgerEntry.Vault);
   ledger.putLoanBroker({
@@ -65,7 +69,7 @@ function ledgerWithLoan(fund: Fund, bari: string): FakeLedger {
     Owner: bari,
     Account: brokerAccount,
     VaultID: VAULT_ID,
-    CoverAvailable: "1000000000",
+    CoverAvailable: "1000",
     DebtTotal: PRINCIPAL,
   } as LedgerEntry.LoanBroker);
   ledger.putMptIssuance(SHARE_ID, { LedgerEntryType: "MPTokenIssuance", OutstandingAmount: SHARES_OUTSTANDING } as LedgerEntry.MPTokenIssuance);
@@ -158,7 +162,7 @@ describe("GET /api/audit", () => {
       assert.equal(audit.vaultId, VAULT_ID);
       assert.equal(audit.brokerId, BROKER_ID);
       assert.deepEqual(audit.manifest, fund.manifest);
-      assert.equal(audit.fundAssets, ASSETS_TOTAL);
+      assert.equal(audit.fundAssets, ASSETS_TOTAL_UNITS);
       assert.equal(audit.sharePrice, "1005000");
       assert.equal(audit.concentrationLimitPercent, 20);
 
@@ -167,8 +171,8 @@ describe("GET /api/audit", () => {
       assert.equal(loan.loanId, LOAN_ID);
       assert.equal(loan.loanSetHash, LOAN_SET_HASH);
       assert.equal(loan.borrower, business.address);
-      assert.equal(loan.principal, PRINCIPAL);
-      assert.equal(loan.outstanding, PRINCIPAL);
+      assert.equal(loan.principal, PRINCIPAL_UNITS);
+      assert.equal(loan.outstanding, PRINCIPAL_UNITS);
       assert.equal(loan.status, "active");
       assert.equal(loan.dueDate, DUE_DATE_ISO);
       assert.equal(loan.anomalies, 0);

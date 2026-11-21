@@ -7,6 +7,7 @@ import type { FastifyInstance } from "fastify";
 import { Wallet, type LedgerEntry, type SubmittableTransaction } from "xrpl";
 import type { Fund } from "../../../fund/fund.js";
 import { FakeLedger } from "../../../xrpl/fakeLedger.js";
+import { RLUSD_CURRENCY, type Stablecoin } from "../../../xrpl/stablecoin.js";
 import type { TxOutcome } from "../../../xrpl/submit.js";
 import { buildApp } from "../app.js";
 import { fakeApiConfig, fakeContext } from "../fakeContext.js";
@@ -15,14 +16,15 @@ import type { LoanState } from "../stateStore.js";
 const HTTP_OK = 200;
 const HTTP_CONFLICT = 409;
 const TX_HASH = "EE".repeat(32);
-const ASSET_ID = "0A".repeat(24);
 const VAULT_ID = "0C".repeat(32);
 const BROKER_ID = "0D".repeat(32);
 const BUSINESS_LOAN_ID = "1A".repeat(32);
 const DEMO_LOAN_ID = "1B".repeat(32);
 const LEGACY_LOAN_ID = "1C".repeat(32);
 const ORPHAN_LOAN_ID = "1D".repeat(32);
-const TOTAL_DUE = "9133160000";
+/** Dû renvoyé par le ledger, au-delà de 6 décimales : le LoanPay l'arrondit à l'unité supérieure. */
+const TOTAL_DUE = "9133.1506849315";
+const TOTAL_DUE_PAID = "9133.150685";
 
 const ledger = new FakeLedger(1000);
 const sent: { tx: SubmittableTransaction; signer: string }[] = [];
@@ -37,8 +39,9 @@ const context = fakeContext({
   },
 });
 const { actors } = context;
+const asset: Stablecoin = { currency: RLUSD_CURRENCY, issuer: actors.stable_issuer.address };
 const fund = {
-  assetId: ASSET_ID,
+  stablecoin: asset,
   domainId: "0E".repeat(32),
   brokerId: BROKER_ID,
   cohort: { vaultId: VAULT_ID, shareMptId: "0B".repeat(24), subscriptionDate: 0, redemptionDate: 10_000 },
@@ -64,7 +67,7 @@ function loanEntry(index: string): LedgerEntry.Loan {
     NextPaymentDueDate: 3_000,
     PaymentRemaining: 1,
     TotalValueOutstanding: TOTAL_DUE,
-    PrincipalOutstanding: "9000000000",
+    PrincipalOutstanding: "9000",
     PeriodicPayment: TOTAL_DUE,
     PreviousTxnID: TX_HASH,
     PreviousTxnLgrSeq: 1,
@@ -110,7 +113,7 @@ before(async () => {
   });
   assert.equal(signup.statusCode, 201, signup.body);
 
-  ledger.putVault({ index: VAULT_ID, AssetsTotal: "100000000000", AssetsAvailable: "91000000000", LossUnrealized: "0" } as LedgerEntry.Vault);
+  ledger.putVault({ index: VAULT_ID, AssetsTotal: "100000", AssetsAvailable: "91000", LossUnrealized: "0" } as LedgerEntry.Vault);
   ledger.putLoanBroker({ index: BROKER_ID, Owner: actors.bari.address, DebtTotal: TOTAL_DUE } as LedgerEntry.LoanBroker);
   for (const id of [BUSINESS_LOAN_ID, DEMO_LOAN_ID, LEGACY_LOAN_ID, ORPHAN_LOAN_ID]) ledger.putLoan(loanEntry(id));
   context.store.reset(fund);
@@ -131,7 +134,7 @@ beforeEach(() => {
 after(() => app.close());
 
 describe("POST /api/loans/:id/repay", () => {
-  test("le prêt d'une entreprise inscrite est remboursé par son compte géré, qui récupère son MPT facture", async () => {
+  test("le prêt d'une entreprise inscrite est remboursé en RLUSD par son compte géré, qui récupère son MPT facture", async () => {
     const borrower = managedBusiness().address;
     const response = await repay(BUSINESS_LOAN_ID);
     assert.equal(response.statusCode, HTTP_OK, response.body);
@@ -143,13 +146,13 @@ describe("POST /api/loans/:id/repay", () => {
       TransactionType: "LoanPay",
       Account: borrower,
       LoanID: BUSINESS_LOAN_ID,
-      Amount: { mpt_issuance_id: ASSET_ID, value: TOTAL_DUE },
+      Amount: { currency: RLUSD_CURRENCY, issuer: asset.issuer, value: TOTAL_DUE_PAID },
     });
 
-    const payments = sent.flatMap(({ tx, signer }) => (tx.TransactionType === "Payment" ? [[signer, tx.Destination]] : []));
+    const payments = sent.flatMap(({ tx, signer }) => (tx.TransactionType === "Payment" ? [[signer, tx.Destination, tx.Amount]] : []));
     assert.deepEqual(payments, [
-      [actors.mairie.address, borrower],
-      [actors.bari.address, borrower],
+      [actors.mairie.address, borrower, { currency: RLUSD_CURRENCY, issuer: asset.issuer, value: "10000" }],
+      [actors.bari.address, borrower, { mpt_issuance_id: "01".repeat(24), value: "1" }],
     ]);
     assert.ok(sent.every(({ signer }) => signer !== actors.sme.address));
   });

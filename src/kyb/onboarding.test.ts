@@ -5,12 +5,13 @@ import { describe, test } from "node:test";
 import { Wallet, type SubmittableTransaction, type TransactionMetadata } from "xrpl";
 import type { AccountProfile } from "../accounts/userStore.js";
 import { textToHex } from "../lib/encoding.js";
+import { RLUSD_CURRENCY, type Stablecoin } from "../xrpl/stablecoin.js";
 import { CREDENTIAL_TYPES } from "./kycCredentials.js";
 import { makeProvisioner, type FundTokens } from "./onboarding.js";
 
 const NOW_RIPPLE = 817_000_000;
 const ONE_YEAR_S = 365 * 86_400;
-const FUND: FundTokens = { assetId: "AA".repeat(24), shareMptId: "BB".repeat(24) };
+const FUND: FundTokens = { stablecoin: { currency: RLUSD_CURRENCY, issuer: Wallet.generate().address }, shareMptId: "BB".repeat(24) };
 
 const lender: AccountProfile = { role: "lender", profile: { name: "Alice Rossi", country: "IT" } };
 const business: AccountProfile = {
@@ -22,6 +23,13 @@ const publicBody: AccountProfile = { role: "public_body", profile: { ipaCode: "c
 interface Submitted {
   tx: SubmittableTransaction;
   signer: string;
+  label: string;
+}
+
+/** Devise et émetteur de la ligne de confiance ouverte par un TrustSet. */
+function trustedAsset(tx: Record<string, unknown>): Stablecoin {
+  const { currency, issuer } = tx.LimitAmount as Stablecoin;
+  return { currency, issuer };
 }
 
 function setup({ fundOpen } = { fundOpen: true }) {
@@ -29,8 +37,8 @@ function setup({ fundOpen } = { fundOpen: true }) {
   const submitted: Submitted[] = [];
   const funded: string[] = [];
   const provision = makeProvisioner({
-    submit: async (tx, wallet) => {
-      submitted.push({ tx, signer: wallet.address });
+    submit: async (tx, wallet, label) => {
+      submitted.push({ tx, signer: wallet.address, label });
       return { hash: `${submitted.length}`.padStart(64, "0"), result: "tesSUCCESS", meta: {} as TransactionMetadata };
     },
     fundAccount: async (wallet) => {
@@ -46,7 +54,7 @@ function setup({ fundOpen } = { fundOpen: true }) {
 const SHA256_URI_PREFIX = textToHex("sha256:");
 
 describe("makeProvisioner", () => {
-  test("prêteur : compte financé, KYC_INVESTOR émis pour un an puis accepté, EURc et parts du Vault autorisés", async () => {
+  test("prêteur : compte financé, KYC_INVESTOR émis pour un an puis accepté, ligne de confiance RLUSD et parts du Vault autorisées", async () => {
     const { issuer, submitted, funded, provision } = setup();
     const account = await provision(lender);
     assert.ok(account !== undefined);
@@ -57,7 +65,7 @@ describe("makeProvisioner", () => {
       [
         ["CredentialCreate", issuer.address],
         ["CredentialAccept", account.address],
-        ["MPTokenAuthorize", account.address],
+        ["TrustSet", account.address],
         ["MPTokenAuthorize", account.address],
       ],
     );
@@ -68,11 +76,15 @@ describe("makeProvisioner", () => {
     assert.ok(String(create.URI).startsWith(SHA256_URI_PREFIX));
     assert.equal(accept.Issuer, issuer.address);
     assert.equal(accept.CredentialType, textToHex(CREDENTIAL_TYPES.kycInvestor));
-    assert.equal(asset.MPTokenIssuanceID, FUND.assetId);
+    assert.deepEqual(trustedAsset(asset), FUND.stablecoin);
     assert.equal(shares.MPTokenIssuanceID, FUND.shareMptId);
+    assert.deepEqual(
+      submitted.slice(2).map(({ label }) => label),
+      ["TrustSet RLUSD (lender)", "MPTokenAuthorize Vault shares (lender)"],
+    );
   });
 
-  test("entreprise : compte financé, KYB_PME émis pour un an puis accepté, EURc autorisé", async () => {
+  test("entreprise : compte financé, KYB_PME émis pour un an puis accepté, ligne de confiance RLUSD", async () => {
     const { issuer, submitted, funded, provision } = setup();
     const account = await provision(business);
     assert.ok(account !== undefined);
@@ -82,7 +94,7 @@ describe("makeProvisioner", () => {
       [
         ["CredentialCreate", issuer.address],
         ["CredentialAccept", account.address],
-        ["MPTokenAuthorize", account.address],
+        ["TrustSet", account.address],
       ],
     );
     const [create, , asset] = submitted.map(({ tx }) => tx as unknown as Record<string, unknown>);
@@ -90,7 +102,8 @@ describe("makeProvisioner", () => {
     assert.equal(create.CredentialType, textToHex(CREDENTIAL_TYPES.kybSme));
     assert.equal(create.Expiration, NOW_RIPPLE + ONE_YEAR_S);
     assert.ok(String(create.URI).startsWith(SHA256_URI_PREFIX));
-    assert.equal(asset.MPTokenIssuanceID, FUND.assetId);
+    assert.deepEqual(trustedAsset(asset), FUND.stablecoin);
+    assert.equal(submitted[2]?.label, "TrustSet RLUSD (business)");
   });
 
   test("organisme public : aucun compte XRPL, aucune transaction", async () => {

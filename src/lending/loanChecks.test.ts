@@ -9,9 +9,10 @@ import { produceInvoiceCertificate, verifiedDebtorsRoot, type InvoiceCertificate
 import { DEMO_DEBTOR } from "../invoice/debtors.js";
 import { INVOICE_TOKEN_SUPPLY } from "../invoice/invoiceToken.js";
 import { CREDENTIAL_TYPES } from "../kyb/kycCredentials.js";
-import { centsToUnits, eurToUnits } from "../lib/amounts.js";
+import { rlusdToUnits } from "../lib/amounts.js";
 import { textToHex } from "../lib/encoding.js";
 import { FakeLedger } from "../xrpl/fakeLedger.js";
+import { RLUSD_CURRENCY, unitsToValue } from "../xrpl/stablecoin.js";
 import { releaseZkResources } from "../zk/index.js";
 import { refusalReason, reviewLoan, type LoanParties } from "./loanChecks.js";
 
@@ -20,8 +21,8 @@ const VINTAGE = 2026;
 const LSF_CREDENTIAL_ACCEPTED = 0x00010000;
 const INVOICE_TOKEN_ID = "00000001".padEnd(48, "A");
 const OTHER_NULLIFIER = "B".repeat(64);
-/** 100 000 € d'actif par fonds : 9 000 € sur un débiteur restent sous le plafond de 20 %. */
-const FUND_ASSETS = centsToUnits(10_000_000);
+/** 100 000 RLUSD d'actif par fonds : 9 000 RLUSD sur un débiteur restent sous le plafond de 20 %. */
+const FUND_ASSETS = rlusdToUnits(100_000);
 const NOW = isoTimeToRippleTime("2026-11-21T10:00:00Z");
 const INVOICE_DUE_DATE = isoTimeToRippleTime("2027-02-18T00:00:00Z");
 const REDEMPTION_DATE = isoTimeToRippleTime("2027-03-31T00:00:00Z");
@@ -40,7 +41,7 @@ let belowTierCertificate: InvoiceCertificate;
 
 function makeFund(brokerDigit: string, vaultDigit: string, debtorsRoot: string): Fund {
   return {
-    assetId: "00000002".padEnd(48, "E"),
+    stablecoin: { currency: RLUSD_CURRENCY, issuer: Wallet.generate().address },
     domainId: hex64("D"),
     cohort: { vaultId: hex64(vaultDigit), shareMptId: INVOICE_TOKEN_ID, subscriptionDate: 0, redemptionDate: REDEMPTION_DATE },
     brokerId: hex64(brokerDigit),
@@ -50,7 +51,7 @@ function makeFund(brokerDigit: string, vaultDigit: string, debtorsRoot: string):
 
 /** Fonds Bari en place sur le faux ledger : Vault, LoanBroker possédé par Bari et son pseudo-compte. */
 function addFund(ledger: FakeLedger, fund: Fund, pseudoAccount: string, assets = FUND_ASSETS): void {
-  ledger.putVault({ index: fund.cohort.vaultId, AssetsTotal: assets.toString() } as LedgerEntry.Vault);
+  ledger.putVault({ index: fund.cohort.vaultId, AssetsTotal: unitsToValue(assets) } as LedgerEntry.Vault);
   ledger.putLoanBroker({
     LedgerEntryType: "LoanBroker",
     index: fund.brokerId,
@@ -64,14 +65,14 @@ function addFund(ledger: FakeLedger, fund: Fund, pseudoAccount: string, assets =
 function addLoan(ledger: FakeLedger, fund: Fund, pseudoAccount: string, loanReference: LoanReference): void {
   const loanId = hex64("E");
   const loanSetHash = hex64("F");
-  const principal = eurToUnits(5_000);
+  const principal = unitsToValue(rlusdToUnits(5_000));
   ledger.putAccountObject(pseudoAccount, "loan", {
     LedgerEntryType: "Loan",
     index: loanId,
     LoanBrokerID: fund.brokerId,
     LoanSequence: 1,
     PreviousTxnID: loanSetHash,
-    PrincipalOutstanding: principal.toString(),
+    PrincipalOutstanding: principal,
     Borrower: business.address,
   } as LedgerEntry.Loan);
   ledger.putTransaction({
@@ -81,7 +82,7 @@ function addLoan(ledger: FakeLedger, fund: Fund, pseudoAccount: string, loanRefe
       TransactionType: "LoanSet",
       Account: business.address,
       LoanBrokerID: fund.brokerId,
-      PrincipalRequested: principal.toString(),
+      PrincipalRequested: principal,
       Data: encodeLoanData(loanReference),
     },
     meta: {
@@ -177,8 +178,8 @@ describe("contrôles avant co-signature", () => {
       ["kyb", "proof", "advance", "unique", "concentration", "maturity"].map((id) => ({ id, ok: true })),
     );
     assert.ok(review.checks.every((check) => check.label.length > 0 && check.reason === undefined));
-    assert.equal(review.approval?.terms.principal, eurToUnits(9_000));
-    assert.equal(review.approval?.terms.originationFee, eurToUnits(45));
+    assert.equal(review.approval?.terms.principal, rlusdToUnits(9_000));
+    assert.equal(review.approval?.terms.originationFee, rlusdToUnits(45));
     assert.equal(review.approval?.certificate.account, business.address);
     assert.equal(refusalReason(review.checks), undefined);
   });
@@ -242,8 +243,8 @@ describe("contrôles avant co-signature", () => {
     assert.deepEqual(failed(review.checks), []);
   });
 
-  test("fonds trop petit pour 9 000 € sur ce débiteur : refus de concentration", async () => {
-    const { fund, ledger } = await openFund({ assets: eurToUnits(20_000) });
+  test("fonds trop petit pour 9 000 RLUSD sur ce débiteur : refus de concentration", async () => {
+    const { fund, ledger } = await openFund({ assets: rlusdToUnits(20_000) });
     const review = await reviewLoan(ledger, parties, fund, referenceOf(certificate));
     assert.deepEqual(failed(review.checks), ["concentration"]);
     assert.match(reasonOf(review.checks, "concentration") ?? "", /20 %/);
