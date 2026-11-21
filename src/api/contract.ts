@@ -324,3 +324,70 @@ export interface BusinessInvoice {
   /** Échéance du prêt (ISO). */
   dueDate?: string;
 }
+
+// Espace prêteur : position, faucet d'euros de test, dépôt et retrait (natifs ou immédiats par Bari selon la phase).
+
+export type FundPhase = "subscription" | "investment" | "redemption";
+
+/** `native` : VaultDeposit / VaultWithdraw ; `immediate` : Batch atomique avec Bari pendant la période de prêt. */
+export type LenderTradeRoute = "native" | "immediate";
+
+/** Montant en unités de part du Vault, en chaîne décimale ; une part affichée = 10^6 unités (1 EURc au pair). */
+export type ShareUnits = string;
+
+/** Ce que le prêteur de la session peut passer dans un sens, dans la phase courante. */
+export interface LenderTradeLimit {
+  /** Chemin de l'ordre ; null si ce sens est fermé (dépôt pendant le rachat). */
+  route: LenderTradeRoute | null;
+  /** Maximum accepté : min(solde du prêteur, plafond de Bari). Entrée en EURc, sortie en parts. */
+  max: EurcUnits | ShareUnits;
+  /** Chemin immédiat : stock de parts de Bari au prix de la part (entrée, EURc), parts que sa réserve rachète (sortie). */
+  bariCap?: EurcUnits | ShareUnits;
+}
+
+/** `GET /api/lender/position`. Les prix sont en unités EURc par part affichée (10^6 unités de part). */
+export interface LenderPosition {
+  phase: FundPhase;
+  shares: ShareUnits;
+  /** Valeur des parts au prix de la part. */
+  value: EurcUnits;
+  /** EURc payés pour les parts détenues. */
+  costBasis: EurcUnits;
+  /** Prix moyen d'achat par part affichée ; absent sans achat suivi. */
+  averageCost?: EurcUnits;
+  /** value − costBasis, négatif en cas de perte. */
+  gain: EurcUnits;
+  /** (AssetsTotal − LossUnrealized) / parts en circulation, par part affichée. */
+  sharePrice: EurcUnits;
+  /** Rendement annuel variable des prêts en cours, net des frais de gestion de Bari, en %. */
+  variableYieldPercent: number;
+  eurcBalance: EurcUnits;
+  entry: LenderTradeLimit;
+  exit: LenderTradeLimit;
+  /** Remise de la sortie immédiate sur le prix de la part, en %. */
+  immediateExitDiscountPercent: number;
+}
+
+/** Corps de `POST /api/lender/deposit` (`amount` en unités EURc) et `POST /api/lender/withdraw` (`amount` en unités de part). */
+export interface LenderTradeRequest {
+  amount: string;
+}
+
+export interface LenderTradeResponse {
+  /** Hash du VaultDeposit / VaultWithdraw, ou du Batch externe. */
+  hash: string;
+  route: LenderTradeRoute;
+  phase: FundPhase;
+  /** EURc versés (dépôt) ou reçus (retrait). */
+  amount: EurcUnits;
+  /** Parts reçues (dépôt) ou rendues (retrait). */
+  shares: ShareUnits;
+  transactions: SubmittedTx[];
+}
+
+/** `POST /api/lender/faucet` : euros de test (EURc) envoyés au compte géré du prêteur. */
+export interface LenderFaucetResponse {
+  hash: string;
+  amount: EurcUnits;
+  transactions: SubmittedTx[];
+}

@@ -10,6 +10,7 @@ import { registerAuthRoutes } from "./routes/authRoutes.js";
 import { registerDebtorRoutes } from "./routes/debtorRoutes.js";
 import { registerEventRoutes } from "./routes/eventRoutes.js";
 import { registerFundRoutes } from "./routes/fundRoutes.js";
+import { clientLenderPorts, registerLenderRoutes, type LenderPorts } from "./routes/lenderRoutes.js";
 import { registerLoanRoutes } from "./routes/loanRoutes.js";
 import { registerPublicBodyRoutes } from "./routes/publicBodyRoutes.js";
 import { registerSmeRoutes } from "./routes/smeRoutes.js";
@@ -24,7 +25,12 @@ function serializeJson(payload: unknown): string {
   return JSON.stringify(payload, (_key, value: unknown) => (typeof value === "bigint" ? value.toString() : value));
 }
 
-export async function buildApp(config: ApiConfig, context: ApiContext): Promise<FastifyInstance> {
+/** `lenderPorts` : soumissions des ordres des prêteurs, remplacées par des faux dans les tests de routes. */
+export async function buildApp(
+  config: ApiConfig,
+  context: ApiContext,
+  lenderPorts: LenderPorts = clientLenderPorts(context.client),
+): Promise<FastifyInstance> {
   // Un champ inattendu (ex. une donnée du témoin) est refusé en 400, pas retiré en silence.
   const app = Fastify({ bodyLimit: BODY_LIMIT_BYTES, ajv: { customOptions: { removeAdditional: false } } });
   await app.register(cors, { origin: config.corsOrigins });
@@ -34,6 +40,7 @@ export async function buildApp(config: ApiConfig, context: ApiContext): Promise<
   registerAuthRoutes(app, context);
   registerFundRoutes(app, context);
   registerPublicBodyRoutes(app, context);
+  registerLenderRoutes(app, context, lenderPorts);
   registerDebtorRoutes(app);
   registerZkRoutes(app, context);
   registerSmeRoutes(app, context);

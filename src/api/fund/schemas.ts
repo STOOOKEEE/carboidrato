@@ -205,3 +205,16 @@ export interface VatParams {
 export const vatParamsSchema = {
   params: { type: "object", required: ["vat"], properties: { vat: { type: "string", pattern: VAT_PATTERN } } },
 } as const;
+
+// Espace prêteur : montant d'un dépôt (unités EURc) ou d'un retrait (unités de part), entier strictement positif.
+
+const MAX_UNITS_DIGITS = 30;
+
+export const lenderTradeSchema = {
+  body: {
+    type: "object",
+    additionalProperties: false,
+    required: ["amount"],
+    properties: { amount: { type: "string", pattern: "^[1-9][0-9]*$", maxLength: MAX_UNITS_DIGITS } },
+  },
+} as const;

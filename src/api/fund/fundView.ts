@@ -10,7 +10,7 @@ import type { FundState } from "./stateStore.js";
 
 export type FundPhase = "subscription" | "investment" | "redemption";
 
-function phaseAt(time: number, state: FundState): FundPhase {
+export function phaseAt(time: number, state: FundState): FundPhase {
   if (time < state.fund.cohort.subscriptionDate) return "subscription";
   return time < state.fund.cohort.redemptionDate ? "investment" : "redemption";
 }
