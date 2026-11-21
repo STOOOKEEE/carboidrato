@@ -293,3 +293,15 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 **Vérifié :** `fundReuse.test.ts` et `loanTerms.test.ts` rouges puis verts ; AlphaNet : fonds créé en 120 s (Vault `01B19D79…99D0`), second lancement sans transaction ; `GET /api/fund` → `phase: "investment"`, rachat au 2027-03-31, un prêt remboursé et un en cours ; 20 000 parts et 20 091 EURc sur le compte de Bari.
 
 À savoir : sur ce fonds, la mise en défaut d'un prêt attendrait son échéance (~90 jours) ; le scénario `npm run demo` (cohorte courte) n'est pas touché.
+
+## 2026-11-21 · Comptes gérés vérifiés sur le ledger à l'inscription
+
+**Quoi :**
+- `src/kyb/onboarding.ts` (remplace `src/accounts/provisioning.ts`) : à l'inscription, Bari crée et finance le compte XRPL de l'utilisateur, émet le credential `KYC_INVESTOR` (prêteur) ou `KYB_PME` (entreprise) pour un an, avec le haché du dossier déclaré en `URI`, le fait accepter par le compte, puis autorise l'EURc (et les parts du Vault pour un prêteur). Un organisme public n'a pas de compte XRPL. Sans fonds ouvert, l'inscription est refusée avant toute transaction.
+- Port `SubmitTx` (`src/xrpl/submit.ts`) : la même logique tourne sur le nœud ou sur un faux qui enregistre les transactions.
+- `GET /api/public-bodies` : le registre des organismes vérifiés, sans clé, avec ceux qui n'ont pas encore de compte.
+- `POST /api/sme/kyb` supprimée (réservée à la PME de démo) : le KYB se fait à l'inscription.
+
+**Pourquoi :** chaque utilisateur a un vrai compte vérifié sur le ledger : le vault privé n'accepte que les porteurs de `KYC_INVESTOR`, et Bari ne prête qu'aux porteurs de `KYB_PME`.
+
+**Vérifié :** `onboarding.test.ts` (transactions attendues par rôle) et `publicBodyRoutes.test.ts` rouges puis verts ; `npm test` 131/131 ; AlphaNet : inscription d'un prêteur (5 transactions) et d'une entreprise (4 transactions), toutes `tesSUCCESS` ; `account_objects` : credentials acceptés, expiration au 2027-11-21, MPToken EURc et parts.
