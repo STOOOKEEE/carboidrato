@@ -54,11 +54,21 @@ export function currentUser(context: SessionContext, request: FastifyRequest): U
   return userId === undefined ? undefined : context.users.findById(userId);
 }
 
+const sessionUsers = new WeakMap<FastifyRequest, UserRecord>();
+
 /** `preHandler` d'une route d'espace : 401 sans session, 403 avec la session d'un autre rôle. */
 export function requireRole(context: SessionContext, role: Role) {
   return async (request: FastifyRequest, _reply: FastifyReply): Promise<void> => {
     const user = currentUser(context, request);
     if (user === undefined) throw new HttpError(HTTP_UNAUTHORIZED, "Sign in to continue");
     if (user.role !== role) throw new HttpError(HTTP_FORBIDDEN, `This page is for ${role.replace("_", " ")} accounts`);
+    sessionUsers.set(request, user);
   };
+}
+
+/** Utilisateur d'une requête passée par `requireRole(…, role)`, typé selon son rôle. */
+export function sessionUser<R extends Role>(request: FastifyRequest, role: R): Extract<UserRecord, { role: R }> {
+  const user = sessionUsers.get(request);
+  if (user?.role !== role) throw new Error(`Route sans requireRole("${role}")`);
+  return user as Extract<UserRecord, { role: R }>;
 }

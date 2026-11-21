@@ -123,9 +123,12 @@ export class UserStore {
     return this.data.users.find((user) => user.id === id);
   }
 
-  findBusinessByVat(vatNumber: string): UserRecord | undefined {
+  findBusinessByVat(vatNumber: string): Extract<UserRecord, { role: "business" }> | undefined {
     const wanted = normalizeVat(vatNumber);
-    return this.data.users.find((user) => user.role === "business" && user.profile.vatNumber === wanted);
+    return this.data.users.find(
+      (user): user is Extract<UserRecord, { role: "business" }> =>
+        user.role === "business" && user.profile.vatNumber === wanted,
+    );
   }
 
   /** Lève `DuplicateUser` si l'email, le n° de TVA ou l'organisme public a déjà un compte. */

@@ -106,7 +106,9 @@ describe("GET /api/businesses/by-vat/:vat", () => {
   });
 });
 
-test("POST /api/debtor/attest n'existe plus : la facture est signée dans le navigateur de l'organisme", async () => {
-  const response = await app.inject({ method: "POST", url: "/api/debtor/attest", payload: {} });
+test("la signature côté serveur n'existe plus : la facture est signée dans le navigateur de l'organisme", async () => {
+  const url = ["", "api", "debtor", "attest"].join("/");
+  const response = await app.inject({ method: "POST", url, payload: {} });
   assert.equal(response.statusCode, HTTP_NOT_FOUND);
+  assert.equal(response.json<{ message: string }>().message, `Route POST:${url} not found`);
 });

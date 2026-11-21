@@ -5,9 +5,10 @@
 // SMOKE_DUMP_FILE=<fichier> enregistre toutes les réponses (exemples pour le front).
 
 import { groth16 } from "snarkjs";
+import { eurToCents } from "../../../lib/amounts.js";
 import { log } from "../../../lib/logger.js";
-import { fromHex, releaseZkResources } from "../../../zk/index.js";
-import { parseAttestedInvoice } from "../../attestedInvoice.js";
+import { attestInvoice, deriveDebtor, fromHex, releaseZkResources } from "../../../zk/index.js";
+import { parseAttestedInvoice, toAttestedInvoiceFile } from "../../attestedInvoice.js";
 import { buildProveInput, toCircuitInput, type ProofExpectations } from "../zkInputs.js";
 import { ApiClient, field, stringField } from "./http.js";
 import { EventCounter } from "./sse.js";
@@ -16,6 +17,7 @@ const DEFAULT_API_URL = "http://127.0.0.1:8788";
 const INVOICE_AMOUNT_EUR = 10_000;
 const INVOICE_TERM_DAYS = 90;
 const MS_PER_DAY = 86_400_000;
+const MS_PER_SECOND = 1_000;
 const HTTP_CONFLICT = 409;
 const DEMO_DEBTOR = "Comune di Bari";
 
@@ -47,14 +49,7 @@ async function run(api: ApiClient, events: EventCounter): Promise<void> {
   await api.call("POST", "/api/investors/deposit");
   await api.call("POST", "/api/sme/kyb", { account: smeAccount, company: "Marco Costruzioni S.r.l.", vatNumber: "IT01234567890" });
 
-  log.step("Mairie · attestation ; PME · entrée du circuit et preuve côté client");
-  const invoice = {
-    invoiceNumber: `FT-SMOKE/${Date.now().toString(36)}`,
-    amountEur: INVOICE_AMOUNT_EUR,
-    dueDate: new Date(Date.now() + INVOICE_TERM_DAYS * MS_PER_DAY).toISOString(),
-    smeAccount,
-  };
-  const attested = await api.call("POST", "/api/debtor/attest", invoice);
+  log.step("Organisme public · attestation signée localement ; PME · entrée du circuit et preuve côté client");
   const path = await api.call("GET", `/api/debtors/path?debtor=${encodeURIComponent(DEMO_DEBTOR)}`);
   const fund = await api.call("GET", "/api/fund");
   const debtorsRoot = stringField(field(fund, "manifest"), "debtorsRoot");
@@ -67,14 +62,27 @@ async function run(api: ApiClient, events: EventCounter): Promise<void> {
     debtorsRoot: fromHex(debtorsRoot),
     vintage: BigInt(Number(field(params, "vintage"))),
   };
+  const invoiceNumber = `FT-SMOKE/${Date.now().toString(36)}`;
+  const dueDate = new Date(Date.now() + INVOICE_TERM_DAYS * MS_PER_DAY);
+  const attest = async () =>
+    toAttestedInvoiceFile(
+      { number: invoiceNumber, debtorName: DEMO_DEBTOR, description: "Smoke test", issueDate: new Date() },
+      await attestInvoice(await deriveDebtor(DEMO_DEBTOR), {
+        account: smeAccount,
+        amount: eurToCents(INVOICE_AMOUNT_EUR),
+        dueDate: BigInt(Math.floor(dueDate.getTime() / MS_PER_SECOND)),
+        invoiceNumber,
+        networkId: expected.networkId,
+        registry: expected.registry,
+      }),
+    );
   const artifacts = await Promise.all([api.bytes("/api/zk/bari_invoice.wasm"), api.bytes("/api/zk/bari_invoice_final.zkey")]);
-  const proof = await proveLikeBrowser(attested, expected, artifacts);
+  const proof = await proveLikeBrowser(await attest(), expected, artifacts);
 
   log.step("Certificat, puis rejeu de la même facture");
   const certificate = await api.call("POST", "/api/sme/certificate", proof);
   const tokenId = stringField(certificate, "tokenId");
-  const reattested = await api.call("POST", "/api/debtor/attest", invoice);
-  const replayProof = await proveLikeBrowser(reattested, expected, artifacts);
+  const replayProof = await proveLikeBrowser(await attest(), expected, artifacts);
   const replay = await api.call("POST", "/api/sme/certificate", replayProof, [HTTP_CONFLICT]);
   log.info(`rejeu refusé (409) : ${stringField(field(replay, "rejectedBy"), "label")} ${stringField(replay, "hash")}`);
 

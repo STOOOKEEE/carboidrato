@@ -7,10 +7,6 @@ import { PUBLIC_SIGNAL_ORDER, type InvoiceProof } from "../../zk/index.js";
 /** Bornes raisonnables pour une démo : une journée de souscription, une semaine d'investissement. */
 const MAX_SUBSCRIPTION_WINDOW_S = 86_400;
 const MAX_INVESTMENT_PERIOD_S = 7 * 86_400;
-const MAX_INVOICE_NUMBER_LENGTH = 64;
-const MAX_DESCRIPTION_LENGTH = 200;
-/** Plafond d'une facture attestée en démo (le montant tient largement sur les 64 bits du circuit). */
-const MAX_INVOICE_AMOUNT_EUR = 10_000_000;
 const DECIMAL_PATTERN = "^[0-9]+$";
 const HASH_32_PATTERN = "^[0-9A-Fa-f]{64}$";
 const MPT_ID_PATTERN = "^[0-9A-Fa-f]{48}$";
@@ -39,32 +35,6 @@ export const createFundSchema = {
       subscriptionWindowS: { type: "integer", minimum: 1, maximum: MAX_SUBSCRIPTION_WINDOW_S },
       investmentPeriodS: { type: "integer", minimum: LEDGER_MIN_INVESTMENT_PERIOD_S, maximum: MAX_INVESTMENT_PERIOD_S },
       replace: { type: "boolean" },
-    },
-  },
-} as const;
-
-export interface AttestBody {
-  invoiceNumber: string;
-  amountEur: number;
-  /** Échéance, date ISO (« 2027-02-18 » ou date-heure). */
-  dueDate: string;
-  smeAccount: string;
-  debtorName?: string;
-  description?: string;
-}
-
-export const attestSchema = {
-  body: {
-    type: "object",
-    additionalProperties: false,
-    required: ["invoiceNumber", "amountEur", "dueDate", "smeAccount"],
-    properties: {
-      invoiceNumber: { type: "string", minLength: 1, maxLength: MAX_INVOICE_NUMBER_LENGTH },
-      amountEur: { type: "number", exclusiveMinimum: 0, maximum: MAX_INVOICE_AMOUNT_EUR },
-      dueDate: { type: "string", minLength: 1 },
-      smeAccount: { type: "string", minLength: 1 },
-      debtorName: { type: "string", enum: DEBTOR_NAMES },
-      description: { type: "string", maxLength: MAX_DESCRIPTION_LENGTH },
     },
   },
 } as const;
@@ -239,4 +209,12 @@ export const signinSchema = {
       password: { type: "string", minLength: 1, maxLength: MAX_PASSWORD_LENGTH },
     },
   },
+} as const;
+
+export interface VatParams {
+  vat: string;
+}
+
+export const vatParamsSchema = {
+  params: { type: "object", required: ["vat"], properties: { vat: { type: "string", pattern: VAT_PATTERN } } },
 } as const;
