@@ -16,6 +16,7 @@ const HTTP_NOT_FOUND = 404;
 const PASSWORD = "correct horse battery";
 
 const managedWallets: Wallet[] = [];
+const walletBusiness = Wallet.generate();
 let app: FastifyInstance;
 const sessions: Record<"bari" | "lecce" | "lender" | "business", string> = { bari: "", lecce: "", lender: "", business: "" };
 
@@ -51,6 +52,11 @@ before(async () => {
     password: PASSWORD,
     role: "business",
     profile: { company: "Marco Costruzioni S.r.l.", vatNumber: "IT 0123 4567 890" },
+  });
+  context.users.createWalletUser({
+    role: "business",
+    profile: { company: "Otsu Forniture S.r.l.", vatNumber: "IT09876543210" },
+    address: walletBusiness.address,
   });
 });
 
@@ -94,6 +100,16 @@ describe("GET /api/businesses/by-vat/:vat", () => {
       address: business?.address,
     });
     assert.ok(!response.body.includes(business?.seed ?? "?"));
+  });
+
+  test("entreprise connectée par wallet : son adresse", async () => {
+    const response = await get("/api/businesses/by-vat/IT09876543210", sessions.bari);
+    assert.equal(response.statusCode, HTTP_OK, response.body);
+    assert.deepEqual(response.json<BusinessLookup>(), {
+      company: "Otsu Forniture S.r.l.",
+      vatNumber: "IT09876543210",
+      address: walletBusiness.address,
+    });
   });
 
   test("TVA inconnue → 404", async () => {
