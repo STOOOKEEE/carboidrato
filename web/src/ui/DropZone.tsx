@@ -3,6 +3,8 @@ import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { DitherCanvas } from "../dither/DitherCanvas";
 import type { ShapeName } from "../dither/shapes";
 
+const BUSY_CAPTION = "Working…";
+
 interface DropZoneProps {
   onFile: (file: File) => void;
   /** Libellé accessible du bouton de choix de fichier. */
@@ -44,6 +46,8 @@ export function DropZone({ onFile, label, caption, busy = false, shape = "upload
         onClick={() => inputRef.current?.click()}
         aria-label={label}
         disabled={busy}
+        // Désactivé pendant le travail : la légende visible en est la raison, reprise en titre comme dans Button.
+        title={busy ? BUSY_CAPTION : undefined}
       >
         <DitherCanvas
           shape={dragging ? "invoice" : shape}
@@ -53,7 +57,7 @@ export function DropZone({ onFile, label, caption, busy = false, shape = "upload
           tone={danger ? "danger" : "light"}
           className="checker-canvas"
         />
-        <span className="checker-caption">{dragging ? "Release to drop" : busy ? "Working…" : caption}</span>
+        <span className="checker-caption">{dragging ? "Release to drop" : busy ? BUSY_CAPTION : caption}</span>
       </button>
       <input
         ref={inputRef}
