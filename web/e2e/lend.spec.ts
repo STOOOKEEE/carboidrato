@@ -1,8 +1,9 @@
 // Espace prêteur de bout en bout : RLUSD de test, dépôt de 5 000 RLUSD puis sortie immédiate par Bari, sur le réseau ;
 // le même parcours pour un wallet Otsu (faux Otsu qui signe dans Node), chaque ordre signé dans le wallet.
 
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { capture } from "./capture";
+import { ledgerShares, succeededHashes } from "./fixtures/otsuLedger";
 import { installOtsuMock, type OtsuMock } from "./fixtures/otsuMock";
 
 /** Ouverture d'un compte géré : 5 transactions validées, un ledger toutes les 3 s sur l'AlphaNet. */
@@ -21,25 +22,6 @@ test.afterEach(async () => {
   await otsu?.close();
   otsu = undefined;
 });
-
-/** Transactions d'un ordre (la principale, et celles d'un Batch), chacune validée en tesSUCCESS sur le ledger. */
-async function succeededHashes(mock: OtsuMock, done: Locator): Promise<string[]> {
-  const links = await done.locator(TX_LINK).evaluateAll((anchors) => anchors.map((anchor) => anchor.getAttribute("title") ?? ""));
-  const hashes = [...new Set(links)];
-  for (const hash of hashes) {
-    const { result } = await mock.client.request({ command: "tx", transaction: hash });
-    expect(result.validated).toBe(true);
-    expect(typeof result.meta === "object" ? result.meta.TransactionResult : result.meta).toBe("tesSUCCESS");
-  }
-  return hashes;
-}
-
-/** Parts du fonds détenues par le wallet (`MPTAmount` des objets MPToken, en chaîne décimale), lues sur le ledger validé. */
-async function ledgerShares({ client, wallet }: OtsuMock): Promise<bigint> {
-  const { result } = await client.request({ command: "account_objects", account: wallet.address, type: "mptoken", ledger_index: "validated" });
-  const tokens = result.account_objects as unknown as { MPTAmount?: string }[];
-  return tokens.reduce((total, token) => total + BigInt(token.MPTAmount ?? "0"), 0n);
-}
 
 test("a lender adds test RLUSD, deposits 5,000 and withdraws through Bari", async ({ page }) => {
   const balance = page.getByTestId("lend-balance");

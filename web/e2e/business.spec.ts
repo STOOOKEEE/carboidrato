@@ -2,14 +2,9 @@
 // pour un compte email (Bari signe) et pour un wallet Otsu (faux Otsu qui signe dans Node, Bari soumet).
 
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import type {
-  AttestedInvoiceFile,
-  LoanResponse,
-  PreparedSignature,
-  ProofParams,
-  SignupResponse,
-} from "../../src/api/contract";
+import type { AttestedInvoiceFile, LoanResponse, ProofParams, SignupResponse } from "../../src/api/contract";
 import { capture } from "./capture";
+import { repayWithOtsu } from "./fixtures/otsuLedger";
 import { installOtsuMock, type OtsuMock } from "./fixtures/otsuMock";
 import { signedInvoice } from "./signedInvoice";
 
@@ -130,9 +125,6 @@ test("a business drops a signed invoice, gets paid now, and cannot finance it tw
   }
 });
 
-/** Ce que le faux Otsu expose à la page (`window.xrpl`), le seul appel dont le test a besoin. */
-type OtsuWindow = { xrpl: { signTransaction(tx: Record<string, unknown>): Promise<{ tx_blob: string }> } };
-
 /** Entreprise ouverte par son wallet depuis l'espace entreprise : KYB_PME accepté et ligne RLUSD signés dans Otsu. */
 async function openWalletBusiness(page: Page, id: string): Promise<void> {
   await page.goto("/#/business");
@@ -145,22 +137,6 @@ async function openWalletBusiness(page: Page, id: string): Promise<void> {
   await expect(onboarding.getByRole("heading", { name: "Your account is ready." })).toBeVisible({ timeout: ONBOARDING_TIMEOUT_MS });
   await onboarding.getByRole("button", { name: "Open my space" }).click();
   await expect(page).toHaveURL(/#\/business$/);
-}
-
-/** Remboursement d'un wallet : la mairie paie l'entreprise, puis le LoanPay préparé par Bari est signé dans Otsu. */
-async function repayWithOtsu(page: Page, loanId: string): Promise<void> {
-  const prepared = await page.request.post(`/api/loans/${loanId}/repay`, { timeout: FUNDING_TIMEOUT_MS });
-  expect(prepared.status(), await prepared.text()).toBe(HTTP_OK);
-  const { tx } = (await prepared.json()) as PreparedSignature;
-  const txBlob = await page.evaluate(
-    async (loanPay) => (await (window as unknown as OtsuWindow).xrpl.signTransaction(loanPay)).tx_blob,
-    tx,
-  );
-  const repaid = await page.request.post(`/api/loans/${loanId}/repay/submit`, {
-    data: { tx_blob: txBlob },
-    timeout: FUNDING_TIMEOUT_MS,
-  });
-  expect(repaid.status(), await repaid.text()).toBe(HTTP_OK);
 }
 
 test("a wallet business signs its certificate and its loan in Otsu, gets paid in RLUSD, and cannot finance twice", async ({
