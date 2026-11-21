@@ -1,12 +1,14 @@
-// Tests de la réutilisation du fonds de démo : seul un fonds alimenté, en phase d'investissement avec de la marge, sert.
+// Tests de la réutilisation du fonds de démo : seul un fonds alimenté, en phase d'investissement à plus de 24 h du rachat, sert.
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import type { FundState } from "../api/fund/stateStore.js";
-import { isReusable, MIN_REMAINING_INVESTMENT_S } from "./fundReuse.js";
+import { isReusable } from "./fundReuse.js";
 
+const DAY_S = 86_400;
 const SUBSCRIPTION_DATE = 1_000_000;
-const REDEMPTION_DATE = SUBSCRIPTION_DATE + 21_600;
+/** Fonds ouvert jusqu'au pitch : plusieurs mois d'investissement. */
+const REDEMPTION_DATE = SUBSCRIPTION_DATE + 130 * DAY_S;
 const DURING_INVESTMENT = SUBSCRIPTION_DATE + 60;
 
 function fundState(change: Partial<FundState> = {}): FundState {
@@ -44,9 +46,13 @@ describe("réutilisation du fonds de démo", () => {
     assert.equal(isReusable(fundState({ redeemed: true }), DURING_INVESTMENT), false);
   });
 
-  test("le fonds doit laisser la marge minimale avant le rachat", () => {
-    assert.equal(isReusable(fundState(), REDEMPTION_DATE - MIN_REMAINING_INVESTMENT_S), true);
-    assert.equal(isReusable(fundState(), REDEMPTION_DATE - MIN_REMAINING_INVESTMENT_S + 1), false);
+  test("le fonds est réutilisé jusqu'à 24 h avant le rachat, plus ensuite", () => {
+    assert.equal(isReusable(fundState(), REDEMPTION_DATE - DAY_S), true);
+    assert.equal(isReusable(fundState(), REDEMPTION_DATE - DAY_S + 1), false);
+  });
+
+  test("une marge de 30 min ne suffit plus", () => {
+    assert.equal(isReusable(fundState(), REDEMPTION_DATE - 1_800), false);
   });
 
   test("un fonds en phase de rachat n'est pas réutilisé", () => {
