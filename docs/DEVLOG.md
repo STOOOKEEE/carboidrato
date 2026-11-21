@@ -343,3 +343,16 @@ Ils sont cassés par trois déplacements sans changement de comportement : `Fund
 **Pourquoi :** les trois acteurs du parcours agissent depuis leur propre espace, et la facture ne quitte jamais le navigateur de l'organisme ni celui du fournisseur.
 
 **Vérifié :** tests rouges puis verts ; `npm test` 344/344 ; AlphaNet : `lend.spec.ts` (10 000 EURc de test, dépôt de 5 000, sortie immédiate), `public-body.spec.ts` (aucune requête ne porte le montant ni le numéro), `business.spec.ts` (8 955 € reçus, preuve décodée au lien du certificat, « Already financed », prêt remboursé), `prove.spec.ts`, `account.spec.ts`.
+
+## 2026-11-21 · Page Transparency et comptes du pitch
+
+**Quoi :**
+- Transparency `#/transparency` (`features/transparency/`) : la page lit `GET /api/audit`, la vkey et le fonds, contrôle que chaque preuve correspond à son prêt (`N` et `P` du `LoanSet`) et au fonds (racine des débiteurs, millésime), puis la vérifie avec `snarkjs.groth16.verify` dans le navigateur. Chiffres : preuves vérifiées k/k, débiteurs distincts, plus grande exposition, prix de la part, part prêtée ; tableau des prêts avec liens `#/tx/<hash>` ; barres d'exposition par pseudonyme `P` (pleines à la limite de 20 %) ; « Re-verify in my browser ». Agrégation pure et testée (`transparency.ts`).
+- `GET /api/audit` renvoie un `FundAudit` (`src/api/contract.ts`) : par prêt, statut, principal, échéance, `N`/`P` et le certificat (preuve et signaux publics) ; plus le prix de la part et le plafond de concentration. `auditKnownFund` passe par le port `Ledger` (route testée avec `app.inject`). `PROOF_PUBLIC_SIGNALS` donne au front l'ordre des signaux publics, testé contre `src/zk/statement.ts`.
+- `npm run demo:fund` crée aussi, s'ils manquent, les trois comptes du pitch (prêteur, Asfalti Sparano S.r.l. à la TVA des FatturaPA d'exemple, Comune di Bari) par le même chemin que l'inscription, et vérifie que FT-2026-0815, -0816 et -0817 ne sont pas enregistrées (sortie en erreur sinon).
+
+**Pourquoi :** n'importe quel visiteur re-vérifie chaque preuve du fonds sans faire confiance au serveur de Bari, et le pitch démarre sur des comptes prêts et des factures jamais financées.
+
+**Vérifié :** tests rouges puis verts ; `npm test` 370/370 ; AlphaNet : `transparency.spec.ts` (« 7/7 proofs verified in your browser », puis une seconde vérification), `demo:fund` relancé deux fois (comptes réutilisés, factures non enregistrées), connexion des trois comptes → 200.
+
+À savoir : `demo:fund` écrit le fichier des utilisateurs ; le lancer avant l'API, comme le fait la config Playwright.
