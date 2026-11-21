@@ -134,22 +134,9 @@ export interface CertificateResponse {
   transactions: SubmittedTx[];
 }
 
-export interface KybRequest {
-  account: string;
-  company: string;
-  vatNumber: string;
-}
-
 export interface KybStatus {
   account: string;
   done: boolean;
-}
-
-export interface KybResponse {
-  account: string;
-  done: true;
-  /** Transaction qui a émis ou accepté le credential KYB_PME (absente s'il existait déjà). */
-  txHash?: string;
 }
 
 export interface ApiError {
@@ -193,6 +180,13 @@ export interface SignupResponse {
 
 export interface SigninResponse {
   user: AccountView;
+}
+
+/** Organisme du registre vérifié (`GET /api/public-bodies`), proposé à l'inscription ; un seul compte par organisme. */
+export interface PublicBodyOption {
+  ipaCode: string;
+  name: string;
+  available: boolean;
 }
 
 /**

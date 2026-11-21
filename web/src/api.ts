@@ -4,8 +4,6 @@
 import type {
   CertificateRequest,
   CertificateResponse,
-  KybRequest,
-  KybResponse,
   KybStatus,
   LoanOffer,
   ProofParams,
@@ -41,8 +39,6 @@ export const lookupRegistration = (nullifier: string, account: string) =>
 export const fetchKybStatus = (account: string) => request<KybStatus>(`/api/sme/kyb/${encodeURIComponent(account)}`);
 
 export const fetchOffer = (dueDate: string) => request<LoanOffer>(`/api/offer?dueDate=${encodeURIComponent(dueDate)}`);
-
-export const submitKyb = (body: KybRequest) => postJson<KybResponse>("/api/sme/kyb", body);
 
 /** Seules la preuve et ses signaux publics sont recopiés : aucun autre champ ne peut partir par mégarde. */
 export const submitCertificate = ({ proof, publicSignals }: CertificateRequest) =>

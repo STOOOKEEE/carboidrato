@@ -1,14 +1,14 @@
-// Côté PME : KYB, lectures publiques du pré-contrôle (registre de N, KYB, offre), certificat à partir d'une preuve
-// calculée dans le navigateur, puis prêt co-signé.
+// Côté PME : lectures publiques du pré-contrôle (registre de N, KYB, offre), certificat à partir d'une preuve
+// calculée dans le navigateur, puis prêt co-signé. Le KYB est fait à l'inscription de l'entreprise.
 
 import type { FastifyInstance } from "fastify";
 import { isValidClassicAddress } from "xrpl";
 import type { InvoiceCertificate } from "../../../invoice/certificate.js";
 import { issueCertificate } from "../../../invoice/issueCertificate.js";
 import { getRegistration } from "../../../invoice/registry.js";
-import { isSmeKybDone, onboardSme } from "../../../kyb/smeKyb.js";
+import { isSmeKybDone } from "../../../kyb/smeKyb.js";
 import { originateLoan } from "../../../lending/loan.js";
-import type { KybRequest, KybResponse, KybStatus, LoanOffer, RegistryLookup } from "../../contract.js";
+import type { KybStatus, LoanOffer, RegistryLookup } from "../../contract.js";
 import { daysUntil, fundOffer } from "../../offer.js";
 import { certificateFromProof } from "../certificateFromProof.js";
 import { proofExpectations, requireFund, type ApiContext } from "../context.js";
@@ -16,7 +16,6 @@ import { HttpError } from "../errors.js";
 import {
   accountParamsSchema,
   certificateSchema,
-  kybSchema,
   loanSchema,
   offerSchema,
   registrySchema,
@@ -29,7 +28,6 @@ import {
 } from "../schemas.js";
 
 const HTTP_BAD_REQUEST = 400;
-const HTTP_FORBIDDEN = 403;
 const HTTP_NOT_FOUND = 404;
 const HTTP_CONFLICT = 409;
 const HTTP_CREATED = 201;
@@ -73,18 +71,6 @@ async function issue(context: ApiContext, certificate: InvoiceCertificate) {
 }
 
 export function registerSmeRoutes(app: FastifyInstance, context: ApiContext): void {
-  app.post<{ Body: KybRequest }>("/api/sme/kyb", { schema: kybSchema }, async (request): Promise<KybResponse> => {
-    const account = requireAddress(request.body.account.trim());
-    // Seule la PME de la démo a une clé côté serveur pour accepter le credential.
-    if (account !== context.actors.sme.address) {
-      throw new HttpError(HTTP_FORBIDDEN, "On this demo network, only the demo SME account can be onboarded");
-    }
-    if (await isSmeKybDone(context.ledger, account, context.actors.kyb_issuer.address)) return { account, done: true };
-    const { transactions } = await context.operations.run("sme.kyb", () => onboardSme(context.client, context.actors));
-    const txHash = transactions.at(-1)?.hash;
-    return { account, done: true, ...(txHash === undefined ? {} : { txHash }) };
-  });
-
   app.get<{ Params: AccountParams }>("/api/sme/kyb/:account", { schema: accountParamsSchema }, async (request): Promise<KybStatus> => {
     const account = requireAddress(request.params.account);
     return { account, done: await isSmeKybDone(context.ledger, account, context.actors.kyb_issuer.address) };

@@ -97,3 +97,10 @@ export async function submitTx(
   const { tx_blob, hash } = wallet.sign(prepared);
   return submitSignedBlob(client, tx_blob, hash, label, expected);
 }
+
+/** Soumission signée d'une transaction : `submitTx` sur un `Client`, ou un faux qui enregistre dans les tests. */
+export type SubmitTx = (tx: SubmittableTransaction, wallet: Wallet, label: string) => Promise<TxOutcome>;
+
+export function clientSubmitter(client: Client): SubmitTx {
+  return (tx, wallet, label) => submitTx(client, tx, wallet, label);
+}

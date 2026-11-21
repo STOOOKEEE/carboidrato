@@ -1,5 +1,5 @@
 // `npm run api:smoke` : parcours complet contre l'API du fonds déjà démarrée (npm run api:fund), comme le ferait
-// le front : fonds → dépôts → KYB → attestation → entrée du circuit construite ici (jamais par l'API) → preuve
+// le front : fonds → dépôts → attestation → entrée du circuit construite ici (jamais par l'API) → preuve
 // calculée côté client avec snarkjs et les artefacts servis par l'API → certificat → rejeu refusé (409) → prêt →
 // audit → remboursement → rachat.
 // SMOKE_DUMP_FILE=<fichier> enregistre toutes les réponses (exemples pour le front).
@@ -45,9 +45,8 @@ async function run(api: ApiClient, events: EventCounter): Promise<void> {
   const vaultId = stringField(field(field(created, "fund"), "cohort"), "vaultId");
   log.info(`Vault ${vaultId}`);
 
-  log.step("Souscription et KYB");
+  log.step("Souscription (KYB de la PME de démo : émis par npm run demo:fund)");
   await api.call("POST", "/api/investors/deposit");
-  await api.call("POST", "/api/sme/kyb", { account: smeAccount, company: "Marco Costruzioni S.r.l.", vatNumber: "IT01234567890" });
 
   log.step("Organisme public · attestation signée localement ; PME · entrée du circuit et preuve côté client");
   const path = await api.call("GET", `/api/debtors/path?debtor=${encodeURIComponent(DEMO_DEBTOR)}`);

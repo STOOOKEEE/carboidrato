@@ -548,18 +548,6 @@ h2 {
   color: var(--accent);
 }
 
-.kyb {
-  display: grid;
-  grid-template-columns: 220px 1fr;
-  gap: 32px;
-  align-items: center;
-}
-
-.kyb-canvas {
-  width: 100%;
-  aspect-ratio: 1;
-}
-
 .form {
   display: flex;
   flex-direction: column;
@@ -651,8 +639,7 @@ h2 {
 
   .hero,
   .checker,
-  .how-grid,
-  .kyb {
+  .how-grid {
     grid-template-columns: 1fr;
   }
 
