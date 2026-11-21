@@ -1,22 +1,26 @@
 // `npm run demo:fund` : fonds durable ouvert jusqu'au pitch, stock de parts de Bari et deux prêts historiques, repris par l'API.
 
 import { Client, isoTimeToRippleTime, rippleTimeToISOTime } from "xrpl";
+import { loadActors, type Actors } from "../accounts/actors.js";
 import { loadApiConfig } from "../api/fund/config.js";
 import { FundStateStore, loanState, type LoanStatus } from "../api/fund/stateStore.js";
 import { loadCohortTiming } from "../config/cohort.js";
 import { BARI_EURC_RESERVE_EUR, BARI_SHARE_STOCK_EUR } from "../config/finance.js";
 import { loadNetworkConfig } from "../config/network.js";
+import type { Fund } from "../fund/fund.js";
 import { VERIFIED_DEBTORS } from "../invoice/debtors.js";
 import { buildDemoInvoice } from "../invoice/invoice.js";
+import { loanTerms } from "../lending/loanTerms.js";
 import { repayLoan } from "../lending/repayment.js";
-import { eurToUnits } from "../lib/amounts.js";
+import { eurToUnits, formatEur } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
 import { xrplLedger } from "../xrpl/ledger.js";
+import { sendMpt } from "../xrpl/mpt.js";
 import { ledgerTime } from "../xrpl/ledgerTime.js";
 import { clientSubmitter } from "../xrpl/submit.js";
 import { releaseZkResources } from "../zk/index.js";
 import { financeInvoice, openFund, type FinancedInvoice } from "./financing.js";
-import { isReusable } from "./fundReuse.js";
+import { isReusable, mairieTopUp } from "./fundReuse.js";
 
 /** Rachat du fonds durable : la phase d'investissement couvre le pitch et les e2e jusque-là. */
 const DURABLE_REDEMPTION_DATE = isoTimeToRippleTime("2027-03-31T00:00:00Z");
@@ -60,6 +64,15 @@ async function createFund(client: Client, store: FundStateStore): Promise<void> 
   log.info(`Vault ${fund.cohort.vaultId}, rachat dès ${rippleTimeToISOTime(fund.cohort.redemptionDate)}`);
 }
 
+/** Le remboursement d'un prêt passe par un paiement de la mairie : sa réserve est remise au plancher à chaque lancement. */
+async function topUpMairie(client: Client, actors: Actors, fund: Fund): Promise<void> {
+  const balance = await xrplLedger(client).mptBalance(fund.assetId, actors.mairie.address);
+  const missing = mairieTopUp(balance, loanTerms().invoice);
+  if (missing === 0n) return;
+  const label = `Payment EURc → mairie (${formatEur(missing, 2)})`;
+  await sendMpt(client, fund.assetId, actors.stable_issuer, actors.mairie.address, missing, label);
+}
+
 async function main(): Promise<void> {
   const network = loadNetworkConfig();
   const store = new FundStateStore(loadApiConfig(network).stateFile);
@@ -71,9 +84,12 @@ async function main(): Promise<void> {
       log.info(
         `fonds réutilisé : Vault ${current.fund.cohort.vaultId} en phase d'investissement jusqu'à ${rippleTimeToISOTime(current.fund.cohort.redemptionDate)}`,
       );
-      return;
+    } else {
+      await createFund(client, store);
     }
-    await createFund(client, store);
+    const { fund } = store.current ?? {};
+    if (fund === undefined) throw new Error("fonds absent de l'état après sa création");
+    await topUpMairie(client, loadActors(network), fund);
   } finally {
     await client.disconnect();
     await releaseZkResources();
