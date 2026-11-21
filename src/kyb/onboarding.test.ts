@@ -2,12 +2,13 @@
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { Wallet, type SubmittableTransaction, type TransactionMetadata } from "xrpl";
+import { Wallet, type LedgerEntry, type SubmittableTransaction, type TransactionMetadata } from "xrpl";
 import type { AccountProfile } from "../accounts/userStore.js";
 import { textToHex } from "../lib/encoding.js";
+import { FakeLedger } from "../xrpl/fakeLedger.js";
 import { RLUSD_CURRENCY, type Stablecoin } from "../xrpl/stablecoin.js";
 import { CREDENTIAL_TYPES } from "./kycCredentials.js";
-import { makeProvisioner, type FundTokens } from "./onboarding.js";
+import { makeProvisioner, missingHoldings, type FundTokens } from "./onboarding.js";
 
 const NOW_RIPPLE = 817_000_000;
 const ONE_YEAR_S = 365 * 86_400;
@@ -119,5 +120,67 @@ describe("makeProvisioner", () => {
     await assert.rejects(provision(business), /fund/i);
     assert.deepEqual(submitted, []);
     assert.deepEqual(funded, []);
+  });
+});
+
+describe("missingHoldings", () => {
+  const holder = Wallet.generate().address;
+
+  function trustLineEntry(asset: Stablecoin, account: string) {
+    return {
+      LedgerEntryType: "RippleState",
+      Balance: { currency: asset.currency, issuer: "rrrrrrrrrrrrrrrrrrrrBZbvji", value: "0" },
+      HighLimit: { currency: asset.currency, issuer: account, value: "1000000000" },
+      LowLimit: { currency: asset.currency, issuer: asset.issuer, value: "0" },
+    } as unknown as LedgerEntry.RippleState;
+  }
+
+  function shareHolding(account: string) {
+    return { LedgerEntryType: "MPToken", Account: account, MPTokenIssuanceID: FUND.shareMptId.toLowerCase() } as unknown as LedgerEntry.LedgerEntry;
+  }
+
+  test("prêteur ouvert avant le fonds courant : ligne de confiance RLUSD et parts du nouveau Vault manquantes", async () => {
+    const ledger = new FakeLedger(undefined);
+    const missing = await missingHoldings(ledger, FUND, holder, "lender");
+    assert.deepEqual(
+      missing.map((tx) => [tx.TransactionType, tx.Account]),
+      [
+        ["TrustSet", holder],
+        ["MPTokenAuthorize", holder],
+      ],
+    );
+    assert.deepEqual(trustedAsset(missing[0] as unknown as Record<string, unknown>), FUND.stablecoin);
+    assert.equal((missing[1] as unknown as Record<string, unknown>).MPTokenIssuanceID, FUND.shareMptId);
+  });
+
+  test("rien à soumettre quand la ligne de confiance et les parts sont déjà là", async () => {
+    const ledger = new FakeLedger(undefined);
+    ledger.putAccountObject(holder, "state", trustLineEntry(FUND.stablecoin, holder));
+    ledger.putAccountObject(holder, "mptoken", shareHolding(holder));
+    assert.deepEqual(await missingHoldings(ledger, FUND, holder, "lender"), []);
+  });
+
+  test("une ligne de confiance vers un autre émetteur ou des parts d'un ancien Vault ne comptent pas", async () => {
+    const ledger = new FakeLedger(undefined);
+    ledger.putAccountObject(holder, "state", trustLineEntry({ ...FUND.stablecoin, issuer: Wallet.generate().address }, holder));
+    ledger.putAccountObject(holder, "mptoken", {
+      LedgerEntryType: "MPToken",
+      Account: holder,
+      MPTokenIssuanceID: "CC".repeat(24),
+    } as unknown as LedgerEntry.LedgerEntry);
+    assert.deepEqual(
+      (await missingHoldings(ledger, FUND, holder, "lender")).map((tx) => tx.TransactionType),
+      ["TrustSet", "MPTokenAuthorize"],
+    );
+  });
+
+  test("entreprise : seule la ligne de confiance RLUSD compte", async () => {
+    const ledger = new FakeLedger(undefined);
+    assert.deepEqual(
+      (await missingHoldings(ledger, FUND, holder, "business")).map((tx) => tx.TransactionType),
+      ["TrustSet"],
+    );
+    ledger.putAccountObject(holder, "state", trustLineEntry(FUND.stablecoin, holder));
+    assert.deepEqual(await missingHoldings(ledger, FUND, holder, "business"), []);
   });
 });

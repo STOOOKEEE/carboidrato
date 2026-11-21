@@ -14,15 +14,15 @@ import { loadNetworkConfig, type NetworkConfig } from "../config/network.js";
 import type { Fund } from "../fund/fund.js";
 import { DEMO_DEBTOR, VERIFIED_DEBTORS } from "../invoice/debtors.js";
 import { buildDemoInvoice } from "../invoice/invoice.js";
-import { makeProvisioner } from "../kyb/onboarding.js";
+import { makeProvisioner, missingHoldings, type FundTokens } from "../kyb/onboarding.js";
 import { loanTerms } from "../lending/loanTerms.js";
 import { repayLoan } from "../lending/repayment.js";
 import { rlusdToUnits } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
-import { ensureTrustLine, issueStablecoin } from "../setup/stablecoin.js";
+import { issueStablecoin } from "../setup/stablecoin.js";
 import { xrplLedger } from "../xrpl/ledger.js";
 import { ledgerTime } from "../xrpl/ledgerTime.js";
-import { clientSubmitter } from "../xrpl/submit.js";
+import { clientSubmitter, submitTx } from "../xrpl/submit.js";
 import { computeInvoiceUuid, deriveDebtor, invoiceNullifier, releaseZkResources, toHex32 } from "../zk/index.js";
 import { financeInvoice, openFund, type FinancedInvoice } from "./financing.js";
 import { isReusable, mairieTopUp } from "./fundReuse.js";
@@ -104,11 +104,12 @@ async function ensurePitchAccounts(
   const passwords = existsSync(PITCH_CREDENTIALS_FILE)
     ? parsePitchCredentials(readFileSync(PITCH_CREDENTIALS_FILE, "utf8"))
     : new Map<string, string>();
+  const tokens: FundTokens = { stablecoin: fund.stablecoin, shareMptId: fund.cohort.shareMptId };
   const provisionAccount = makeProvisioner({
     submit: clientSubmitter(client),
     fundAccount: makeFunder(client, network),
     kycIssuer: actors.kyb_issuer,
-    fund: () => ({ stablecoin: fund.stablecoin, shareMptId: fund.cohort.shareMptId }),
+    fund: () => tokens,
     now: () => unixTimeToRippleTime(Date.now()),
   });
   const saveCredentials = () => {
@@ -130,9 +131,14 @@ async function ensurePitchAccounts(
     if (plan.action === "reuse") {
       log.info(`compte du pitch réutilisé : ${account.email} (${account.role})`);
       if (!passwords.has(account.email)) log.warn(`mot de passe de ${account.email} absent de ${PITCH_CREDENTIALS_FILE}`);
-      // Un compte ouvert avant le passage au RLUSD n'a pas encore sa ligne de confiance.
+      // Un compte ouvert pour un fonds précédent n'a ni la ligne de confiance RLUSD ni les parts du Vault courant.
       const managed = plan.user.account;
-      if (managed !== undefined) await ensureTrustLine(client, fund.stablecoin, Wallet.fromSeed(managed.seed), account.role);
+      if (managed !== undefined && account.role !== "public_body") {
+        const wallet = Wallet.fromSeed(managed.seed);
+        for (const tx of await missingHoldings(xrplLedger(client), tokens, wallet.address, account.role)) {
+          await submitTx(client, tx, wallet, `${tx.TransactionType} (${account.email})`);
+        }
+      }
       ready.push(plan.user);
       continue;
     }

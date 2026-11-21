@@ -2,10 +2,11 @@
 // Bari pour un an et accepté, ligne de confiance RLUSD (et parts du Vault pour un prêteur). Un organisme public n'a pas
 // de compte XRPL.
 
-import { Wallet } from "xrpl";
+import { Wallet, type MPTokenAuthorize, type TrustSet } from "xrpl";
 import type { FundAccount } from "../accounts/funding.js";
 import type { AccountProfile, ManagedAccount, ProvisionAccount } from "../accounts/userStore.js";
 import { sha256Hex, textToHex } from "../lib/encoding.js";
+import type { Ledger } from "../xrpl/ledger.js";
 import { trustLine, type Stablecoin } from "../xrpl/stablecoin.js";
 import type { SubmitTx } from "../xrpl/submit.js";
 import { CREDENTIAL_TYPES, CREDENTIAL_VALIDITY_S, issueCredential } from "./kycCredentials.js";
@@ -27,6 +28,39 @@ export interface OnboardingDeps {
 }
 
 type ManagedProfile = Exclude<AccountProfile, { role: "public_body" }>;
+type ManagedRole = ManagedProfile["role"];
+
+function shareAuthorization(tokens: FundTokens, holder: string): MPTokenAuthorize {
+  return { TransactionType: "MPTokenAuthorize", Account: holder, MPTokenIssuanceID: tokens.shareMptId };
+}
+
+/**
+ * Jetons du fonds courant que le compte ne détient pas encore (compte ouvert pour un fonds précédent) : transactions
+ * à signer par le compte, ligne de confiance RLUSD puis parts du Vault pour un prêteur.
+ */
+export async function missingHoldings(
+  ledger: Pick<Ledger, "accountObjects">,
+  tokens: FundTokens,
+  holder: string,
+  role: ManagedRole,
+): Promise<(TrustSet | MPTokenAuthorize)[]> {
+  const { currency, issuer } = tokens.stablecoin;
+  const lines = await ledger.accountObjects(holder, "state");
+  const hasTrustLine = lines.some(
+    (entry) =>
+      entry.LedgerEntryType === "RippleState" &&
+      [entry.HighLimit, entry.LowLimit].some((limit) => limit.currency === currency && limit.issuer === issuer),
+  );
+  const missing: (TrustSet | MPTokenAuthorize)[] = hasTrustLine ? [] : [trustLine(tokens.stablecoin, holder)];
+  if (role !== "lender") return missing;
+  const holdings = await ledger.accountObjects(holder, "mptoken");
+  // xrpl.js ne type pas l'objet MPToken : le champ est lu après vérification.
+  const wanted = tokens.shareMptId.toUpperCase();
+  const holdsShares = holdings.some(
+    (entry) => "MPTokenIssuanceID" in entry && typeof entry.MPTokenIssuanceID === "string" && entry.MPTokenIssuanceID.toUpperCase() === wanted,
+  );
+  return holdsShares ? missing : [...missing, shareAuthorization(tokens, holder)];
+}
 
 /** Dossier déclaré à l'inscription : seul son haché va sur le ledger (URI du credential). */
 function dossierUri(address: string, account: ManagedProfile): string {
@@ -35,9 +69,6 @@ function dossierUri(address: string, account: ManagedProfile): string {
 }
 
 export function makeProvisioner(deps: OnboardingDeps): ProvisionAccount {
-  const authorize = (wallet: Wallet, issuanceId: string, label: string) =>
-    deps.submit({ TransactionType: "MPTokenAuthorize", Account: wallet.address, MPTokenIssuanceID: issuanceId }, wallet, label);
-
   return async (account): Promise<ManagedAccount | undefined> => {
     if (account.role === "public_body") return undefined;
     const tokens = deps.fund();
@@ -55,7 +86,7 @@ export function makeProvisioner(deps: OnboardingDeps): ProvisionAccount {
       expiration: deps.now() + CREDENTIAL_VALIDITY_S,
     });
     await deps.submit(trustLine(tokens.stablecoin, wallet.address), wallet, `TrustSet RLUSD (${account.role})`);
-    if (account.role === "lender") await authorize(wallet, tokens.shareMptId, "MPTokenAuthorize Vault shares (lender)");
+    if (account.role === "lender") await deps.submit(shareAuthorization(tokens, wallet.address), wallet, "MPTokenAuthorize Vault shares (lender)");
     return { address: wallet.address, seed: wallet.seed };
   };
 }
