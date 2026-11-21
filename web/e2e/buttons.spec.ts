@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import type { AccountView, FundAudit, LoanResponse, ProofParams, SignupResponse, TxDetail, UserRole } from "../../src/api/contract";
 import { fatturaPaXml, PITCH_SUPPLIER, REGIONE_PUGLIA } from "../../src/demo/sampleInvoices";
+import { signedInvoiceText } from "../src/signedInvoicePdf";
 import { OTSU_REPO_URL } from "../src/wallet/network";
 import { E2E_PUBLIC_BODY, signInPublicBody } from "./publicBodySession";
 import { signedInvoice } from "./signedInvoice";
@@ -252,7 +253,8 @@ function downloads(page: Page, fileName: string, content: RegExp): Effect {
     await control.click();
     const saved = await download;
     expect(saved.suggestedFilename()).toBe(fileName);
-    expect(await readFile(await saved.path(), "utf8")).toMatch(content);
+    // Un PDF signé est relu comme le fait l'espace entreprise : par la facture attestée qu'il embarque.
+    expect(await signedInvoiceText(await readFile(await saved.path()))).toMatch(content);
   };
 }
 
@@ -632,7 +634,7 @@ test("a business signs up, gets paid for a signed invoice, follows every link an
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(signed)),
   };
-  const dropKey = 'button "Choose the signed invoice file (.bari.json)"';
+  const dropKey = 'button "Choose the signed invoice (PDF)"';
   let loanId: string | undefined;
 
   try {
@@ -753,7 +755,7 @@ test("a public body opens its space from the sign-up page, downloads samples and
     ),
   };
   const dropKey = 'button "Choose an invoice file"';
-  const signedName = `${number}.bari.json`;
+  const signedName = `${number}.signed.pdf`;
   const signedCard = page.getByTestId("signed-invoice");
 
   await page.goto(`/${SPACE_ROUTES.public_body}`);
@@ -776,7 +778,7 @@ test("a public body opens its space from the sign-up page, downloads samples and
       'button "Confirm and sign"',
       async (control, screen) => {
         await downloads(page, signedName, /"attestation"/)(control, screen);
-        await expect(signedCard.getByRole("heading", { name: "Signed. Send this file to your supplier" })).toBeVisible();
+        await expect(signedCard.getByRole("heading", { name: "Signed. Send this PDF to your supplier" })).toBeVisible();
       },
     ],
     ['button "Download again"', downloads(page, signedName, /"attestation"/)],

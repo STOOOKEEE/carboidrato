@@ -1,6 +1,7 @@
 // Espace entreprise `#/business` : fichier signé contrôlé dans la page, offre, « Get paid now » en direct, factures du compte.
 import { useEffect, useReducer, useRef, type Dispatch } from "react";
 import type { AccountView } from "../../../../src/api/contract";
+import { signedInvoiceText } from "../../signedInvoicePdf";
 import { DropZone } from "../../ui/DropZone";
 import { StepCard } from "../../ui/StepCard";
 import { AccountCard } from "../account/AccountCard";
@@ -42,7 +43,9 @@ export function BusinessPage({ user }: { user: AccountView }) {
   const onFile = async (dropped: File) => {
     if (isBusy(state)) return;
     dispatch({ type: "FILE_DROPPED", fileName: dropped.name });
-    const reading = readSignedFile(await dropped.text(), user.address ?? "");
+    // Un PDF signé porte la facture attestée dans ses métadonnées ; un .bari.json est la facture attestée elle-même.
+    const text = await signedInvoiceText(new Uint8Array(await dropped.arrayBuffer()));
+    const reading = readSignedFile(text ?? "", user.address ?? "");
     if (!reading.ok) {
       dispatch({ type: "FILE_REJECTED", message: reading.message });
       return;
@@ -66,11 +69,11 @@ export function BusinessPage({ user }: { user: AccountView }) {
       <StepCard index={1} title="Your signed invoice" done={state.status === "checked" && state.precheck.verdict === "eligible"}>
         <DropZone
           onFile={(dropped) => void onFile(dropped)}
-          label="Choose the signed invoice file (.bari.json)"
+          label="Choose the signed invoice (PDF)"
           caption="Drop the signed invoice here"
           busy={isBusy(state)}
           danger={rejected}
-          accept=".json,application/json"
+          accept=".pdf,application/pdf,.json,application/json"
         >
           <InvoicePanel state={state} />
         </DropZone>

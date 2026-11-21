@@ -132,12 +132,12 @@ test("the pitch walkthrough, end to end in the real product", async ({ browser }
       await expect(publicBody.getByText("$10,340.00", { exact: true })).toBeVisible();
       const download = publicBody.waitForEvent("download");
       await publicBody.getByRole("button", { name: "Confirm and sign" }).click();
-      await expect(publicBody.getByRole("heading", { name: "Signed. Send this file to your supplier" })).toBeVisible();
+      await expect(publicBody.getByRole("heading", { name: "Signed. Send this PDF to your supplier" })).toBeVisible();
       const saved = await download;
-      expect(saved.suggestedFilename()).toBe(`${number}.bari.json`);
+      expect(saved.suggestedFilename()).toBe(`${number}.signed.pdf`);
       signedFile = {
         name: saved.suggestedFilename(),
-        mimeType: "application/json",
+        mimeType: "application/pdf",
         buffer: await readFile(await saved.path()),
       };
       await capture(publicBody, "walkthrough-04-public-body-signed");

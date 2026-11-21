@@ -11,8 +11,8 @@ export function InvoicePanel({ state }: { state: BusinessState }) {
         <div className="result" data-testid="business-next-step">
           <h3 className="panel-title">Ask your client to confirm your invoice on Bari.</h3>
           <p className="muted">
-            The public body you invoiced confirms it on Bari and sends you a signed <span className="mono">.bari.json</span> file.
-            Drop that file here, or click the drop area to choose it: it is checked in this browser and never uploaded.
+            The public body you invoiced confirms it on Bari and sends you a signed PDF. Drop that PDF here, or click the
+            drop area to choose it: it is checked in this browser and never uploaded.
           </p>
         </div>
       );

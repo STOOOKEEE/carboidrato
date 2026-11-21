@@ -2,8 +2,8 @@
 // pour être importés tels quels par le navigateur.
 
 export const ATTESTED_INVOICE_FORMAT = "bari.attested-invoice.v1";
-/** Extension des fichiers de facture attestée. */
-export const ATTESTED_INVOICE_EXTENSION = ".bari.json";
+/** Extension du PDF signé que l'organisme envoie à son fournisseur : la facture attestée y est embarquée. */
+export const SIGNED_INVOICE_PDF_EXTENSION = ".signed.pdf";
 
 /**
  * Facture attestée, telle que la PME la reçoit de son débiteur. Les entiers du corps sont en décimal,

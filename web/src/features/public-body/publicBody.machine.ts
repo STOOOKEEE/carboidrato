@@ -1,6 +1,6 @@
 // Parcours de l'organisme public, pur : fichier lu, champs (formulaire si besoin), fournisseur retrouvé, signature.
 
-import { ATTESTED_INVOICE_EXTENSION, type AttestedInvoiceFile, type BusinessLookup } from "../../../../src/api/contract";
+import { SIGNED_INVOICE_PDF_EXTENSION, type AttestedInvoiceFile, type BusinessLookup } from "../../../../src/api/contract";
 import { currencyRefusal, decimalToCents, isIsoDate, type FatturaReading } from "./fatturaPA";
 
 export type InvoiceField = "vatNumber" | "number" | "issueDate" | "amount" | "dueDate";
@@ -149,9 +149,9 @@ export function signBlocker(state: PublicBodyState): string | undefined {
   }
 }
 
-/** Nom du fichier signé : le numéro de la facture, sans caractère interdit dans un nom de fichier. */
+/** Nom du PDF signé : le numéro de la facture, sans caractère interdit dans un nom de fichier. */
 export function downloadName(number: string): string {
-  return `${number.trim().replace(FILE_NAME_UNSAFE, "-")}${ATTESTED_INVOICE_EXTENSION}`;
+  return `${number.trim().replace(FILE_NAME_UNSAFE, "-")}${SIGNED_INVOICE_PDF_EXTENSION}`;
 }
 
 function lookupResult(state: PublicBodyState, vat: string, supplier: SupplierState): PublicBodyState {

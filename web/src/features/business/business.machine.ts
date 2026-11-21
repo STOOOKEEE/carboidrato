@@ -41,7 +41,7 @@ export type SignedFileReading = { ok: true; file: AttestedInvoiceFile } | { ok: 
 export function readSignedFile(text: string, account: string): SignedFileReading {
   const file = parseAttestedFile(parseJsonOrUndefined(text));
   if (file === undefined) {
-    return { ok: false, message: "This is not a signed Bari invoice. Drop the .bari.json file your client sent you." };
+    return { ok: false, message: "This is not a signed Bari invoice. Drop the signed PDF your client sent you." };
   }
   if (file.attestation.account !== account) {
     return {

@@ -92,7 +92,7 @@ describe("readSignedFile", () => {
     for (const text of ["%PDF-1.7", JSON.stringify({ format: "other" })]) {
       const result = readSignedFile(text, ACCOUNT);
       assert.equal(result.ok, false);
-      assert.match(result.ok ? "" : result.message, /\.bari\.json/);
+      assert.match(result.ok ? "" : result.message, /signed PDF/);
     }
   });
 
