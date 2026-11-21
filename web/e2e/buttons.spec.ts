@@ -351,7 +351,7 @@ function signsIn(page: Page, viewer: Viewer, title: string): Effect {
 function navControls(page: Page, viewer?: Viewer): Control[] {
   const role = viewer?.role;
   const common: Control[] = [
-    ['link "bari"', goesTo(page, "#/", LANDING_TITLE)],
+    ['link "atlas"', goesTo(page, "#/", LANDING_TITLE)],
     ['link "Lend"', goesTo(page, SPACE_ROUTES.lender, spaceTitle("lender", role))],
     ['link "Declare invoice"', goesTo(page, SPACE_ROUTES.public_body, spaceTitle("public_body", role))],
     ['link "Tokenize invoice"', goesTo(page, SPACE_ROUTES.business, spaceTitle("business", role))],
