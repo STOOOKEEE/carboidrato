@@ -2,7 +2,7 @@
 
 import { rippleTimeToISOTime, type Client } from "xrpl";
 import { INVESTORS, type ActorName, type Actors } from "../accounts/actors.js";
-import { FUND_VINTAGE, type CohortTiming } from "../config/cohort.js";
+import { FUND_VINTAGE, type CohortTiming, type FixedRedemptionTiming } from "../config/cohort.js";
 import { DEMO_INVOICE_COUNT, INVESTOR_DEPOSITS_EUR } from "../config/finance.js";
 import type { Fund } from "../fund/fund.js";
 import type { FundManifest } from "../fund/fundManifest.js";
@@ -10,6 +10,7 @@ import { verifiedDebtorsRoot } from "../invoice/certificate.js";
 import { CREDENTIAL_TYPES, ensureCredential } from "../kyb/kycCredentials.js";
 import { bariFirstLossUnits } from "../lending/economics.js";
 import { loanTerms } from "../lending/loanTerms.js";
+import type { BariLiquidity } from "../lending/subscription.js";
 import { eurToUnits, formatEur } from "../lib/amounts.js";
 import { log } from "../lib/logger.js";
 import { authorizeMpt, sendMpt } from "../xrpl/mpt.js";
@@ -19,21 +20,28 @@ import { createClosedVault, createLoanBroker } from "./vault.js";
 
 const HOLDERS: readonly ActorName[] = ["investor_1", "investor_2", "bari", "mairie", "sme"];
 
-function initialBalances(): ReadonlyArray<readonly [ActorName, bigint]> {
+/** Bari reçoit sa first-loss, plus, pour le fonds durable, son stock de parts à souscrire et sa réserve EURc. */
+function initialBalances(liquidity?: BariLiquidity): ReadonlyArray<readonly [ActorName, bigint]> {
+  const bariExtra = liquidity === undefined ? 0n : liquidity.shareStock + liquidity.reserve;
   return [
     ["investor_1", eurToUnits(INVESTOR_DEPOSITS_EUR.investor_1)],
     ["investor_2", eurToUnits(INVESTOR_DEPOSITS_EUR.investor_2)],
-    ["bari", bariFirstLossUnits()],
+    ["bari", bariFirstLossUnits() + bariExtra],
     // La mairie paie les factures du scénario à l'échéance.
     ["mairie", loanTerms().invoice * BigInt(DEMO_INVOICE_COUNT)],
   ];
 }
 
-async function distributeStablecoin(client: Client, actors: Actors, assetId: string): Promise<void> {
+async function distributeStablecoin(
+  client: Client,
+  actors: Actors,
+  assetId: string,
+  liquidity?: BariLiquidity,
+): Promise<void> {
   for (const holder of HOLDERS) {
     await authorizeMpt(client, assetId, actors[holder], holder);
   }
-  for (const [name, units] of initialBalances()) {
+  for (const [name, units] of initialBalances(liquidity)) {
     await sendMpt(client, assetId, actors.stable_issuer, actors[name].address, units, `Payment EURc → ${name} (${formatEur(units, 2)})`);
   }
 }
@@ -49,11 +57,16 @@ async function issueInvestorCredentials(client: Client, actors: Actors): Promise
   }
 }
 
-export async function setupFund(client: Client, actors: Actors, timing: CohortTiming): Promise<Fund> {
+export async function setupFund(
+  client: Client,
+  actors: Actors,
+  timing: CohortTiming | FixedRedemptionTiming,
+  liquidity?: BariLiquidity,
+): Promise<Fund> {
   log.step("Mise en place · stablecoin EURc");
   const assetId = await createStablecoin(client, actors.stable_issuer);
   log.info(`EURc : ${assetId}`);
-  await distributeStablecoin(client, actors, assetId);
+  await distributeStablecoin(client, actors, assetId, liquidity);
 
   log.step("Mise en place · KYC des investisseurs et domaine permissionné");
   await issueInvestorCredentials(client, actors);

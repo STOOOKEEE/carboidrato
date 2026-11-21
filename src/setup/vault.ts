@@ -1,7 +1,7 @@
 // Vault privé fermé (XLS-65, un millésime de factures) et LoanBroker (XLS-66) de Bari.
 
 import { VaultCreateFlags, VaultKind, type Client, type Wallet } from "xrpl";
-import type { CohortTiming } from "../config/cohort.js";
+import type { CohortTiming, FixedRedemptionTiming } from "../config/cohort.js";
 import {
   COVER_RATE_LIQUIDATION_PERCENT,
   COVER_RATE_MINIMUM_PERCENT,
@@ -20,11 +20,12 @@ export async function createClosedVault(
   bari: Wallet,
   assetId: string,
   domainId: string,
-  timing: CohortTiming,
+  timing: CohortTiming | FixedRedemptionTiming,
   manifest: FundManifest,
 ): Promise<Cohort> {
   const subscriptionDate = (await ledgerTime(client)) + timing.subscriptionWindowS;
-  const redemptionDate = subscriptionDate + timing.investmentPeriodS;
+  const redemptionDate =
+    "redemptionDate" in timing ? timing.redemptionDate : subscriptionDate + timing.investmentPeriodS;
   const outcome = await submitTx(
     client,
     {

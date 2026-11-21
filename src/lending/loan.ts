@@ -1,14 +1,9 @@
 // Prêt adossé au certificat : contrôles de Bari, puis LoanSet signé par la PME et co-signé par Bari.
 // Le prêt suit toujours le certificat (enregistrer d'abord, prêter ensuite : IDEE §6).
 
-import { signLoanSetByCounterparty, type Client, type LoanSet } from "xrpl";
+import { signLoanSetByCounterparty, unixTimeToRippleTime, type Client, type LoanSet } from "xrpl";
 import type { Actors } from "../accounts/actors.js";
-import {
-  LEDGER_LOAN_REDEMPTION_BUFFER_S,
-  LEDGER_MIN_GRACE_PERIOD_S,
-  LEDGER_MIN_PAYMENT_INTERVAL_S,
-  LEDGER_TIME_SAFETY_MARGIN_S,
-} from "../config/cohort.js";
+import { LEDGER_MIN_GRACE_PERIOD_S } from "../config/cohort.js";
 import { INTEREST_RATE_PERCENT, LATE_INTEREST_RATE_PERCENT } from "../config/finance.js";
 import type { Fund } from "../fund/fund.js";
 import { encodeLoanData, type LoanReference } from "../fund/loanData.js";
@@ -22,10 +17,11 @@ import { ledgerTime, waitForLedgerTimeAfter } from "../xrpl/ledgerTime.js";
 import { createdLedgerIndex } from "../xrpl/meta.js";
 import { submitSignedBlob } from "../xrpl/submit.js";
 import { verifyBeforeCosigning } from "./loanChecks.js";
-import { loanTerms } from "./loanTerms.js";
+import { loanPaymentInterval, loanTerms } from "./loanTerms.js";
 
 /** Un LoanSet paie une signature de plus : celle de la contrepartie (Bari). */
 const LOAN_SET_SIGNATURE_COUNT = 2n;
+const MS_PER_SECOND = 1_000;
 
 export interface OriginatedLoan {
   loanId: string;
@@ -36,16 +32,6 @@ export interface OriginatedLoan {
 async function loanSetFee(client: Client): Promise<string> {
   const { result } = await client.request({ command: "fee" });
   return (BigInt(result.drops.open_ledger_fee) * LOAN_SET_SIGNATURE_COUNT).toString();
-}
-
-/** Intervalle unique tel que l'échéance tombe ≥ 60 s avant RedemptionDate (contrainte du ledger). */
-async function paymentIntervalBeforeRedemption(client: Client, redemptionDate: number): Promise<number> {
-  const interval =
-    redemptionDate - (await ledgerTime(client)) - LEDGER_LOAN_REDEMPTION_BUFFER_S - LEDGER_TIME_SAFETY_MARGIN_S;
-  if (interval < LEDGER_MIN_PAYMENT_INTERVAL_S) {
-    throw new Error(`Phase d'investissement trop courte (intervalle ${interval} s) : augmenter COHORT_INVESTMENT_S`);
-  }
-  return interval;
 }
 
 export async function originateLoan(
@@ -61,9 +47,13 @@ export async function originateLoan(
     invoiceTokenId: issued.tokenId,
     pseudonym: issued.certificate.pseudonym,
   };
-  await verifyBeforeCosigning(xrplLedger(client), actors, fund, reference, terms.principal);
+  const certificate = await verifyBeforeCosigning(xrplLedger(client), actors, fund, reference, terms.principal);
 
-  const interval = await paymentIntervalBeforeRedemption(client, fund.cohort.redemptionDate);
+  const interval = loanPaymentInterval({
+    now: await ledgerTime(client),
+    invoiceDueDate: unixTimeToRippleTime(certificate.dueDate * MS_PER_SECOND),
+    redemptionDate: fund.cohort.redemptionDate,
+  });
   const loanSet: LoanSet = {
     TransactionType: "LoanSet",
     Account: actors.sme.address,

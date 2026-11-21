@@ -24,6 +24,13 @@ export interface CohortTiming {
   investmentPeriodS: number;
 }
 
+/** Cohorte à date de rachat fixe (fonds durable) : la phase d'investissement court jusqu'à RedemptionDate. */
+export interface FixedRedemptionTiming {
+  subscriptionWindowS: number;
+  /** RedemptionDate, en temps Ripple. */
+  redemptionDate: number;
+}
+
 function readSeconds(name: string, fallback: number, minimum: number): number {
   const raw = process.env[name];
   const value = raw === undefined || raw.trim() === "" ? fallback : Number(raw);
